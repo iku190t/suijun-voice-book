@@ -1,7 +1,7 @@
-import { calculateNotebook, formatMeters, toNumber } from "./calculation.js?v=5";
-import { createVoiceController, normalizeSpokenNumber, prepareSpeechSynthesis, speakBack } from "./voice.js?v=5";
-import { clearProject, loadProject, saveProject } from "./storage.js?v=5";
-import { exportSheetCsv } from "./export.js?v=5";
+import { calculateNotebook, formatMeters, toNumber } from "./calculation.js?v=6";
+import { createVoiceController, normalizeSpokenNumber, prepareSpeechSynthesis, speakBack } from "./voice.js?v=6";
+import { clearProject, loadProject, saveProject } from "./storage.js?v=6";
+import { exportSheetCsv } from "./export.js?v=6";
 
 const DEFAULT_ROW_COUNT = 200;
 const NUMERIC_FIELDS = new Set(["bs", "fs", "elevation", "distance"]);
