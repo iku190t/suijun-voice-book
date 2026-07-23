@@ -1,17 +1,17 @@
-import { calculateNotebook, formatMeters, toNumber } from "./calculation.js?v=12";
-import { createVoiceController, normalizeSpokenNumber, prepareSpeechSynthesis, speakBack } from "./voice.js?v=12";
-import { clearProject, loadProject, saveProject } from "./storage.js?v=12";
-import { exportSheetCsv } from "./export.js?v=12";
+import { calculateNotebook, formatMeters, toNumber } from "./calculation.js?v=13";
+import { createVoiceController, normalizeSpokenNumber, prepareSpeechSynthesis, speakBack } from "./voice.js?v=13";
+import { clearProject, loadProject, saveProject } from "./storage.js?v=13";
+import { exportSheetCsv } from "./export.js?v=13";
 import {
   isValidStaffReading,
   reversePointNamesWithinUsedRows
-} from "./rules.js?v=12";
+} from "./rules.js?v=13";
 import {
   getSmartPointSuggestions,
   normalizePointName,
   pointNameToSpeech,
   recordPointNameUsage
-} from "./point-names.js?v=12";
+} from "./point-names.js?v=13";
 
 const DEFAULT_ROW_COUNT = 200;
 const NUMERIC_FIELDS = new Set(["bs", "fs", "elevation", "distance"]);
@@ -341,7 +341,7 @@ function handleFieldChange(input) {
   const index = findRowIndex(input);
   if (index < 0) return false;
   const field = input.dataset.field;
-  const parsed = parseInputValue(input);
+  let parsed = parseInputValue(input);
   if (NUMERIC_FIELDS.has(field) && input.value.trim() !== "" && parsed === null) {
     showNotice(`${index + 1}行目の値は数値で入力してください。`, "error");
     input.setAttribute("aria-invalid", "true");
@@ -352,6 +352,13 @@ function handleFieldChange(input) {
     input.value = displayValue(project.sheets[activeSheet][index][field]);
     input.setAttribute("aria-invalid", "true");
     return false;
+  }
+  if (field === "pointName" && parsed) {
+    const normalizedPointName = normalizePointName(parsed, project.settings.pointAliases);
+    if (normalizedPointName) {
+      parsed = normalizedPointName;
+      input.value = normalizedPointName;
+    }
   }
   input.removeAttribute("aria-invalid");
   project.sheets[activeSheet][index][field] = parsed;
