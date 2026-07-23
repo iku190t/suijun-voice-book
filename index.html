@@ -15,7 +15,7 @@
   <link rel="manifest" href="./manifest.json">
   <link rel="icon" href="./icons/icon-192.png">
   <link rel="apple-touch-icon" href="./icons/icon-192.png">
-  <link rel="stylesheet" href="./css/style.css?v=27">
+  <link rel="stylesheet" href="./css/style.css?v=28">
 </head>
 <body>
   <header class="app-header">
@@ -30,9 +30,15 @@
       </div>
     </div>
 
-    <div class="sheet-tabs" role="tablist" aria-label="野帳シート">
-      <button id="outSheetTab" class="sheet-tab active" type="button" role="tab" aria-selected="true" data-sheet="out">往路</button>
-      <button id="backSheetTab" class="sheet-tab" type="button" role="tab" aria-selected="false" data-sheet="back">復路</button>
+    <div class="sheet-switch-row">
+      <div class="sheet-tabs" role="tablist" aria-label="野帳シート">
+        <button id="outSheetTab" class="sheet-tab active" type="button" role="tab" aria-selected="true" data-sheet="out">往路</button>
+        <button id="backSheetTab" class="sheet-tab" type="button" role="tab" aria-selected="false" data-sheet="back">復路</button>
+      </div>
+      <div class="history-buttons" aria-label="入力履歴">
+        <button id="undoBtn" type="button" aria-label="元に戻す" title="元に戻す">↶</button>
+        <button id="redoBtn" type="button" aria-label="やり直す" title="やり直す">↷</button>
+      </div>
     </div>
 
     <section class="summary" aria-label="観測集計">
@@ -170,6 +176,6 @@
   </dialog>
 
   <noscript>このアプリの利用にはJavaScriptを有効にしてください。</noscript>
-  <script type="module" src="./js/app.js?v=27"></script>
+  <script type="module" src="./js/app.js?v=28"></script>
 </body>
 </html>

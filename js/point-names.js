@@ -1,4 +1,4 @@
-import { resolvePointAlias } from "./rules.js?v=27";
+import { resolvePointAlias } from "./rules.js?v=28";
 
 const BASE_PRIORITY_POINT_NAMES = [...new Set(`
 BM,KBM,TBM,仮BM,水準点,仮水準点,既知点,未知点,固定点,既設点,新設点,閉合点,確認点,チェック点,
@@ -194,6 +194,7 @@ export function incrementPointName(pointName, manualAliases = []) {
   const normalized = normalizePointName(pointName, manualAliases);
   const match = normalized.match(/^(.*?)(\d+)$/);
   if (!match) return "";
+  if (!isAllowedPointNameCandidate(normalized, manualAliases)) return "";
   const numberText = match[2];
   const nextNumber = String(Number(numberText) + 1);
   const paddedNumber = numberText.length > 1 && numberText.startsWith("0")
@@ -202,38 +203,84 @@ export function incrementPointName(pointName, manualAliases = []) {
   return `${match[1]}${paddedNumber}`;
 }
 
+export function isAllowedPointNameCandidate(pointName, manualAliases = []) {
+  const normalized = normalizePointName(pointName, manualAliases);
+  if (!normalized || /[ぁ-ゖゝゞ]/.test(normalized)) return false;
+  if (/^[0-9.\-_]+$/.test(normalized)) return false;
+  return /[^0-9.\-_]/.test(normalized);
+}
+
+function parseNumberedPointName(pointName, manualAliases = []) {
+  const normalized = normalizePointName(pointName, manualAliases);
+  if (!isAllowedPointNameCandidate(normalized, manualAliases)) return null;
+  const match = normalized.match(/^(.+?)(\d+)$/);
+  if (!match) return null;
+  const prefix = match[1];
+  const typeKey = prefix.replace(/[.\-_]+$/g, "").toUpperCase();
+  if (!typeKey) return null;
+  return {
+    normalized,
+    prefix,
+    typeKey,
+    number: Number(match[2]),
+    width: match[2].length
+  };
+}
+
+export function getSheetPointNameCandidates(pointNamesAbove, manualAliases = [], limit = 3) {
+  const names = Array.isArray(pointNamesAbove) ? pointNamesAbove : [];
+  if (!names.length || limit <= 0) return [];
+  const types = new Map();
+
+  names.forEach((pointName, index) => {
+    const parsed = parseNumberedPointName(pointName, manualAliases);
+    if (!parsed) return;
+    const current = types.get(parsed.typeKey);
+    if (!current || parsed.number > current.maxNumber) {
+      types.set(parsed.typeKey, {
+        prefix: parsed.prefix,
+        maxNumber: parsed.number,
+        width: parsed.width,
+        lastSeen: index
+      });
+    } else {
+      current.lastSeen = index;
+      current.prefix = parsed.prefix;
+      if (parsed.number === current.maxNumber) current.width = parsed.width;
+    }
+  });
+
+  const previousType = parseNumberedPointName(names.at(-1), manualAliases)?.typeKey || "";
+  const orderedTypes = [...types.entries()].sort((left, right) => {
+    if (left[0] === previousType) return -1;
+    if (right[0] === previousType) return 1;
+    return right[1].lastSeen - left[1].lastSeen;
+  });
+
+  return orderedTypes
+    .map(([, type]) => {
+      const nextNumber = String(type.maxNumber + 1);
+      const paddedNumber = type.width > 1 && String(type.maxNumber).length < type.width
+        ? nextNumber.padStart(type.width, "0")
+        : nextNumber;
+      return `${type.prefix}${paddedNumber}`;
+    })
+    .filter((pointName) => isAllowedPointNameCandidate(pointName, manualAliases))
+    .slice(0, Math.min(limit, names.length));
+}
+
 export function getNextPointNameCandidates(
   previousPointName,
   manualAliases = [],
-  history = {},
+  _history = {},
   learnedSuccessors = [],
   limit = 3
 ) {
-  const previous = normalizePointName(previousPointName, manualAliases);
-  const incremented = incrementPointName(previous, manualAliases);
-  const recentNames = Object.entries(history || {})
-    .map(([pointName, usage]) => ({
-      pointName: normalizePointName(pointName, manualAliases),
-      lastUsed: Number(usage?.lastUsed) || 0,
-      count: Number(usage?.count) || 0
-    }))
-    .filter((item) => item.pointName)
-    .sort((left, right) => right.lastUsed - left.lastUsed || right.count - left.count)
-    .map((item) => item.pointName);
-  const manualNames = manualAliases
-    .map((alias) => normalizePointName(String(alias?.pointName ?? ""), manualAliases))
-    .filter(Boolean);
-  const fallbackNames = ["TP1", "NO.1", "BM1"];
-  const ordered = [
-    incremented,
-    ...learnedSuccessors,
-    ...recentNames,
-    ...manualNames,
-    ...fallbackNames
-  ]
-    .map((pointName) => normalizePointName(String(pointName ?? ""), manualAliases))
-    .filter((pointName) => pointName && pointName !== previous);
-  return [...new Set(ordered)].slice(0, limit);
+  return getSheetPointNameCandidates(
+    [previousPointName, ...learnedSuccessors],
+    manualAliases,
+    limit
+  );
 }
 
 export function isPriorityPointName(pointName) {

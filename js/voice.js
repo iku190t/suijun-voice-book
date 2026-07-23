@@ -15,6 +15,31 @@ export function normalizeSpokenNumber(text) {
   return normalized.replace(/[^0-9.+-]/g, "");
 }
 
+export function normalizeLevelReading(text) {
+  let normalized = normalizeSpokenNumber(text).replace(/^\+/, "");
+  if (/^\d{4}$/.test(normalized)) {
+    normalized = `${normalized[0]}.${normalized.slice(1)}`;
+  }
+  if (!/^\d\.\d{3}$/.test(normalized)) return "";
+  const number = Number(normalized);
+  return Number.isFinite(number) && number >= 0 && number < 10 ? normalized : "";
+}
+
+export function chooseLevelReading(transcript, alternatives = []) {
+  const readings = [transcript, ...alternatives]
+    .map(normalizeLevelReading)
+    .filter(Boolean);
+  const uniqueReadings = [...new Set(readings)];
+  return uniqueReadings.length === 1 ? uniqueReadings[0] : "";
+}
+
+export function levelReadingToSpeech(value) {
+  return String(value ?? "")
+    .split("")
+    .map((character) => character === "." ? "点" : character)
+    .join("、");
+}
+
 let speechPrepared = false;
 
 export function prepareSpeechSynthesis() {
@@ -62,32 +87,38 @@ export function createVoiceController({ onResult, onStatus, onListeningChange, s
   recognition.lang = "ja-JP";
   recognition.interimResults = true;
   recognition.continuous = false;
+  recognition.maxAlternatives = 5;
   let pendingTranscript = "";
+  let pendingAlternatives = [];
   let recognitionFailed = false;
   let finishRequested = false;
+  let resultDelivered = false;
   let cancelRequested = false;
-  let resultTimer = null;
   recognition.onstart = () => {
     if (cancelRequested) {
       try { recognition.abort(); } catch {}
       return;
     }
     pendingTranscript = "";
+    pendingAlternatives = [];
     recognitionFailed = false;
     finishRequested = false;
+    resultDelivered = false;
     onListeningChange(true);
     onStatus("音声を聞き取り中");
   };
   recognition.onend = () => {
     onListeningChange(false);
+    if (resultDelivered) {
+      resultDelivered = false;
+      return;
+    }
     if (!cancelRequested && !recognitionFailed && pendingTranscript) {
       const transcript = pendingTranscript;
+      const alternatives = pendingAlternatives;
       pendingTranscript = "";
       onStatus("認識結果を復唱します");
-      resultTimer = setTimeout(() => {
-        resultTimer = null;
-        if (!cancelRequested) onResult(transcript);
-      }, 180);
+      if (!cancelRequested) onResult(transcript, { alternatives });
     } else {
       onStatus("");
     }
@@ -95,19 +126,37 @@ export function createVoiceController({ onResult, onStatus, onListeningChange, s
   recognition.onerror = () => {
     recognitionFailed = true;
     pendingTranscript = "";
+    pendingAlternatives = [];
     onListeningChange(false);
     onStatus("");
   };
   recognition.onresult = (event) => {
-    pendingTranscript = Array.from(event.results)
+    const results = Array.from(event.results);
+    pendingTranscript = results
       .map((result) => result[0]?.transcript || "")
       .join("");
-    if (!finishRequested && shouldFinalize?.(pendingTranscript)) {
+    const leadingTranscript = results
+      .slice(0, -1)
+      .map((result) => result[0]?.transcript || "")
+      .join("");
+    pendingAlternatives = results.length
+      ? Array.from(results.at(-1))
+        .map((alternative) => `${leadingTranscript}${alternative?.transcript || ""}`)
+        .filter(Boolean)
+      : [];
+    if (!finishRequested && shouldFinalize?.(pendingTranscript, { alternatives: pendingAlternatives })) {
       finishRequested = true;
+      resultDelivered = true;
+      const transcript = pendingTranscript;
+      const alternatives = pendingAlternatives;
+      pendingTranscript = "";
+      pendingAlternatives = [];
+      onStatus("認識結果を復唱します");
+      onResult(transcript, { alternatives });
       try {
         recognition.stop();
       } catch {
-        finishRequested = false;
+        onListeningChange(false);
       }
     }
   };
@@ -127,11 +176,9 @@ export function createVoiceController({ onResult, onStatus, onListeningChange, s
       cancelRequested = true;
       recognitionFailed = true;
       pendingTranscript = "";
+      pendingAlternatives = [];
       finishRequested = true;
-      if (resultTimer) {
-        clearTimeout(resultTimer);
-        resultTimer = null;
-      }
+      resultDelivered = false;
       try { recognition.abort(); } catch {}
       window.speechSynthesis?.cancel?.();
       onListeningChange(false);
