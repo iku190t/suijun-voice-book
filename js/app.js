@@ -6,20 +6,20 @@ import {
   LEVELING_TOLERANCE_PRESETS,
   sumObservationDistanceMeters,
   toNumber
-} from "./calculation.js?v=23";
-import { createVoiceController, normalizeSpokenNumber, prepareSpeechSynthesis, speakBack } from "./voice.js?v=23";
-import { clearProject, loadProject, saveProject } from "./storage.js?v=23";
-import { exportSheetCsv } from "./export.js?v=23";
+} from "./calculation.js?v=24";
+import { createVoiceController, normalizeSpokenNumber, prepareSpeechSynthesis, speakBack } from "./voice.js?v=24";
+import { clearProject, loadProject, saveProject } from "./storage.js?v=24";
+import { exportSheetCsv } from "./export.js?v=24";
 import {
   isValidStaffReading,
   reversePointNamesWithinUsedRows
-} from "./rules.js?v=23";
+} from "./rules.js?v=24";
 import {
   getSmartPointSuggestions,
   normalizePointName,
   pointNameToSpeech,
   recordPointNameUsage
-} from "./point-names.js?v=23";
+} from "./point-names.js?v=24";
 
 const DEFAULT_ROW_COUNT = 200;
 const NUMERIC_FIELDS = new Set(["bs", "fs", "elevation", "distance"]);
@@ -568,6 +568,12 @@ function getFieldBelowPreviousReading(rowIndex) {
   return null;
 }
 
+function hasDistanceInPreviousRow(rowIndex) {
+  if (rowIndex <= 0) return false;
+  const previousRow = project.sheets[activeSheet][rowIndex - 1];
+  return previousRow?.distance !== null && previousRow?.distance !== undefined;
+}
+
 function moveAfterVoiceInput(current) {
   const field = current.dataset.field;
   const rowIndex = findRowIndex(current);
@@ -579,7 +585,7 @@ function moveAfterVoiceInput(current) {
     return;
   }
 
-  if (field === "pointName" && project.settings.showDistance) {
+  if (field === "pointName" && project.settings.showDistance && hasDistanceInPreviousRow(rowIndex)) {
     selectMovedInput(tbody.rows[rowIndex]?.querySelector('[data-field="distance"]'));
     return;
   }
@@ -723,6 +729,10 @@ tolerancePresetSelect.addEventListener("change", (event) => {
 });
 
 const rowDialog = document.querySelector("#rowDialog");
+rowDialog.addEventListener("close", () => {
+  tbody.querySelectorAll("tr.row-selected").forEach((row) => row.classList.remove("row-selected"));
+  selectedRowIndex = null;
+});
 document.querySelector("#insertRowBtn").addEventListener("click", () => {
   if (selectedRowIndex === null) return;
   project.sheets.out.splice(selectedRowIndex + 1, 0, createRow("out"));
