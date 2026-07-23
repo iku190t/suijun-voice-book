@@ -29,7 +29,7 @@ export function prepareSpeechSynthesis() {
   window.speechSynthesis.cancel();
 }
 
-export function speakBack(value) {
+export function speakBack(value, rate = 0.9) {
   if (!("speechSynthesis" in window) || value === "" || value === null || value === undefined) {
     return Promise.resolve();
   }
@@ -38,7 +38,7 @@ export function speakBack(value) {
   window.speechSynthesis.resume();
   const utterance = new SpeechSynthesisUtterance(spoken);
   utterance.lang = "ja-JP";
-  utterance.rate = 0.9;
+  utterance.rate = Math.min(1.5, Math.max(0.5, Number(rate) || 0.9));
   return new Promise((resolve) => {
     let completed = false;
     const finish = () => {
@@ -54,19 +54,21 @@ export function speakBack(value) {
   });
 }
 
-export function createVoiceController({ onResult, onStatus, onListeningChange }) {
+export function createVoiceController({ onResult, onStatus, onListeningChange, shouldFinalize }) {
   const Recognition = window.SpeechRecognition || window.webkitSpeechRecognition;
   if (!Recognition) return { supported: false, start() {} };
 
   const recognition = new Recognition();
   recognition.lang = "ja-JP";
-  recognition.interimResults = false;
+  recognition.interimResults = true;
   recognition.continuous = false;
   let pendingTranscript = "";
   let recognitionFailed = false;
+  let finishRequested = false;
   recognition.onstart = () => {
     pendingTranscript = "";
     recognitionFailed = false;
+    finishRequested = false;
     onListeningChange(true);
     onStatus("音声を聞き取り中");
   };
@@ -86,7 +88,17 @@ export function createVoiceController({ onResult, onStatus, onListeningChange })
     onStatus("");
   };
   recognition.onresult = (event) => {
-    pendingTranscript = event.results[0][0].transcript;
+    pendingTranscript = Array.from(event.results)
+      .map((result) => result[0]?.transcript || "")
+      .join("");
+    if (!finishRequested && shouldFinalize?.(pendingTranscript)) {
+      finishRequested = true;
+      try {
+        recognition.stop();
+      } catch {
+        finishRequested = false;
+      }
+    }
   };
 
   return {

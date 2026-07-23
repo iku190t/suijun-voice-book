@@ -8,14 +8,14 @@
 <html lang="ja">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=0.5, maximum-scale=5, user-scalable=yes, viewport-fit=cover">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
   <meta name="theme-color" content="#1677b8">
   <meta name="description" content="水準測量の観測値を音声やキーボードで入力できる、無料の現場向けWeb野帳です。">
   <title>水準ボイス野帳</title>
   <link rel="manifest" href="./manifest.json">
   <link rel="icon" href="./icons/icon-192.png">
   <link rel="apple-touch-icon" href="./icons/icon-192.png">
-  <link rel="stylesheet" href="./css/style.css?v=6">
+  <link rel="stylesheet" href="./css/style.css?v=7">
 </head>
 <body>
   <header class="app-header">
@@ -56,9 +56,10 @@
     </section>
 
     <div class="toolbar" aria-label="操作">
-      <button id="distanceToggleBtn" type="button">＋ 距離</button>
+      <button id="reverseCopyBtn" type="button">往路→復路 点名</button>
       <button id="saveBtn" type="button">上書き保存</button>
       <button id="csvBtn" type="button">CSV出力</button>
+      <button id="settingsOpenBtn" type="button">⚙ 設定</button>
       <button id="clearBtn" class="danger-outline" type="button">消去</button>
     </div>
   </header>
@@ -75,7 +76,7 @@
         <thead>
           <tr>
             <th>No.</th>
-            <th>点名</th>
+            <th class="point-heading">点名<button id="distanceToggleBtn" class="distance-inline-toggle" type="button" aria-label="距離列を表示">＋</button></th>
             <th class="distance-column">距離</th>
             <th>後視 BS</th>
             <th>前視 FS</th>
@@ -93,6 +94,22 @@
     <button id="voiceBtn" type="button">🎤 音声入力</button>
     <div id="voiceStatus" class="sr-only" aria-live="polite"></div>
   </div>
+
+  <dialog id="settingsDialog" aria-labelledby="settingsDialogTitle">
+    <form method="dialog">
+      <button class="dialog-close" value="cancel" aria-label="閉じる">×</button>
+      <h2 id="settingsDialogTitle">音声設定</h2>
+      <label class="setting-field" for="voiceRate">
+        <span>復唱速度</span>
+        <output id="voiceRateValue" for="voiceRate">0.9倍</output>
+      </label>
+      <input id="voiceRate" class="rate-slider" type="range" min="0.5" max="1.5" step="0.1" value="0.9">
+      <div class="rate-labels" aria-hidden="true"><span>ゆっくり</span><span>速い</span></div>
+      <div class="dialog-actions">
+        <button type="submit" value="close">閉じる</button>
+      </div>
+    </form>
+  </dialog>
 
   <dialog id="rowDialog" aria-labelledby="rowDialogTitle">
     <form method="dialog">
@@ -133,6 +150,6 @@
   </dialog>
 
   <noscript>このアプリの利用にはJavaScriptを有効にしてください。</noscript>
-  <script type="module" src="./js/app.js?v=6"></script>
+  <script type="module" src="./js/app.js?v=7"></script>
 </body>
 </html>

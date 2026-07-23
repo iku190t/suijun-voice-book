@@ -1,7 +1,7 @@
-import { calculateNotebook, formatMeters, toNumber } from "./calculation.js?v=6";
-import { createVoiceController, normalizeSpokenNumber, prepareSpeechSynthesis, speakBack } from "./voice.js?v=6";
-import { clearProject, loadProject, saveProject } from "./storage.js?v=6";
-import { exportSheetCsv } from "./export.js?v=6";
+import { calculateNotebook, formatMeters, toNumber } from "./calculation.js?v=7";
+import { createVoiceController, normalizeSpokenNumber, prepareSpeechSynthesis, speakBack } from "./voice.js?v=7";
+import { clearProject, loadProject, saveProject } from "./storage.js?v=7";
+import { exportSheetCsv } from "./export.js?v=7";
 
 const DEFAULT_ROW_COUNT = 200;
 const NUMERIC_FIELDS = new Set(["bs", "fs", "elevation", "distance"]);
@@ -9,6 +9,7 @@ const UNSIGNED_DECIMAL_FIELDS = new Set(["bs", "fs", "distance"]);
 const tbody = document.querySelector("#notebookBody");
 const notice = document.querySelector("#notice");
 const notebook = document.querySelector("#notebook");
+const tableWrap = document.querySelector(".table-wrap");
 const distanceToggleButton = document.querySelector("#distanceToggleBtn");
 const voiceButton = document.querySelector("#voiceBtn");
 const voiceStatus = document.querySelector("#voiceStatus");
@@ -18,6 +19,8 @@ let voiceTarget = null;
 let selectedRowIndex = null;
 let autosaveTimer = null;
 let calculations = { out: null, back: null };
+let pinchStartDistance = null;
+let pinchStartScale = 1;
 
 function makeId() {
   return globalThis.crypto?.randomUUID?.() || `row-${Date.now()}-${Math.random().toString(36).slice(2)}`;
@@ -44,7 +47,12 @@ function createRows(route, count = DEFAULT_ROW_COUNT) {
 function createBlankProject() {
   return {
     version: 3,
-    settings: { closureToleranceMm: 10, showDistance: false },
+    settings: {
+      closureToleranceMm: 10,
+      showDistance: false,
+      voiceRate: 0.9,
+      tableScale: 1
+    },
     sheets: {
       out: createRows("out"),
       back: createRows("back")
@@ -95,6 +103,12 @@ function normalizeLoadedProject(loaded) {
 }
 
 let project = normalizeLoadedProject(loadProject());
+project.settings.voiceRate = clamp(Number(project.settings.voiceRate) || 0.9, 0.5, 1.5);
+project.settings.tableScale = clamp(Number(project.settings.tableScale) || 1, 0.7, 1.8);
+
+function clamp(value, minimum, maximum) {
+  return Math.min(maximum, Math.max(minimum, value));
+}
 
 function displayValue(value, digits = null) {
   if (value === null || value === undefined) return "";
@@ -137,15 +151,69 @@ function renderSheet() {
     button.setAttribute("aria-selected", String(active));
   });
   applyDistanceVisibility();
+  applyTableScale(project.settings.tableScale);
   recalculateAndRender();
 }
 
 function applyDistanceVisibility() {
   const visible = Boolean(project.settings.showDistance);
   notebook.classList.toggle("show-distance", visible);
-  distanceToggleButton.textContent = visible ? "－ 距離" : "＋ 距離";
+  distanceToggleButton.textContent = visible ? "－" : "＋";
+  distanceToggleButton.setAttribute("aria-label", visible ? "距離列を収納" : "距離列を表示");
   distanceToggleButton.setAttribute("aria-pressed", String(visible));
 }
+
+function applyTableScale(value) {
+  const scale = clamp(Number(value) || 1, 0.7, 1.8);
+  project.settings.tableScale = scale;
+  const pixels = {
+    "--table-min-width": 790,
+    "--row-height": 48,
+    "--input-height": 47,
+    "--number-width": 42,
+    "--point-width": 116,
+    "--distance-width": 94,
+    "--reading-width": 96,
+    "--difference-width": 100,
+    "--elevation-width": 134,
+    "--note-width": 180,
+    "--input-font-size": 16,
+    "--header-font-size": 12
+  };
+  Object.entries(pixels).forEach(([property, base]) => {
+    notebook.style.setProperty(property, `${Math.round(base * scale * 10) / 10}px`);
+  });
+}
+
+function touchDistance(touches) {
+  const horizontal = touches[0].clientX - touches[1].clientX;
+  const vertical = touches[0].clientY - touches[1].clientY;
+  return Math.hypot(horizontal, vertical);
+}
+
+tableWrap.addEventListener("touchstart", (event) => {
+  if (event.touches.length !== 2) return;
+  event.preventDefault();
+  pinchStartDistance = touchDistance(event.touches);
+  pinchStartScale = project.settings.tableScale;
+  tableWrap.classList.add("pinching");
+}, { passive: false });
+
+tableWrap.addEventListener("touchmove", (event) => {
+  if (event.touches.length !== 2 || !pinchStartDistance) return;
+  event.preventDefault();
+  const nextScale = pinchStartScale * (touchDistance(event.touches) / pinchStartDistance);
+  applyTableScale(nextScale);
+}, { passive: false });
+
+tableWrap.addEventListener("touchend", (event) => {
+  if (event.touches.length >= 2) return;
+  if (pinchStartDistance) {
+    pinchStartDistance = null;
+    tableWrap.classList.remove("pinching");
+    scheduleAutosave();
+  }
+}, { passive: true });
 
 function recalculateAndRender() {
   calculations.out = calculateNotebook(project.sheets.out, project.settings.closureToleranceMm);
@@ -158,9 +226,9 @@ function recalculateAndRender() {
     const row = activeCalculation.rows[index];
     if (!row) return;
     tr.classList.toggle("incomplete", row._incomplete);
-    tr.querySelector(".diff").textContent = row._incomplete
-      ? "BS/FS確認"
-      : Number.isFinite(row._difference) ? row._difference.toFixed(3) : "";
+    tr.querySelector(".diff").textContent = Number.isFinite(row._difference)
+      ? row._difference.toFixed(3)
+      : "";
     const elevationInput = tr.querySelector('[data-field="elevation"]');
     if (document.activeElement !== elevationInput || row.elevationType === "calculated") {
       elevationInput.value = displayValue(row.elevation, row.elevation !== null ? 3 : null);
@@ -348,6 +416,30 @@ distanceToggleButton.addEventListener("click", () => {
   applyDistanceVisibility();
   scheduleAutosave();
 });
+document.querySelector("#reverseCopyBtn").addEventListener("click", () => {
+  const pointNames = project.sheets.out
+    .map((row) => String(row.pointName || "").trim())
+    .filter(Boolean)
+    .reverse();
+  if (!pointNames.length) {
+    showNotice("往路に点名が入力されていません。", "error");
+    return;
+  }
+  const hasBackPointNames = project.sheets.back.some((row) => String(row.pointName || "").trim());
+  if (hasBackPointNames && !confirm("復路の点名を、往路の逆順で置き換えますか？BS・FSは変更しません。")) return;
+
+  while (project.sheets.back.length < pointNames.length) {
+    project.sheets.back.push(createRow("back"));
+  }
+  project.sheets.back.forEach((row) => { row.pointName = ""; });
+  pointNames.forEach((pointName, index) => {
+    project.sheets.back[index].pointName = pointName;
+  });
+  activeSheet = "back";
+  renderSheet();
+  project = saveProject(project);
+  showNotice(`往路の点名${pointNames.length}件を逆順で復路へ入れました。`, "success");
+});
 document.querySelector("#saveBtn").addEventListener("click", () => {
   project = saveProject(project);
   showNotice("上書き保存しました。", "success");
@@ -382,6 +474,18 @@ clearDialog.querySelectorAll("[data-clear-target]").forEach((button) => {
 const supportDialog = document.querySelector("#supportDialog");
 document.querySelector("#supportOpenBtn").addEventListener("click", () => supportDialog.showModal());
 
+const settingsDialog = document.querySelector("#settingsDialog");
+const voiceRateInput = document.querySelector("#voiceRate");
+const voiceRateValue = document.querySelector("#voiceRateValue");
+voiceRateInput.value = project.settings.voiceRate.toFixed(1);
+voiceRateValue.textContent = `${project.settings.voiceRate.toFixed(1)}倍`;
+document.querySelector("#settingsOpenBtn").addEventListener("click", () => settingsDialog.showModal());
+voiceRateInput.addEventListener("input", () => {
+  project.settings.voiceRate = clamp(Number(voiceRateInput.value) || 0.9, 0.5, 1.5);
+  voiceRateValue.textContent = `${project.settings.voiceRate.toFixed(1)}倍`;
+  scheduleAutosave();
+});
+
 const voiceController = createVoiceController({
   onStatus: (message) => { voiceStatus.textContent = message; },
   onListeningChange: (listening) => {
@@ -398,10 +502,16 @@ const voiceController = createVoiceController({
     target.value = value;
     if (!handleFieldChange(target)) return;
     voiceStatus.textContent = `${value} と復唱します`;
-    await speakBack(value);
+    await speakBack(value, project.settings.voiceRate);
     moveStraightDown(target, false);
     voiceTarget = null;
     voiceStatus.textContent = "";
+  },
+  shouldFinalize: (transcript) => {
+    if (!voiceTarget || !NUMERIC_FIELDS.has(voiceTarget.dataset.field)) return false;
+    let value = normalizeSpokenNumber(transcript);
+    if (UNSIGNED_DECIMAL_FIELDS.has(voiceTarget.dataset.field)) value = sanitizeUnsignedDecimal(value);
+    return value.replace(/^[-+]/, "").length >= 5;
   }
 });
 
