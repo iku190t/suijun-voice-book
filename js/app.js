@@ -6,20 +6,20 @@ import {
   LEVELING_TOLERANCE_PRESETS,
   sumObservationDistanceMeters,
   toNumber
-} from "./calculation.js?v=15";
-import { createVoiceController, normalizeSpokenNumber, prepareSpeechSynthesis, speakBack } from "./voice.js?v=15";
-import { clearProject, loadProject, saveProject } from "./storage.js?v=15";
-import { exportSheetCsv } from "./export.js?v=15";
+} from "./calculation.js?v=16";
+import { createVoiceController, normalizeSpokenNumber, prepareSpeechSynthesis, speakBack } from "./voice.js?v=16";
+import { clearProject, loadProject, saveProject } from "./storage.js?v=16";
+import { exportSheetCsv } from "./export.js?v=16";
 import {
   isValidStaffReading,
   reversePointNamesWithinUsedRows
-} from "./rules.js?v=15";
+} from "./rules.js?v=16";
 import {
   getSmartPointSuggestions,
   normalizePointName,
   pointNameToSpeech,
   recordPointNameUsage
-} from "./point-names.js?v=15";
+} from "./point-names.js?v=16";
 
 const DEFAULT_ROW_COUNT = 200;
 const NUMERIC_FIELDS = new Set(["bs", "fs", "elevation", "distance"]);
@@ -37,6 +37,7 @@ const pointSuggestionButtons = document.querySelector("#pointSuggestionButtons")
 let activeSheet = "out";
 let selectedInput = null;
 let voiceTarget = null;
+let voiceSessionActive = false;
 let selectedRowIndex = null;
 let autosaveTimer = null;
 let calculations = { out: null, back: null };
@@ -202,6 +203,7 @@ function renderSheet() {
   const fragment = document.createDocumentFragment();
   project.sheets[activeSheet].forEach((row, index) => fragment.appendChild(rowTemplate(row, index)));
   tbody.replaceChildren(fragment);
+  if (voiceSessionActive) setVoiceSessionActive(true);
   document.querySelector("#activeSheetName").textContent = activeSheet === "out" ? "往路シート" : "復路シート";
   document.querySelector("#rowCount").textContent = `${project.sheets[activeSheet].length}行`;
   document.querySelectorAll(".sheet-tab").forEach((button) => {
@@ -425,6 +427,30 @@ function markSelectedInput(input) {
   input?.classList.add("voice-selected");
 }
 
+function setVoiceSessionActive(active) {
+  voiceSessionActive = Boolean(active);
+  document.body.classList.toggle("voice-session-active", voiceSessionActive);
+  tbody.querySelectorAll("input").forEach((input) => {
+    input.readOnly = voiceSessionActive;
+  });
+  if (voiceSessionActive) document.activeElement?.blur();
+}
+
+function finishVoiceSession() {
+  setVoiceSessionActive(false);
+  voiceTarget = null;
+  voiceStatus.textContent = "";
+}
+
+function selectVoiceTargetWithoutKeyboard(input, event) {
+  if (!voiceSessionActive || !input?.matches("input")) return;
+  event?.preventDefault();
+  voiceTarget = input;
+  markSelectedInput(input);
+  input.blur();
+  hidePointSuggestions();
+}
+
 function hidePointSuggestions() {
   pointSuggestions.hidden = true;
   pointSuggestionButtons.replaceChildren();
@@ -485,9 +511,21 @@ function moveStraightDown(current, focusTarget = true) {
 
 tbody.addEventListener("focusin", (event) => {
   if (!event.target.matches("input")) return;
+  if (voiceSessionActive) {
+    selectVoiceTargetWithoutKeyboard(event.target, event);
+    return;
+  }
   markSelectedInput(event.target);
   if (event.target.dataset.field === "pointName") showPointNameSuggestions(event.target);
 });
+
+tbody.addEventListener("pointerdown", (event) => {
+  selectVoiceTargetWithoutKeyboard(event.target.closest("input"), event);
+}, { capture: true });
+
+tbody.addEventListener("touchstart", (event) => {
+  selectVoiceTargetWithoutKeyboard(event.target.closest("input"), event);
+}, { capture: true, passive: false });
 
 tbody.addEventListener("input", (event) => {
   if (!event.target.matches("input")) return;
@@ -717,33 +755,39 @@ pointAliasList.addEventListener("click", (event) => {
 });
 
 const voiceController = createVoiceController({
-  onStatus: (message) => { voiceStatus.textContent = message; },
+  onStatus: (message) => {
+    voiceStatus.textContent = message;
+    if (!message && voiceSessionActive && !voiceButton.classList.contains("listening")) {
+      finishVoiceSession();
+    }
+  },
   onListeningChange: (listening) => {
     voiceButton.classList.toggle("listening", listening);
     voiceButton.textContent = listening ? "● 認識中…" : "🎤 音声入力";
-    if (!listening && voiceTarget) voiceTarget.readOnly = false;
   },
   onResult: async (transcript) => {
     const target = voiceTarget;
-    if (!target?.isConnected) return;
-    const field = target.dataset.field;
-    let value = NUMERIC_FIELDS.has(field)
-      ? normalizeSpokenNumber(transcript)
-      : field === "pointName"
-        ? normalizePointName(transcript, project.settings.pointAliases)
-        : transcript.trim();
-    if (UNSIGNED_DECIMAL_FIELDS.has(field)) value = sanitizeUnsignedDecimal(value);
-    target.value = value;
-    if (!handleFieldChange(target)) return;
-    if (field === "pointName") recordPointName(value);
-    voiceStatus.textContent = `${value} と復唱します`;
-    const repeatText = field === "pointName"
-      ? pointNameToSpeech(value, project.settings.pointAliases)
-      : value;
-    await speakBack(repeatText, project.settings.voiceRate);
-    moveStraightDown(target, false);
-    voiceTarget = null;
-    voiceStatus.textContent = "";
+    try {
+      if (!target?.isConnected) return;
+      const field = target.dataset.field;
+      let value = NUMERIC_FIELDS.has(field)
+        ? normalizeSpokenNumber(transcript)
+        : field === "pointName"
+          ? normalizePointName(transcript, project.settings.pointAliases)
+          : transcript.trim();
+      if (UNSIGNED_DECIMAL_FIELDS.has(field)) value = sanitizeUnsignedDecimal(value);
+      target.value = value;
+      if (!handleFieldChange(target)) return;
+      if (field === "pointName") recordPointName(value);
+      voiceStatus.textContent = `${value} と復唱します`;
+      const repeatText = field === "pointName"
+        ? pointNameToSpeech(value, project.settings.pointAliases)
+        : value;
+      await speakBack(repeatText, project.settings.voiceRate);
+      moveStraightDown(target, false);
+    } finally {
+      finishVoiceSession();
+    }
   },
   shouldFinalize: (transcript) => {
     if (!voiceTarget) return false;
@@ -761,14 +805,14 @@ if (!voiceController.supported) {
 }
 
 voiceButton.addEventListener("click", () => {
+  if (voiceSessionActive) return;
   if (!selectedInput?.isConnected) {
     showNotice("先に入力セルを選択してください。", "error");
     return;
   }
   prepareSpeechSynthesis();
   voiceTarget = selectedInput;
-  voiceTarget.readOnly = true;
-  document.activeElement?.blur();
+  setVoiceSessionActive(true);
   voiceController.start();
 });
 

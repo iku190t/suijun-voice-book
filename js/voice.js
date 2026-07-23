@@ -79,6 +79,8 @@ export function createVoiceController({ onResult, onStatus, onListeningChange, s
       pendingTranscript = "";
       onStatus("認識結果を復唱します");
       setTimeout(() => onResult(transcript), 180);
+    } else {
+      onStatus("");
     }
   };
   recognition.onerror = () => {
@@ -108,6 +110,7 @@ export function createVoiceController({ onResult, onStatus, onListeningChange, s
         recognition.start();
       } catch {
         onListeningChange(false);
+        onStatus("");
       }
     }
   };
