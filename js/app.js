@@ -1,16 +1,17 @@
-import { calculateNotebook, formatMeters, toNumber } from "./calculation.js?v=11";
-import { createVoiceController, normalizeSpokenNumber, prepareSpeechSynthesis, speakBack } from "./voice.js?v=11";
-import { clearProject, loadProject, saveProject } from "./storage.js?v=11";
-import { exportSheetCsv } from "./export.js?v=11";
+import { calculateNotebook, formatMeters, toNumber } from "./calculation.js?v=12";
+import { createVoiceController, normalizeSpokenNumber, prepareSpeechSynthesis, speakBack } from "./voice.js?v=12";
+import { clearProject, loadProject, saveProject } from "./storage.js?v=12";
+import { exportSheetCsv } from "./export.js?v=12";
 import {
   isValidStaffReading,
   reversePointNamesWithinUsedRows
-} from "./rules.js?v=11";
+} from "./rules.js?v=12";
 import {
   getSmartPointSuggestions,
   normalizePointName,
+  pointNameToSpeech,
   recordPointNameUsage
-} from "./point-names.js?v=11";
+} from "./point-names.js?v=12";
 
 const DEFAULT_ROW_COUNT = 200;
 const NUMERIC_FIELDS = new Set(["bs", "fs", "elevation", "distance"]);
@@ -82,6 +83,7 @@ function normalizeRow(row, route) {
     ...row,
     id: row?.id || makeId(),
     route,
+    pointName: normalizePointName(String(row?.pointName ?? "")),
     elevationType: row?.elevationType === "manual" ? "manual" : "calculated",
     bs: bs === null || isValidStaffReading(bs) ? bs : null,
     fs: fs === null || isValidStaffReading(fs) ? fs : null,
@@ -673,7 +675,10 @@ const voiceController = createVoiceController({
     if (!handleFieldChange(target)) return;
     if (field === "pointName") recordPointName(value);
     voiceStatus.textContent = `${value} と復唱します`;
-    await speakBack(value, project.settings.voiceRate);
+    const repeatText = field === "pointName"
+      ? pointNameToSpeech(value, project.settings.pointAliases)
+      : value;
+    await speakBack(repeatText, project.settings.voiceRate);
     moveStraightDown(target, false);
     voiceTarget = null;
     voiceStatus.textContent = "";

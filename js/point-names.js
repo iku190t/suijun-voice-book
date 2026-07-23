@@ -1,4 +1,4 @@
-import { resolvePointAlias } from "./rules.js?v=11";
+import { resolvePointAlias } from "./rules.js?v=12";
 
 const BASE_PRIORITY_POINT_NAMES = [...new Set(`
 BM,KBM,TBM,仮BM,水準点,仮水準点,既知点,未知点,固定点,既設点,新設点,閉合点,確認点,チェック点,
@@ -24,6 +24,9 @@ const BUILTIN_POINT_ALIASES = [
   ["ターニングポイント", "TP"], ["ターンニングポイント", "TP"],
   ["ティーピー点", "TP"], ["ティーピー", "TP"], ["盛り替え点", "TP"], ["盛替点", "TP"], ["移器点", "TP"],
   ["シーエル", "CL"], ["センター", "CL"], ["中心線", "CL"],
+  ["アイピー", "IP"], ["ビーピー", "BP"], ["ビーシー", "BC"],
+  ["イーシー", "EC"], ["イーピー", "EP"], ["エスピー", "SP"],
+  ["エムシー", "MC"], ["ケーエー", "KA"], ["ケーイー", "KE"],
   ["測点ナンバー", "No."], ["ナンバー", "No."],
   ["法の肩", "法肩"], ["のり肩", "法肩"], ["糊肩", "法肩"], ["乗り肩", "法肩"],
   ["法の尻", "法尻"], ["のり尻", "法尻"], ["糊尻", "法尻"], ["乗り尻", "法尻"],
@@ -39,7 +42,22 @@ const BUILTIN_POINT_ALIASES = [
 ].map(([spoken, pointName]) => ({ spoken, pointName }));
 
 const KANJI_DIGITS = { "〇": 0, "零": 0, "一": 1, "二": 2, "三": 3, "四": 4, "五": 5, "六": 6, "七": 7, "八": 8, "九": 9 };
-const NUMBERED_PREFIXES = ["TP", "BM", "KBM", "TBM", "No.", "P", "K", "T", "IP", "BP", "BC", "EC", "EP", "SP", "MC", "KA", "KE"];
+const NUMBERED_PREFIXES = ["TP", "BM", "KBM", "TBM", "NO.", "P", "K", "T", "IP.", "BP.", "BC.", "EC.", "EP.", "SP.", "MC.", "KA.", "KE."];
+const DOTTED_PREFIXES = new Set(["NO", "IP", "BP", "BC", "EC", "EP", "SP", "MC", "KA", "KE"]);
+const SPOKEN_NUMBER_WORDS = [
+  ["きゅう", "9"], ["しち", "7"], ["いち", "1"], ["はち", "8"],
+  ["ろく", "6"], ["なな", "7"], ["よん", "4"], ["さん", "3"],
+  ["ぜろ", "0"], ["れい", "0"], ["まる", "0"], ["に", "2"],
+  ["ご", "5"], ["し", "4"], ["く", "9"]
+];
+const DIGIT_READINGS = ["ゼロ", "イチ", "ニ", "サン", "ヨン", "ゴ", "ロク", "ナナ", "ハチ", "キュウ"];
+const DEFAULT_POINT_READINGS = {
+  "KBM": "ケービーエム", "TBM": "ティービーエム", "BM": "ビーエム", "TP": "ティーピー",
+  "NO": "ナンバー", "IP": "アイピー", "BP": "ビーピー", "BC": "ビーシー",
+  "EC": "イーシー", "EP": "イーピー", "SP": "エスピー", "MC": "エムシー",
+  "KA": "ケーエー", "KE": "ケーイー", "CL": "シーエル", "P": "ピー", "K": "ケー", "T": "ティー",
+  ".": "テン", "-": "ハイフン"
+};
 
 function kanjiNumberToArabic(text) {
   if (/^[〇零一二三四五六七八九]+$/.test(text)) {
@@ -70,16 +88,31 @@ function normalizeNumberedPointName(input) {
     .replace(/番/g, "")
     .replace(/\s+/g, "")
     .replace(/[〇零一二三四五六七八九十百千]+/g, kanjiNumberToArabic)
-    .replace(/^No\.\.(\d+)$/i, "No.$1")
-    .replace(/^NO\.?(\d+)$/i, "No.$1");
+    .replace(/^NO\.\.(\d+)$/i, "NO.$1");
+
+  const spokenSuffix = text.match(/^(TP|KBM|TBM|BM|CL|IP|BP|BC|EC|EP|SP|MC|KA|KE|NO|P|K|T)\.?([ぁ-んー]+)$/i);
+  if (spokenSuffix) {
+    let suffix = spokenSuffix[2];
+    let converted = "";
+    while (suffix) {
+      const match = SPOKEN_NUMBER_WORDS.find(([spoken]) => suffix.startsWith(spoken));
+      if (!match) break;
+      converted += match[1];
+      suffix = suffix.slice(match[0].length);
+    }
+    if (converted && !suffix) text = `${spokenSuffix[1]}${converted}`;
+  }
 
   if (/^(TP|KBM|TBM|BM|CL|IP|BP|BC|EC|EP|SP|MC|KA|KE|P|K|T)\d+点$/i.test(text)) {
     text = text.slice(0, -1);
   }
-  const standard = text.match(/^(TP|KBM|TBM|BM|CL|IP|BP|BC|EC|EP|SP|MC|KA|KE|P|K|T)(\d+)$/i);
-  if (standard) return `${standard[1].toUpperCase()}${Number(standard[2])}`;
-  if (/^No\.\d+$/i.test(text)) return `No.${Number(text.replace(/^No\./i, ""))}`;
-  if (/^(TP|KBM|TBM|BM|CL)$/i.test(text)) return text.toUpperCase();
+  const standard = text.match(/^(TP|KBM|TBM|BM|CL|IP|BP|BC|EC|EP|SP|MC|KA|KE|NO|P|K|T)\.?(\d+)$/i);
+  if (standard) {
+    const prefix = standard[1].toUpperCase();
+    const separator = DOTTED_PREFIXES.has(prefix) ? "." : "";
+    return `${prefix}${separator}${Number(standard[2])}`;
+  }
+  if (/^(TP|KBM|TBM|BM|CL|IP|BP|BC|EC|EP|SP|MC|KA|KE|NO|P|K|T)$/i.test(text)) return text.toUpperCase();
   return text;
 }
 
@@ -96,17 +129,17 @@ export function normalizePointName(inputText, manualAliases = []) {
 }
 
 function dynamicNumberedCandidates(normalizedInput) {
-  const match = normalizedInput.match(/^(TP|KBM|TBM|BM|No\.|IP|BP|BC|EC|EP|SP|MC|KA|KE|P|K|T)(\d*)$/i);
+  const match = normalizedInput.match(/^(TP|KBM|TBM|BM|NO|IP|BP|BC|EC|EP|SP|MC|KA|KE|P|K|T)\.?(\d*)$/i);
   if (!match) return [];
-  const rawPrefix = match[1];
-  const prefix = /^no\.$/i.test(rawPrefix) ? "No." : rawPrefix.toUpperCase();
+  const rawPrefix = match[1].toUpperCase();
+  const prefix = `${rawPrefix}${DOTTED_PREFIXES.has(rawPrefix) ? "." : ""}`;
   const enteredNumber = match[2];
   if (enteredNumber) {
     const exact = Number(enteredNumber);
     const values = [exact, ...Array.from({ length: 9 }, (_, index) => Number(`${enteredNumber}${index}`))];
     return [...new Set(values.filter((number) => number >= 0 && number <= 999).map((number) => `${prefix}${number}`))];
   }
-  const start = prefix === "No." ? 0 : 1;
+  const start = prefix === "NO." ? 0 : 1;
   return Array.from({ length: 20 }, (_, index) => `${prefix}${start + index}`);
 }
 
@@ -161,4 +194,37 @@ export function isPriorityPointName(pointName) {
   const normalized = normalizePointName(pointName);
   if (BASE_PRIORITY_POINT_NAMES.some((candidate) => normalizePointName(candidate) === normalized)) return true;
   return NUMBERED_PREFIXES.some((prefix) => normalized.startsWith(prefix) && /\d+$/.test(normalized));
+}
+
+export function pointNameToSpeech(pointName, manualAliases = []) {
+  const text = String(pointName ?? "").normalize("NFKC").toUpperCase();
+  if (!text) return "";
+  const manualReadings = manualAliases
+    .map((alias) => ({
+      token: String(alias?.pointName ?? "").normalize("NFKC").toUpperCase(),
+      reading: String(alias?.spoken ?? "").trim()
+    }))
+    .filter((alias) => alias.token && alias.reading)
+    .sort((left, right) => right.token.length - left.token.length);
+  const defaultTokens = Object.keys(DEFAULT_POINT_READINGS).sort((left, right) => right.length - left.length);
+  const parts = [];
+  let index = 0;
+  while (index < text.length) {
+    const manual = manualReadings.find((item) => text.startsWith(item.token, index));
+    if (manual) {
+      parts.push(manual.reading);
+      index += manual.token.length;
+      continue;
+    }
+    const standard = defaultTokens.find((token) => text.startsWith(token, index));
+    if (standard) {
+      parts.push(DEFAULT_POINT_READINGS[standard]);
+      index += standard.length;
+      continue;
+    }
+    const character = text[index];
+    parts.push(/[0-9]/.test(character) ? DIGIT_READINGS[Number(character)] : character);
+    index += 1;
+  }
+  return parts.filter(Boolean).join("、");
 }
