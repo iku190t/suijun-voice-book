@@ -1,12 +1,12 @@
-import { calculateNotebook, formatMeters, toNumber } from "./calculation.js?v=9";
-import { createVoiceController, normalizeSpokenNumber, prepareSpeechSynthesis, speakBack } from "./voice.js?v=9";
-import { clearProject, loadProject, saveProject } from "./storage.js?v=9";
-import { exportSheetCsv } from "./export.js?v=9";
+import { calculateNotebook, formatMeters, toNumber } from "./calculation.js?v=10";
+import { createVoiceController, normalizeSpokenNumber, prepareSpeechSynthesis, speakBack } from "./voice.js?v=10";
+import { clearProject, loadProject, saveProject } from "./storage.js?v=10";
+import { exportSheetCsv } from "./export.js?v=10";
 import {
   isValidStaffReading,
   resolvePointAlias,
   reversePointNamesWithinUsedRows
-} from "./rules.js?v=9";
+} from "./rules.js?v=10";
 
 const DEFAULT_ROW_COUNT = 200;
 const NUMERIC_FIELDS = new Set(["bs", "fs", "elevation", "distance"]);
