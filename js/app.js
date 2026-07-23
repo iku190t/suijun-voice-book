@@ -6,21 +6,21 @@ import {
   LEVELING_TOLERANCE_PRESETS,
   sumObservationDistanceMeters,
   toNumber
-} from "./calculation.js?v=26";
-import { createVoiceController, normalizeSpokenNumber, prepareSpeechSynthesis, speakBack } from "./voice.js?v=26";
-import { clearProject, loadProject, saveProject } from "./storage.js?v=26";
-import { exportSheetCsv } from "./export.js?v=26";
+} from "./calculation.js?v=27";
+import { createVoiceController, normalizeSpokenNumber, prepareSpeechSynthesis, speakBack } from "./voice.js?v=27";
+import { clearProject, loadProject, saveProject } from "./storage.js?v=27";
+import { exportSheetCsv } from "./export.js?v=27";
 import {
   isValidStaffReading,
   reversePointNamesWithinUsedRows
-} from "./rules.js?v=26";
+} from "./rules.js?v=27";
 import {
   getNextPointNameCandidates,
   getSmartPointSuggestions,
   normalizePointName,
   pointNameToSpeech,
   recordPointNameUsage
-} from "./point-names.js?v=26";
+} from "./point-names.js?v=27";
 
 const DEFAULT_ROW_COUNT = 200;
 const NUMERIC_FIELDS = new Set(["bs", "fs", "elevation", "distance"]);
@@ -804,6 +804,7 @@ tbody.addEventListener("change", (event) => {
 tbody.addEventListener("focusout", (event) => {
   if (!event.target.matches('input[data-field="pointName"]')) return;
   setTimeout(() => {
+    if (voiceModeActive && selectedInput === event.target && !event.target.value.trim()) return;
     if (!pointSuggestions.contains(document.activeElement)) hidePointSuggestions();
   }, 120);
 });
