@@ -1,9 +1,9 @@
-const CACHE_NAME = "suijun-voice-book-v2";
+const CACHE_NAME = "suijun-voice-book-v3";
 const APP_ASSETS = [
   "./",
   "./index.html",
-  "./css/style.css?v=2",
-  "./js/app.js?v=2",
+  "./css/style.css?v=3",
+  "./js/app.js?v=3",
   "./js/calculation.js",
   "./js/voice.js",
   "./js/storage.js",

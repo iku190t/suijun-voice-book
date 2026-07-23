@@ -1,4 +1,5 @@
-const STORAGE_KEY = "levelVoiceBook.projects.v2";
+const STORAGE_KEY = "levelVoiceBook.projects.v3";
+const VERSION_2_KEY = "levelVoiceBook.projects.v2";
 const LEGACY_KEY = "level_voice_book_v1";
 
 export function saveProject(project) {
@@ -13,6 +14,15 @@ export function loadProject() {
   if (stored) {
     try {
       return JSON.parse(stored);
+    } catch {
+      return null;
+    }
+  }
+
+  const version2 = localStorage.getItem(VERSION_2_KEY);
+  if (version2) {
+    try {
+      return JSON.parse(version2);
     } catch {
       return null;
     }
@@ -47,6 +57,7 @@ export function loadProject() {
 
 export function clearProject() {
   localStorage.removeItem(STORAGE_KEY);
+  localStorage.removeItem(VERSION_2_KEY);
   localStorage.removeItem(LEGACY_KEY);
 }
 

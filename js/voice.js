@@ -9,44 +9,40 @@ export function normalizeSpokenNumber(text) {
     .replace(/マイナス|負の|ひく|引く/g, "-")
     .replace(/コンマ|カンマ|点/g, ".")
     .replace(/[、。,\s]/g, "");
-
   KANJI_DIGITS.forEach((digit, kanji) => {
     normalized = normalized.replaceAll(kanji, digit);
   });
-
   return normalized.replace(/[^0-9.+-]/g, "");
+}
+
+export function speakBack(value) {
+  if (!("speechSynthesis" in window) || !value) return;
+  const spoken = String(value).replace(/^-/, "マイナス").replace(".", "点");
+  window.speechSynthesis.cancel();
+  const utterance = new SpeechSynthesisUtterance(spoken);
+  utterance.lang = "ja-JP";
+  utterance.rate = 0.9;
+  window.speechSynthesis.speak(utterance);
 }
 
 export function createVoiceController({ onResult, onStatus, onListeningChange }) {
   const Recognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-  if (!Recognition) {
-    onStatus("このブラウザは音声認識に未対応です。キーボード入力はそのまま使えます。");
-    return { supported: false, start() {} };
-  }
+  if (!Recognition) return { supported: false, start() {} };
 
   const recognition = new Recognition();
   recognition.lang = "ja-JP";
   recognition.interimResults = false;
   recognition.continuous = false;
-
   recognition.onstart = () => {
     onListeningChange(true);
-    onStatus("音声を聞き取り中です…");
+    onStatus("音声を聞き取り中");
   };
   recognition.onend = () => onListeningChange(false);
-  recognition.onerror = (event) => {
+  recognition.onerror = () => {
     onListeningChange(false);
-    const messages = {
-      "not-allowed": "マイクの使用が許可されていません。",
-      "no-speech": "音声を認識できませんでした。もう一度お試しください。",
-      "audio-capture": "マイクを利用できません。"
-    };
-    onStatus(messages[event.error] || `音声認識エラー：${event.error}`);
+    onStatus("");
   };
-  recognition.onresult = (event) => {
-    const transcript = event.results[0][0].transcript;
-    onResult(transcript);
-  };
+  recognition.onresult = (event) => onResult(event.results[0][0].transcript);
 
   return {
     supported: true,
@@ -54,7 +50,7 @@ export function createVoiceController({ onResult, onStatus, onListeningChange })
       try {
         recognition.start();
       } catch {
-        onStatus("音声認識はすでに開始しています。");
+        onListeningChange(false);
       }
     }
   };

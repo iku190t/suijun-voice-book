@@ -15,7 +15,7 @@
   <link rel="manifest" href="./manifest.json">
   <link rel="icon" href="./icons/icon-192.png">
   <link rel="apple-touch-icon" href="./icons/icon-192.png">
-  <link rel="stylesheet" href="./css/style.css?v=2">
+  <link rel="stylesheet" href="./css/style.css?v=3">
 </head>
 <body>
   <header class="app-header">
@@ -26,27 +26,14 @@
       </div>
       <div class="brand-links">
         <a href="https://ez-survey.sakura.ne.jp/" target="_blank" rel="noopener noreferrer">株式会社アイズ測量</a>
-        <button id="supportOpenBtn" class="support-button" type="button">♡ 応援する</button>
+        <button id="supportOpenBtn" class="support-button" type="button">♡ 応援</button>
       </div>
     </div>
 
-    <details class="project-panel" open>
-      <summary>現場情報・設定</summary>
-      <div class="project-grid">
-        <label>現場名<input id="siteName" data-meta="siteName" autocomplete="off"></label>
-        <label>作業日<input id="workDate" data-meta="workDate" type="date"></label>
-        <label>観測者<input id="observer" data-meta="observer" autocomplete="off"></label>
-        <label>路線名<input id="lineName" data-meta="lineName" autocomplete="off"></label>
-        <label>既知点名<input id="knownPointName" data-meta="knownPointName" autocomplete="off"></label>
-        <label>許容閉合差
-          <span class="input-with-unit">
-            <input id="closureTolerance" type="number" min="0" step="1" inputmode="numeric" aria-describedby="toleranceHelp">
-            <span>mm</span>
-          </span>
-        </label>
-      </div>
-      <p id="toleranceHelp" class="field-help">閉合差がこの値を超えると「要確認」になります。</p>
-    </details>
+    <div class="sheet-tabs" role="tablist" aria-label="野帳シート">
+      <button id="outSheetTab" class="sheet-tab active" type="button" role="tab" aria-selected="true" data-sheet="out">往路</button>
+      <button id="backSheetTab" class="sheet-tab" type="button" role="tab" aria-selected="false" data-sheet="back">復路</button>
+    </div>
 
     <section class="summary" aria-label="観測集計">
       <div class="summary-card">
@@ -62,46 +49,33 @@
         <strong id="closure">—</strong>
         <em id="closureJudgement">判定待ち</em>
       </div>
-      <div class="summary-card">
-        <span>最終仮標高</span>
-        <strong id="lastElevation">—</strong>
-      </div>
+      <label class="tolerance-card">
+        <span>許容値</span>
+        <span class="tolerance-input"><input id="closureTolerance" type="number" min="0" step="1" inputmode="numeric"><b>mm</b></span>
+      </label>
     </section>
 
     <div class="toolbar" aria-label="操作">
-      <button id="voiceBtn" class="primary" type="button">🎤 音声入力</button>
-      <select id="newRowRoute" aria-label="追加行の区分">
-        <option value="out">追加行：往路</option>
-        <option value="back">追加行：復路</option>
-      </select>
-      <button id="addRowsBtn" type="button">＋ 10行</button>
-      <button id="deleteRowBtn" type="button">最終行削除</button>
-      <button id="reverseCopyBtn" type="button">往路を反転コピー</button>
+      <button id="addRowsBtn" type="button">＋ 行追加</button>
+      <button id="deleteRowBtn" type="button">－ 行削除</button>
       <button id="saveBtn" type="button">上書き保存</button>
-      <button id="loadBtn" type="button">保存データ読込</button>
       <button id="csvBtn" type="button">CSV出力</button>
       <button id="clearBtn" class="danger-outline" type="button">全消去</button>
-    </div>
-
-    <div class="status-row">
-      <div id="voiceStatus" class="voice-status" role="status">セルを選び、「音声入力」を押してください。</div>
-      <div id="saveStatus" class="save-status">自動保存：準備中</div>
     </div>
   </header>
 
   <main>
     <div id="notice" class="notice" role="alert" hidden></div>
-    <p class="usage-note">
-      最初の既知標高を「既知/仮標高」へ入力してください。<span class="manual-key">手入力</span>は保護され、
-      <span class="calculated-key">自動計算</span>だけが再計算されます。BS・FSの片方だけの行は黄色で表示し、計算から除外します。
-    </p>
+    <div class="sheet-heading">
+      <strong id="activeSheetName">往路シート</strong>
+      <span id="rowCount">200行</span>
+    </div>
 
-    <div class="table-wrap" tabindex="0" aria-label="水準野帳。横方向にスクロールできます">
+    <div class="table-wrap" tabindex="0" aria-label="水準野帳。右側の項目は横方向にスクロールできます">
       <table id="notebook">
         <thead>
           <tr>
             <th class="sticky-no">No.</th>
-            <th>区分</th>
             <th class="sticky-point">点名</th>
             <th>後視 BS</th>
             <th>前視 FS</th>
@@ -116,6 +90,12 @@
     </div>
   </main>
 
+  <div class="voice-dock">
+    <button id="voiceBtn" type="button">🎤 音声入力</button>
+    <span id="selectedCellLabel">入力セルを選択してください</span>
+    <div id="voiceStatus" class="sr-only" aria-live="polite"></div>
+  </div>
+
   <footer>
     <p>無料公開・無保証の現場支援ツールです。重要な成果は必ず正式な方法で確認してください。</p>
     <p>制作：<a href="https://ez-survey.sakura.ne.jp/" target="_blank" rel="noopener noreferrer">株式会社アイズ測量</a></p>
@@ -126,7 +106,7 @@
       <button class="dialog-close" aria-label="閉じる">×</button>
       <p class="eyebrow">水準ボイス野帳</p>
       <h2>無料公開を応援する</h2>
-      <p>このアプリは、測量に携わる皆さまへ無償で公開しています。役に立ったら、OFUSEで応援していただけるとうれしいです。</p>
+      <p>役に立ったら、OFUSEで応援していただけるとうれしいです。</p>
       <div class="dialog-actions">
         <a class="support-link" href="https://ofuse.me/f475dafe/letter" target="_blank" rel="noopener noreferrer">OFUSEで応援する</a>
         <a href="https://ez-survey.sakura.ne.jp/" target="_blank" rel="noopener noreferrer">公式ホームページ</a>
@@ -135,6 +115,6 @@
   </dialog>
 
   <noscript>このアプリの利用にはJavaScriptを有効にしてください。</noscript>
-  <script type="module" src="./js/app.js?v=2"></script>
+  <script type="module" src="./js/app.js?v=3"></script>
 </body>
 </html>
