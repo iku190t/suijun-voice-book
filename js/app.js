@@ -6,20 +6,20 @@ import {
   LEVELING_TOLERANCE_PRESETS,
   sumObservationDistanceMeters,
   toNumber
-} from "./calculation.js?v=16";
-import { createVoiceController, normalizeSpokenNumber, prepareSpeechSynthesis, speakBack } from "./voice.js?v=16";
-import { clearProject, loadProject, saveProject } from "./storage.js?v=16";
-import { exportSheetCsv } from "./export.js?v=16";
+} from "./calculation.js?v=17";
+import { createVoiceController, normalizeSpokenNumber, prepareSpeechSynthesis, speakBack } from "./voice.js?v=17";
+import { clearProject, loadProject, saveProject } from "./storage.js?v=17";
+import { exportSheetCsv } from "./export.js?v=17";
 import {
   isValidStaffReading,
   reversePointNamesWithinUsedRows
-} from "./rules.js?v=16";
+} from "./rules.js?v=17";
 import {
   getSmartPointSuggestions,
   normalizePointName,
   pointNameToSpeech,
   recordPointNameUsage
-} from "./point-names.js?v=16";
+} from "./point-names.js?v=17";
 
 const DEFAULT_ROW_COUNT = 200;
 const NUMERIC_FIELDS = new Set(["bs", "fs", "elevation", "distance"]);
@@ -30,7 +30,7 @@ const notebook = document.querySelector("#notebook");
 const tableWrap = document.querySelector(".table-wrap");
 const distanceToggleButton = document.querySelector("#distanceToggleBtn");
 const tolerancePresetSelect = document.querySelector("#tolerancePreset");
-const voiceButton = document.querySelector("#voiceBtn");
+const voiceButtons = Array.from(document.querySelectorAll("[data-voice-direction]"));
 const voiceStatus = document.querySelector("#voiceStatus");
 const pointSuggestions = document.querySelector("#pointSuggestions");
 const pointSuggestionButtons = document.querySelector("#pointSuggestionButtons");
@@ -38,6 +38,7 @@ let activeSheet = "out";
 let selectedInput = null;
 let voiceTarget = null;
 let voiceSessionActive = false;
+let voiceMoveDirection = null;
 let selectedRowIndex = null;
 let autosaveTimer = null;
 let calculations = { out: null, back: null };
@@ -509,6 +510,59 @@ function moveStraightDown(current, focusTarget = true) {
   }
 }
 
+function ensureFollowingRow(rowIndex) {
+  if (rowIndex < project.sheets[activeSheet].length - 1) return;
+  project.sheets.out.push(createRow("out"));
+  project.sheets.back.push(createRow("back"));
+  renderSheet();
+}
+
+function selectMovedInput(target, focusTarget = false) {
+  if (!target) return;
+  markSelectedInput(target);
+  if (focusTarget) {
+    target.focus({ preventScroll: false });
+  } else {
+    target.scrollIntoView({ block: "nearest", inline: "nearest" });
+  }
+}
+
+function getVoiceRowInputs(row) {
+  if (!row) return [];
+  return Array.from(row.querySelectorAll("input")).filter((input) => {
+    return project.settings.showDistance || input.dataset.field !== "distance";
+  });
+}
+
+function moveAfterVoiceInput(current, direction) {
+  const field = current.dataset.field;
+  const rowIndex = findRowIndex(current);
+  if (!field || rowIndex < 0) return;
+
+  if (field === "fs") {
+    ensureFollowingRow(rowIndex);
+    selectMovedInput(tbody.rows[rowIndex + 1]?.querySelector('[data-field="pointName"]'));
+    return;
+  }
+
+  if (direction === "up") {
+    selectMovedInput(tbody.rows[rowIndex - 1]?.querySelector(`[data-field="${field}"]`));
+    return;
+  }
+
+  if (direction === "down") {
+    ensureFollowingRow(rowIndex);
+    selectMovedInput(tbody.rows[rowIndex + 1]?.querySelector(`[data-field="${field}"]`));
+    return;
+  }
+
+  const rowInputs = getVoiceRowInputs(tbody.rows[rowIndex]);
+  const columnIndex = rowInputs.indexOf(current);
+  const offset = direction === "left" ? -1 : direction === "right" ? 1 : 0;
+  if (columnIndex < 0 || offset === 0) return;
+  selectMovedInput(rowInputs[columnIndex + offset]);
+}
+
 tbody.addEventListener("focusin", (event) => {
   if (!event.target.matches("input")) return;
   if (voiceSessionActive) {
@@ -757,13 +811,16 @@ pointAliasList.addEventListener("click", (event) => {
 const voiceController = createVoiceController({
   onStatus: (message) => {
     voiceStatus.textContent = message;
-    if (!message && voiceSessionActive && !voiceButton.classList.contains("listening")) {
+    if (!message && voiceSessionActive && !voiceButtons.some((button) => button.classList.contains("listening"))) {
       finishVoiceSession();
     }
   },
   onListeningChange: (listening) => {
-    voiceButton.classList.toggle("listening", listening);
-    voiceButton.textContent = listening ? "● 認識中…" : "🎤 音声入力";
+    voiceButtons.forEach((button) => {
+      const active = listening && button.dataset.voiceDirection === voiceMoveDirection;
+      button.classList.toggle("listening", active);
+      button.setAttribute("aria-pressed", String(active));
+    });
   },
   onResult: async (transcript) => {
     const target = voiceTarget;
@@ -784,7 +841,7 @@ const voiceController = createVoiceController({
         ? pointNameToSpeech(value, project.settings.pointAliases)
         : value;
       await speakBack(repeatText, project.settings.voiceRate);
-      moveStraightDown(target, false);
+      moveAfterVoiceInput(target, voiceMoveDirection);
     } finally {
       finishVoiceSession();
     }
@@ -800,20 +857,25 @@ const voiceController = createVoiceController({
 });
 
 if (!voiceController.supported) {
-  voiceButton.disabled = true;
-  voiceButton.title = "音声入力非対応";
+  voiceButtons.forEach((button) => {
+    button.disabled = true;
+    button.title = "音声入力非対応";
+  });
 }
 
-voiceButton.addEventListener("click", () => {
-  if (voiceSessionActive) return;
-  if (!selectedInput?.isConnected) {
-    showNotice("先に入力セルを選択してください。", "error");
-    return;
-  }
-  prepareSpeechSynthesis();
-  voiceTarget = selectedInput;
-  setVoiceSessionActive(true);
-  voiceController.start();
+voiceButtons.forEach((button) => {
+  button.addEventListener("click", () => {
+    if (voiceSessionActive) return;
+    if (!selectedInput?.isConnected) {
+      showNotice("先に入力セルを選択してください。", "error");
+      return;
+    }
+    prepareSpeechSynthesis();
+    voiceTarget = selectedInput;
+    voiceMoveDirection = button.dataset.voiceDirection;
+    setVoiceSessionActive(true);
+    voiceController.start();
+  });
 });
 
 if ("serviceWorker" in navigator) {
