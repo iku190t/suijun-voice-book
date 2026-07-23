@@ -56,7 +56,7 @@ export function speakBack(value, rate = 0.9) {
 
 export function createVoiceController({ onResult, onStatus, onListeningChange, shouldFinalize }) {
   const Recognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-  if (!Recognition) return { supported: false, start() {} };
+  if (!Recognition) return { supported: false, start() {}, cancel() {} };
 
   const recognition = new Recognition();
   recognition.lang = "ja-JP";
@@ -65,7 +65,13 @@ export function createVoiceController({ onResult, onStatus, onListeningChange, s
   let pendingTranscript = "";
   let recognitionFailed = false;
   let finishRequested = false;
+  let cancelRequested = false;
+  let resultTimer = null;
   recognition.onstart = () => {
+    if (cancelRequested) {
+      try { recognition.abort(); } catch {}
+      return;
+    }
     pendingTranscript = "";
     recognitionFailed = false;
     finishRequested = false;
@@ -74,11 +80,14 @@ export function createVoiceController({ onResult, onStatus, onListeningChange, s
   };
   recognition.onend = () => {
     onListeningChange(false);
-    if (!recognitionFailed && pendingTranscript) {
+    if (!cancelRequested && !recognitionFailed && pendingTranscript) {
       const transcript = pendingTranscript;
       pendingTranscript = "";
       onStatus("認識結果を復唱します");
-      setTimeout(() => onResult(transcript), 180);
+      resultTimer = setTimeout(() => {
+        resultTimer = null;
+        if (!cancelRequested) onResult(transcript);
+      }, 180);
     } else {
       onStatus("");
     }
@@ -106,12 +115,27 @@ export function createVoiceController({ onResult, onStatus, onListeningChange, s
   return {
     supported: true,
     start() {
+      cancelRequested = false;
       try {
         recognition.start();
       } catch {
         onListeningChange(false);
         onStatus("");
       }
+    },
+    cancel() {
+      cancelRequested = true;
+      recognitionFailed = true;
+      pendingTranscript = "";
+      finishRequested = true;
+      if (resultTimer) {
+        clearTimeout(resultTimer);
+        resultTimer = null;
+      }
+      try { recognition.abort(); } catch {}
+      window.speechSynthesis?.cancel?.();
+      onListeningChange(false);
+      onStatus("");
     }
   };
 }

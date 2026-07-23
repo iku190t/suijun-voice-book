@@ -6,20 +6,20 @@ import {
   LEVELING_TOLERANCE_PRESETS,
   sumObservationDistanceMeters,
   toNumber
-} from "./calculation.js?v=22";
-import { createVoiceController, normalizeSpokenNumber, prepareSpeechSynthesis, speakBack } from "./voice.js?v=22";
-import { clearProject, loadProject, saveProject } from "./storage.js?v=22";
-import { exportSheetCsv } from "./export.js?v=22";
+} from "./calculation.js?v=23";
+import { createVoiceController, normalizeSpokenNumber, prepareSpeechSynthesis, speakBack } from "./voice.js?v=23";
+import { clearProject, loadProject, saveProject } from "./storage.js?v=23";
+import { exportSheetCsv } from "./export.js?v=23";
 import {
   isValidStaffReading,
   reversePointNamesWithinUsedRows
-} from "./rules.js?v=22";
+} from "./rules.js?v=23";
 import {
   getSmartPointSuggestions,
   normalizePointName,
   pointNameToSpeech,
   recordPointNameUsage
-} from "./point-names.js?v=22";
+} from "./point-names.js?v=23";
 
 const DEFAULT_ROW_COUNT = 200;
 const NUMERIC_FIELDS = new Set(["bs", "fs", "elevation", "distance"]);
@@ -469,9 +469,8 @@ function finishVoiceSession() {
   voiceStatus.textContent = "";
 }
 
-function selectVoiceTargetWithoutKeyboard(input, event) {
+function selectVoiceTargetWithoutKeyboard(input) {
   if ((!voiceModeActive && !voiceSessionActive) || !input?.matches("input")) return;
-  event?.preventDefault();
   voiceTarget = input;
   markSelectedInput(input);
   input.blur();
@@ -602,7 +601,7 @@ function moveAfterVoiceInput(current) {
 tbody.addEventListener("focusin", (event) => {
   if (!event.target.matches("input")) return;
   if (voiceModeActive || voiceSessionActive) {
-    selectVoiceTargetWithoutKeyboard(event.target, event);
+    selectVoiceTargetWithoutKeyboard(event.target);
     return;
   }
   markSelectedInput(event.target);
@@ -613,7 +612,7 @@ tbody.addEventListener("pointerdown", (event) => {
   const input = event.target.closest("input");
   if (!input) return;
   if (voiceModeActive || voiceSessionActive) {
-    selectVoiceTargetWithoutKeyboard(input, event);
+    selectVoiceTargetWithoutKeyboard(input);
   } else {
     markSelectedInput(input);
   }
@@ -623,11 +622,18 @@ tbody.addEventListener("touchstart", (event) => {
   const input = event.target.closest("input");
   if (!input) return;
   if (voiceModeActive || voiceSessionActive) {
-    selectVoiceTargetWithoutKeyboard(input, event);
+    selectVoiceTargetWithoutKeyboard(input);
   } else {
     markSelectedInput(input);
   }
-}, { capture: true, passive: false });
+}, { capture: true, passive: true });
+
+tbody.addEventListener("click", (event) => {
+  const input = event.target.closest("input");
+  if (!input || (!voiceModeActive && !voiceSessionActive)) return;
+  event.preventDefault();
+  selectVoiceTargetWithoutKeyboard(input);
+});
 
 tbody.addEventListener("input", (event) => {
   if (!event.target.matches("input")) return;
@@ -866,7 +872,7 @@ const voiceController = createVoiceController({
   },
   onListeningChange: (listening) => {
     voiceButton.classList.toggle("listening", listening);
-    voiceButton.textContent = listening ? "● 聞き取り中…" : "🔊 処理中…";
+    voiceButton.textContent = listening ? "■ 聞き取り中（押すと中止）" : "🔊 処理中…";
   },
   onResult: async (transcript) => {
     const target = voiceTarget;
@@ -888,6 +894,7 @@ const voiceController = createVoiceController({
         ? pointNameToSpeech(value, project.settings.pointAliases)
         : value;
       await speakBack(repeatText, project.settings.voiceRate);
+      if (!voiceSessionActive) return;
       moveAfterVoiceInput(target);
     } finally {
       finishVoiceSession();
@@ -913,7 +920,10 @@ voiceButton.addEventListener("click", () => {
     setVoiceModeActive(true);
     return;
   }
-  if (voiceSessionActive) return;
+  if (voiceSessionActive) {
+    voiceController.cancel();
+    return;
+  }
   const activeInput = document.activeElement?.matches?.("#notebookBody input")
     ? document.activeElement
     : null;
