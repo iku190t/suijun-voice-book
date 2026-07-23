@@ -6,7 +6,7 @@ import {
   LEVELING_TOLERANCE_PRESETS,
   sumObservationDistanceMeters,
   toNumber
-} from "./calculation.js?v=35";
+} from "./calculation.js?v=36";
 import {
   chooseLevelReading,
   createVoiceController,
@@ -14,13 +14,13 @@ import {
   normalizeSpokenNumber,
   prepareSpeechSynthesis,
   speakBack
-} from "./voice.js?v=35";
-import { clearProject, loadProject, saveProject } from "./storage.js?v=35";
-import { exportSheetCsv } from "./export.js?v=35";
+} from "./voice.js?v=36";
+import { clearProject, loadProject, saveProject } from "./storage.js?v=36";
+import { exportSheetCsv } from "./export.js?v=36";
 import {
   isValidStaffReading,
   reversePointNamesWithinUsedRows
-} from "./rules.js?v=35";
+} from "./rules.js?v=36";
 import {
   getSheetPointNameCandidates,
   getSmartPointSuggestions,
@@ -28,7 +28,7 @@ import {
   normalizePointName,
   pointNameToSpeech,
   recordPointNameUsage
-} from "./point-names.js?v=35";
+} from "./point-names.js?v=36";
 
 const DEFAULT_ROW_COUNT = 200;
 const NUMERIC_FIELDS = new Set(["bs", "fs", "elevation", "distance"]);

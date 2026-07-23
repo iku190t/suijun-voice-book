@@ -170,13 +170,15 @@ export function applyRoundTripDifferences(outRows, backRows) {
   if (lastUsedIndex < 0) return;
 
   const usedRowCount = lastUsedIndex + 1;
-  for (let outIndex = 0; outIndex < usedRowCount; outIndex += 1) {
-    const backIndex = usedRowCount - 1 - outIndex;
-    const outElevation = outRows[outIndex]?.elevation;
-    const backElevation = backRows[backIndex]?.elevation;
-    if (!Number.isFinite(outElevation) || !Number.isFinite(backElevation)) continue;
+  // 高低差は到達した行に記録される。復路は逆向きなので、
+  // 往路の行Nに対応するのは「使用行数-N」の復路行になる。
+  for (let outIndex = 1; outIndex < usedRowCount; outIndex += 1) {
+    const backIndex = usedRowCount - outIndex;
+    const outDifference = outRows[outIndex]?._difference;
+    const backDifference = backRows[backIndex]?._difference;
+    if (!Number.isFinite(outDifference) || !Number.isFinite(backDifference)) continue;
 
-    const differenceMm = Math.abs(outElevation - backElevation) * 1000;
+    const differenceMm = Math.abs(outDifference + backDifference) * 1000;
     outRows[outIndex]._roundTripDifferenceMm = differenceMm;
     backRows[backIndex]._roundTripDifferenceMm = differenceMm;
   }
