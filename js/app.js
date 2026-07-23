@@ -6,7 +6,7 @@ import {
   LEVELING_TOLERANCE_PRESETS,
   sumObservationDistanceMeters,
   toNumber
-} from "./calculation.js?v=33";
+} from "./calculation.js?v=34";
 import {
   chooseLevelReading,
   createVoiceController,
@@ -14,13 +14,13 @@ import {
   normalizeSpokenNumber,
   prepareSpeechSynthesis,
   speakBack
-} from "./voice.js?v=33";
-import { clearProject, loadProject, saveProject } from "./storage.js?v=33";
-import { exportSheetCsv } from "./export.js?v=33";
+} from "./voice.js?v=34";
+import { clearProject, loadProject, saveProject } from "./storage.js?v=34";
+import { exportSheetCsv } from "./export.js?v=34";
 import {
   isValidStaffReading,
   reversePointNamesWithinUsedRows
-} from "./rules.js?v=33";
+} from "./rules.js?v=34";
 import {
   getSheetPointNameCandidates,
   getSmartPointSuggestions,
@@ -28,7 +28,7 @@ import {
   normalizePointName,
   pointNameToSpeech,
   recordPointNameUsage
-} from "./point-names.js?v=33";
+} from "./point-names.js?v=34";
 
 const DEFAULT_ROW_COUNT = 200;
 const NUMERIC_FIELDS = new Set(["bs", "fs", "elevation", "distance"]);
@@ -301,10 +301,10 @@ function renderSheet() {
   project.sheets[activeSheet].forEach((row, index) => fragment.appendChild(rowTemplate(row, index)));
   tbody.replaceChildren(fragment);
   syncVoiceInputLocks();
-  document.querySelector("#activeSheetName").textContent = activeSheet === "out" ? "往路シート" : "復路シート";
+  document.querySelector("#activeSheetName").textContent = activeSheet === "out" ? "往路" : "復路";
   const destinationName = activeSheet === "out" ? "復路" : "往路";
-  sheetToggleButton.textContent = `${destinationName}へ`;
-  sheetToggleButton.setAttribute("aria-label", `${destinationName}シートへ切り替え`);
+  sheetToggleButton.textContent = destinationName;
+  sheetToggleButton.setAttribute("aria-label", `${destinationName}に切り替え`);
   applyDistanceVisibility();
   applyTableScale(project.settings.tableScale);
   recalculateAndRender();
@@ -1029,7 +1029,7 @@ document.querySelector("#clearBtn").addEventListener("click", () => clearDialog.
 clearDialog.querySelectorAll("[data-clear-target]").forEach((button) => {
   button.addEventListener("click", () => {
     const target = button.dataset.clearTarget;
-    const targetLabel = target === "out" ? "往路シート" : target === "back" ? "復路シート" : "全シート";
+    const targetLabel = target === "out" ? "往路" : target === "back" ? "復路" : "全シート";
     if (!confirm(`${targetLabel}のデータを消去しますか？`)) return;
 
     recordUndoSnapshot(activeSheet, `clear-${target}`, true);

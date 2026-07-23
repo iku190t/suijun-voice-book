@@ -15,7 +15,7 @@
   <link rel="manifest" href="./manifest.json">
   <link rel="icon" href="./icons/icon-192.png">
   <link rel="apple-touch-icon" href="./icons/icon-192.png">
-  <link rel="stylesheet" href="./css/style.css?v=33">
+  <link rel="stylesheet" href="./css/style.css?v=34">
 </head>
 <body>
   <header class="app-header">
@@ -68,8 +68,8 @@
   <main>
     <div id="notice" class="notice" role="alert" hidden></div>
     <div class="sheet-heading">
-      <strong id="activeSheetName">往路シート</strong>
-      <button id="sheetToggleBtn" class="sheet-toggle-button" type="button" aria-label="復路シートへ切り替え">復路へ</button>
+      <strong id="activeSheetName">往路</strong>
+      <button id="sheetToggleBtn" class="sheet-toggle-button" type="button" aria-label="復路に切り替え">復路</button>
       <div class="history-buttons" aria-label="入力履歴">
         <button id="undoBtn" type="button" aria-label="元に戻す" title="元に戻す">
           <svg viewBox="0 0 48 32" aria-hidden="true">
@@ -155,8 +155,8 @@
       <button class="dialog-close" value="cancel" aria-label="閉じる">×</button>
       <h2 id="clearDialogTitle">消去するシートを選択</h2>
       <div class="dialog-actions clear-actions">
-        <button type="button" data-clear-target="out">往路シートを消す</button>
-        <button type="button" data-clear-target="back">復路シートを消す</button>
+        <button type="button" data-clear-target="out">往路を消す</button>
+        <button type="button" data-clear-target="back">復路を消す</button>
         <button class="danger-button" type="button" data-clear-target="all">全シートを消す</button>
         <button type="submit" value="cancel">キャンセル</button>
       </div>
@@ -177,6 +177,6 @@
   </dialog>
 
   <noscript>このアプリの利用にはJavaScriptを有効にしてください。</noscript>
-  <script type="module" src="./js/app.js?v=33"></script>
+  <script type="module" src="./js/app.js?v=34"></script>
 </body>
 </html>
