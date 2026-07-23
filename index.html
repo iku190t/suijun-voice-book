@@ -8,14 +8,14 @@
 <html lang="ja">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=0.5, maximum-scale=5, user-scalable=yes, viewport-fit=cover">
   <meta name="theme-color" content="#1677b8">
   <meta name="description" content="水準測量の観測値を音声やキーボードで入力できる、無料の現場向けWeb野帳です。">
   <title>水準ボイス野帳</title>
   <link rel="manifest" href="./manifest.json">
   <link rel="icon" href="./icons/icon-192.png">
   <link rel="apple-touch-icon" href="./icons/icon-192.png">
-  <link rel="stylesheet" href="./css/style.css?v=4">
+  <link rel="stylesheet" href="./css/style.css?v=5">
 </head>
 <body>
   <header class="app-header">
@@ -56,8 +56,6 @@
     </section>
 
     <div class="toolbar" aria-label="操作">
-      <button id="addRowsBtn" type="button">＋ 行追加</button>
-      <button id="deleteRowBtn" type="button">－ 行削除</button>
       <button id="distanceToggleBtn" type="button">＋ 距離</button>
       <button id="saveBtn" type="button">上書き保存</button>
       <button id="csvBtn" type="button">CSV出力</button>
@@ -96,6 +94,18 @@
     <div id="voiceStatus" class="sr-only" aria-live="polite"></div>
   </div>
 
+  <dialog id="rowDialog" aria-labelledby="rowDialogTitle">
+    <form method="dialog">
+      <button class="dialog-close" value="cancel" aria-label="閉じる">×</button>
+      <h2 id="rowDialogTitle">行を選択</h2>
+      <div class="dialog-actions">
+        <button id="insertRowBtn" type="button">この行の下に追加</button>
+        <button id="deleteSelectedRowBtn" class="danger-button" type="button">この行を削除</button>
+        <button type="submit" value="cancel">キャンセル</button>
+      </div>
+    </form>
+  </dialog>
+
   <dialog id="clearDialog" aria-labelledby="clearDialogTitle">
     <form method="dialog">
       <button class="dialog-close" value="cancel" aria-label="閉じる">×</button>
@@ -123,6 +133,6 @@
   </dialog>
 
   <noscript>このアプリの利用にはJavaScriptを有効にしてください。</noscript>
-  <script type="module" src="./js/app.js?v=4"></script>
+  <script type="module" src="./js/app.js?v=5"></script>
 </body>
 </html>

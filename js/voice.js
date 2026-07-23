@@ -15,12 +15,27 @@ export function normalizeSpokenNumber(text) {
   return normalized.replace(/[^0-9.+-]/g, "");
 }
 
+let speechPrepared = false;
+
+export function prepareSpeechSynthesis() {
+  if (speechPrepared || !("speechSynthesis" in window) || !("SpeechSynthesisUtterance" in window)) return;
+  speechPrepared = true;
+  window.speechSynthesis.getVoices();
+  const primer = new SpeechSynthesisUtterance("\u00a0");
+  primer.lang = "ja-JP";
+  primer.volume = 0;
+  primer.rate = 10;
+  window.speechSynthesis.speak(primer);
+  window.speechSynthesis.cancel();
+}
+
 export function speakBack(value) {
   if (!("speechSynthesis" in window) || value === "" || value === null || value === undefined) {
     return Promise.resolve();
   }
-  const spoken = String(value).replace(/^-/, "マイナス").replace(".", "点");
+  const spoken = String(value).replace(/^-/, "マイナス").replace(/\./g, "点");
   window.speechSynthesis.cancel();
+  window.speechSynthesis.resume();
   const utterance = new SpeechSynthesisUtterance(spoken);
   utterance.lang = "ja-JP";
   utterance.rate = 0.9;
@@ -47,16 +62,32 @@ export function createVoiceController({ onResult, onStatus, onListeningChange })
   recognition.lang = "ja-JP";
   recognition.interimResults = false;
   recognition.continuous = false;
+  let pendingTranscript = "";
+  let recognitionFailed = false;
   recognition.onstart = () => {
+    pendingTranscript = "";
+    recognitionFailed = false;
     onListeningChange(true);
     onStatus("音声を聞き取り中");
   };
-  recognition.onend = () => onListeningChange(false);
+  recognition.onend = () => {
+    onListeningChange(false);
+    if (!recognitionFailed && pendingTranscript) {
+      const transcript = pendingTranscript;
+      pendingTranscript = "";
+      onStatus("認識結果を復唱します");
+      setTimeout(() => onResult(transcript), 180);
+    }
+  };
   recognition.onerror = () => {
+    recognitionFailed = true;
+    pendingTranscript = "";
     onListeningChange(false);
     onStatus("");
   };
-  recognition.onresult = (event) => onResult(event.results[0][0].transcript);
+  recognition.onresult = (event) => {
+    pendingTranscript = event.results[0][0].transcript;
+  };
 
   return {
     supported: true,

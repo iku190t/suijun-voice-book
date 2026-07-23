@@ -23,7 +23,7 @@ export function rowHasData(row) {
 
 export function calculateNotebook(sourceRows, toleranceMm = 10) {
   const rows = sourceRows.map((row) => ({ ...row }));
-  const currentElevation = { out: null, back: null };
+  const currentElevation = { out: 0, back: 0 };
   const routeTotals = { out: 0, back: 0 };
   const routeCounts = { out: 0, back: 0 };
   let lastElevation = null;

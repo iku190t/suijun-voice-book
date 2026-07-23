@@ -1,10 +1,11 @@
-import { calculateNotebook, formatMeters, toNumber } from "./calculation.js";
-import { createVoiceController, normalizeSpokenNumber, speakBack } from "./voice.js";
-import { clearProject, loadProject, saveProject } from "./storage.js";
-import { exportSheetCsv } from "./export.js";
+import { calculateNotebook, formatMeters, toNumber } from "./calculation.js?v=5";
+import { createVoiceController, normalizeSpokenNumber, prepareSpeechSynthesis, speakBack } from "./voice.js?v=5";
+import { clearProject, loadProject, saveProject } from "./storage.js?v=5";
+import { exportSheetCsv } from "./export.js?v=5";
 
 const DEFAULT_ROW_COUNT = 200;
 const NUMERIC_FIELDS = new Set(["bs", "fs", "elevation", "distance"]);
+const UNSIGNED_DECIMAL_FIELDS = new Set(["bs", "fs", "distance"]);
 const tbody = document.querySelector("#notebookBody");
 const notice = document.querySelector("#notice");
 const notebook = document.querySelector("#notebook");
@@ -14,6 +15,7 @@ const voiceStatus = document.querySelector("#voiceStatus");
 let activeSheet = "out";
 let selectedInput = null;
 let voiceTarget = null;
+let selectedRowIndex = null;
 let autosaveTimer = null;
 let calculations = { out: null, back: null };
 
@@ -103,11 +105,11 @@ function rowTemplate(row, index) {
   const tr = document.createElement("tr");
   tr.dataset.rowId = row.id;
   tr.innerHTML = `
-    <td class="row-number">${index + 1}</td>
+    <td class="row-number"><button class="row-selector" type="button" aria-label="${index + 1}行目の操作">${index + 1}</button></td>
     <td><input data-field="pointName" inputmode="text" autocomplete="off" aria-label="${index + 1}行目 点名"></td>
-    <td class="distance-column"><input data-field="distance" inputmode="decimal" autocomplete="off" aria-label="${index + 1}行目 距離"></td>
-    <td><input data-field="bs" inputmode="decimal" autocomplete="off" aria-label="${index + 1}行目 後視 BS"></td>
-    <td><input data-field="fs" inputmode="decimal" autocomplete="off" aria-label="${index + 1}行目 前視 FS"></td>
+    <td class="distance-column"><input data-field="distance" inputmode="decimal" pattern="[0-9]*[.]?[0-9]*" autocomplete="off" spellcheck="false" aria-label="${index + 1}行目 距離"></td>
+    <td><input data-field="bs" inputmode="decimal" pattern="[0-9]*[.]?[0-9]*" autocomplete="off" spellcheck="false" aria-label="${index + 1}行目 後視 BS"></td>
+    <td><input data-field="fs" inputmode="decimal" pattern="[0-9]*[.]?[0-9]*" autocomplete="off" spellcheck="false" aria-label="${index + 1}行目 前視 FS"></td>
     <td class="calc diff"></td>
     <td class="elevation-cell calculated"><input data-field="elevation" inputmode="decimal" autocomplete="off" aria-label="${index + 1}行目 既知標高または仮標高"></td>
     <td><input data-field="note" inputmode="text" autocomplete="off" aria-label="${index + 1}行目 備考"></td>`;
@@ -123,6 +125,7 @@ function rowTemplate(row, index) {
 function renderSheet() {
   selectedInput = null;
   voiceTarget = null;
+  selectedRowIndex = null;
   const fragment = document.createDocumentFragment();
   project.sheets[activeSheet].forEach((row, index) => fragment.appendChild(rowTemplate(row, index)));
   tbody.replaceChildren(fragment);
@@ -207,6 +210,14 @@ function parseInputValue(input) {
   return toNumber(input.value);
 }
 
+function sanitizeUnsignedDecimal(value) {
+  const normalized = String(value ?? "").normalize("NFKC").replace(/[，,、。]/g, ".");
+  const digitsAndDots = normalized.replace(/[^0-9.]/g, "");
+  const dotIndex = digitsAndDots.indexOf(".");
+  if (dotIndex < 0) return digitsAndDots;
+  return `${digitsAndDots.slice(0, dotIndex + 1)}${digitsAndDots.slice(dotIndex + 1).replace(/\./g, "")}`;
+}
+
 function handleFieldChange(input) {
   const index = findRowIndex(input);
   if (index < 0) return false;
@@ -227,22 +238,53 @@ function handleFieldChange(input) {
   return true;
 }
 
-function moveStraightDown(current) {
+function markSelectedInput(input) {
+  tbody.querySelectorAll(".voice-selected").forEach((element) => element.classList.remove("voice-selected"));
+  selectedInput = input;
+  input?.classList.add("voice-selected");
+}
+
+function moveStraightDown(current, focusTarget = true) {
   const field = current.dataset.field;
   const rowIndex = findRowIndex(current);
   if (!field || rowIndex < 0) return;
-  if (rowIndex === project.sheets[activeSheet].length - 1) addRows(1);
+  if (rowIndex === project.sheets[activeSheet].length - 1) {
+    project.sheets[activeSheet].push(createRow(activeSheet));
+    renderSheet();
+  }
   const target = tbody.rows[rowIndex + 1]?.querySelector(`[data-field="${field}"]`);
-  target?.focus({ preventScroll: false });
+  if (!target) return;
+  markSelectedInput(target);
+  if (focusTarget) {
+    target.focus({ preventScroll: false });
+  } else {
+    target.scrollIntoView({ block: "nearest", inline: "nearest" });
+  }
 }
 
 tbody.addEventListener("focusin", (event) => {
   if (!event.target.matches("input")) return;
-  selectedInput = event.target;
+  markSelectedInput(event.target);
 });
 
 tbody.addEventListener("input", (event) => {
-  if (event.target.matches("input")) handleFieldChange(event.target);
+  if (!event.target.matches("input")) return;
+  if (UNSIGNED_DECIMAL_FIELDS.has(event.target.dataset.field)) {
+    const sanitized = sanitizeUnsignedDecimal(event.target.value);
+    if (event.target.value !== sanitized) event.target.value = sanitized;
+  }
+  handleFieldChange(event.target);
+});
+
+tbody.addEventListener("click", (event) => {
+  const selector = event.target.closest(".row-selector");
+  if (!selector) return;
+  selectedRowIndex = findRowIndex(selector);
+  if (selectedRowIndex < 0) return;
+  tbody.querySelectorAll("tr.row-selected").forEach((row) => row.classList.remove("row-selected"));
+  selector.closest("tr").classList.add("row-selected");
+  document.querySelector("#rowDialogTitle").textContent = `${selectedRowIndex + 1}行目の操作`;
+  document.querySelector("#rowDialog").showModal();
 });
 
 tbody.addEventListener("keydown", (event) => {
@@ -250,21 +292,6 @@ tbody.addEventListener("keydown", (event) => {
   event.preventDefault();
   if (handleFieldChange(event.target)) moveStraightDown(event.target);
 });
-
-function addRows(count = 1) {
-  const rows = project.sheets[activeSheet];
-  const start = rows.length;
-  const fragment = document.createDocumentFragment();
-  for (let offset = 0; offset < count; offset += 1) {
-    const row = createRow(activeSheet);
-    rows.push(row);
-    fragment.appendChild(rowTemplate(row, start + offset));
-  }
-  tbody.appendChild(fragment);
-  document.querySelector("#rowCount").textContent = `${rows.length}行`;
-  recalculateAndRender();
-  scheduleAutosave();
-}
 
 function showNotice(message, type = "") {
   notice.textContent = message;
@@ -294,14 +321,26 @@ document.querySelector("#closureTolerance").addEventListener("input", (event) =>
   scheduleAutosave();
 });
 
-document.querySelector("#addRowsBtn").addEventListener("click", () => addRows(1));
-document.querySelector("#deleteRowBtn").addEventListener("click", () => {
+const rowDialog = document.querySelector("#rowDialog");
+document.querySelector("#insertRowBtn").addEventListener("click", () => {
+  if (selectedRowIndex === null) return;
   const rows = project.sheets[activeSheet];
-  if (rows.length <= 1) return;
-  rows.pop();
-  tbody.lastElementChild?.remove();
-  document.querySelector("#rowCount").textContent = `${rows.length}行`;
-  recalculateAndRender();
+  rows.splice(selectedRowIndex + 1, 0, createRow(activeSheet));
+  rowDialog.close();
+  renderSheet();
+  scheduleAutosave();
+});
+document.querySelector("#deleteSelectedRowBtn").addEventListener("click", () => {
+  if (selectedRowIndex === null) return;
+  const rows = project.sheets[activeSheet];
+  if (rows.length <= 1) {
+    showNotice("最後の1行は削除できません。", "error");
+    return;
+  }
+  if (!confirm(`${selectedRowIndex + 1}行目を削除しますか？`)) return;
+  rows.splice(selectedRowIndex, 1);
+  rowDialog.close();
+  renderSheet();
   scheduleAutosave();
 });
 distanceToggleButton.addEventListener("click", () => {
@@ -348,17 +387,21 @@ const voiceController = createVoiceController({
   onListeningChange: (listening) => {
     voiceButton.classList.toggle("listening", listening);
     voiceButton.textContent = listening ? "● 認識中…" : "🎤 音声入力";
+    if (!listening && voiceTarget) voiceTarget.readOnly = false;
   },
   onResult: async (transcript) => {
     const target = voiceTarget;
     if (!target?.isConnected) return;
     const field = target.dataset.field;
-    const value = NUMERIC_FIELDS.has(field) ? normalizeSpokenNumber(transcript) : transcript.trim();
+    let value = NUMERIC_FIELDS.has(field) ? normalizeSpokenNumber(transcript) : transcript.trim();
+    if (UNSIGNED_DECIMAL_FIELDS.has(field)) value = sanitizeUnsignedDecimal(value);
     target.value = value;
     if (!handleFieldChange(target)) return;
+    voiceStatus.textContent = `${value} と復唱します`;
     await speakBack(value);
-    moveStraightDown(target);
+    moveStraightDown(target, false);
     voiceTarget = null;
+    voiceStatus.textContent = "";
   }
 });
 
@@ -372,8 +415,10 @@ voiceButton.addEventListener("click", () => {
     showNotice("先に入力セルを選択してください。", "error");
     return;
   }
+  prepareSpeechSynthesis();
   voiceTarget = selectedInput;
-  selectedInput.blur();
+  voiceTarget.readOnly = true;
+  document.activeElement?.blur();
   voiceController.start();
 });
 
