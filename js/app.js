@@ -6,7 +6,7 @@ import {
   LEVELING_TOLERANCE_PRESETS,
   sumObservationDistanceMeters,
   toNumber
-} from "./calculation.js?v=37";
+} from "./calculation.js?v=38";
 import {
   chooseLevelReading,
   createVoiceController,
@@ -14,23 +14,23 @@ import {
   normalizeSpokenNumber,
   prepareSpeechSynthesis,
   speakBack
-} from "./voice.js?v=37";
-import { clearProject, loadProject, saveProject } from "./storage.js?v=37";
-import { exportSheetCsv } from "./export.js?v=37";
+} from "./voice.js?v=38";
+import { clearProject, loadProject, saveProject } from "./storage.js?v=38";
+import { exportSheetCsv } from "./export.js?v=38";
 import {
   isValidStaffReading,
   reversePointNamesWithinUsedRows
-} from "./rules.js?v=37";
+} from "./rules.js?v=38";
 import {
   getSheetPointNameCandidates,
-  getSmartPointSuggestions,
-  isAllowedPointNameCandidate,
   normalizePointName,
   pointNameToSpeech,
   recordPointNameUsage
-} from "./point-names.js?v=37";
+} from "./point-names.js?v=38";
 
 const DEFAULT_ROW_COUNT = 200;
+const POINT_SUGGESTION_LIMIT = 6;
+const POINT_SUGGESTION_SEEDS = ["NO.0", "TP0", "KBM0", "T-0", "BC.0", "SP.0"];
 const NUMERIC_FIELDS = new Set(["bs", "fs", "elevation", "distance"]);
 const UNSIGNED_DECIMAL_FIELDS = new Set(["bs", "fs", "distance"]);
 const tbody = document.querySelector("#notebookBody");
@@ -71,6 +71,10 @@ let pointerTapMoved = false;
 let suppressNextCellClick = false;
 let cellDeleteTarget = null;
 let voiceSessionToken = 0;
+let suggestionLongPressTimer = null;
+let suggestionLongPressStartX = 0;
+let suggestionLongPressStartY = 0;
+let suggestionLongPressTriggered = false;
 const HISTORY_LIMIT = 50;
 const undoHistory = { out: [], back: [] };
 const redoHistory = { out: [], back: [] };
@@ -578,7 +582,7 @@ function finishVoiceSession() {
   setVoiceSessionActive(false);
   voiceTarget = null;
   voiceStatus.textContent = "";
-  if (selectedInput?.isConnected && selectedInput.dataset.field === "pointName" && !selectedInput.value.trim()) {
+  if (selectedInput?.isConnected && selectedInput.dataset.field === "pointName") {
     showPointNameSuggestions(selectedInput);
   }
 }
@@ -588,7 +592,7 @@ function selectVoiceTargetWithoutKeyboard(input) {
   voiceTarget = input;
   markSelectedInput(input);
   input.blur();
-  if (!voiceSessionActive && input.dataset.field === "pointName" && !input.value.trim()) {
+  if (!voiceSessionActive && input.dataset.field === "pointName") {
     showPointNameSuggestions(input);
   } else {
     hidePointSuggestions();
@@ -596,6 +600,8 @@ function selectVoiceTargetWithoutKeyboard(input) {
 }
 
 function hidePointSuggestions() {
+  cancelSuggestionLongPress();
+  suggestionLongPressTriggered = false;
   pointSuggestions.hidden = true;
   pointSuggestionButtons.replaceChildren();
   document.body.classList.remove("point-suggestions-visible");
@@ -607,18 +613,14 @@ function showPointNameSuggestions(input) {
     return;
   }
   const rowIndex = findRowIndex(input);
-  const candidates = input.value.trim()
-    ? getSmartPointSuggestions(
-      input.value,
-      project.settings.pointAliases,
-      project.settings.pointNameHistory,
-      3
-    ).filter((pointName) => isAllowedPointNameCandidate(pointName, project.settings.pointAliases))
-    : getSheetPointNameCandidates(
-      project.sheets[activeSheet].slice(0, Math.max(0, rowIndex)).map((row) => row.pointName),
-      project.settings.pointAliases,
-      3
-    );
+  const namesThroughCurrentRow = project.sheets[activeSheet]
+    .slice(0, Math.max(0, rowIndex + 1))
+    .map((row) => row.pointName);
+  const candidates = getSheetPointNameCandidates(
+    [...POINT_SUGGESTION_SEEDS, ...namesThroughCurrentRow],
+    project.settings.pointAliases,
+    POINT_SUGGESTION_LIMIT
+  );
   if (!candidates.length) {
     hidePointSuggestions();
     return;
@@ -633,6 +635,69 @@ function showPointNameSuggestions(input) {
   pointSuggestionButtons.replaceChildren(...buttons);
   pointSuggestions.hidden = false;
   document.body.classList.add("point-suggestions-visible");
+}
+
+function cancelSuggestionLongPress() {
+  if (suggestionLongPressTimer !== null) clearTimeout(suggestionLongPressTimer);
+  suggestionLongPressTimer = null;
+}
+
+async function applyPointSuggestion(pointName) {
+  if (voiceSessionActive || !selectedInput?.isConnected || selectedInput.dataset.field !== "pointName") return;
+  const target = selectedInput;
+  const normalized = normalizePointName(pointName, project.settings.pointAliases);
+  if (!normalized) return;
+  target.value = normalized;
+  if (!handleFieldChange(target, { forceHistory: true })) return;
+  recordPointName(target.value);
+  hidePointSuggestions();
+  voiceButton.textContent = "🔊 復唱中…";
+  voiceStatus.textContent = `${target.value} と復唱します`;
+  await speakBack(
+    pointNameToSpeech(target.value, project.settings.pointAliases),
+    project.settings.voiceRate
+  );
+  moveAfterVoiceInput(target);
+  updateVoiceModeUi();
+}
+
+function beginPointSuggestionEdit(button) {
+  if (!button?.isConnected || voiceSessionActive) return;
+  suggestionLongPressTriggered = true;
+  navigator.vibrate?.(25);
+
+  const editor = document.createElement("div");
+  editor.className = "point-suggestion-editor";
+  const input = document.createElement("input");
+  input.type = "text";
+  input.value = button.dataset.pointSuggestion || "";
+  input.setAttribute("aria-label", "点名候補を編集");
+  const confirmButton = document.createElement("button");
+  confirmButton.type = "button";
+  confirmButton.textContent = "確定";
+  const cancelButton = document.createElement("button");
+  cancelButton.type = "button";
+  cancelButton.className = "suggestion-edit-cancel";
+  cancelButton.textContent = "取消";
+
+  const confirm = async () => {
+    await applyPointSuggestion(input.value);
+  };
+  confirmButton.addEventListener("click", confirm);
+  cancelButton.addEventListener("click", () => showPointNameSuggestions(selectedInput));
+  input.addEventListener("keydown", (event) => {
+    if (event.key === "Enter") {
+      event.preventDefault();
+      confirm();
+    } else if (event.key === "Escape") {
+      showPointNameSuggestions(selectedInput);
+    }
+  });
+
+  editor.append(input, confirmButton, cancelButton);
+  button.replaceWith(editor);
+  input.focus({ preventScroll: true });
+  input.select();
 }
 
 function recordPointName(pointName) {
@@ -677,7 +742,7 @@ function selectMovedInput(target, focusTarget = false) {
   } else {
     target.scrollIntoView({ block: "nearest", inline: "nearest" });
   }
-  if (!voiceSessionActive && target.dataset.field === "pointName" && !target.value.trim()) {
+  if (!voiceSessionActive && target.dataset.field === "pointName") {
     showPointNameSuggestions(target);
   } else {
     hidePointSuggestions();
@@ -912,28 +977,49 @@ tbody.addEventListener("focusout", (event) => {
   if (event.target.matches("input")) formatNumericInput(event.target);
   if (!event.target.matches('input[data-field="pointName"]')) return;
   setTimeout(() => {
-    if (voiceModeActive && selectedInput === event.target && !event.target.value.trim()) return;
+    if (voiceModeActive && selectedInput === event.target) return;
     if (!pointSuggestions.contains(document.activeElement)) hidePointSuggestions();
   }, 120);
 });
 
+pointSuggestionButtons.addEventListener("pointerdown", (event) => {
+  const button = event.target.closest("[data-point-suggestion]");
+  if (!button || voiceSessionActive) return;
+  cancelSuggestionLongPress();
+  suggestionLongPressTriggered = false;
+  suggestionLongPressStartX = event.clientX;
+  suggestionLongPressStartY = event.clientY;
+  suggestionLongPressTimer = setTimeout(() => {
+    suggestionLongPressTimer = null;
+    beginPointSuggestionEdit(button);
+  }, 560);
+});
+
+pointSuggestionButtons.addEventListener("pointermove", (event) => {
+  if (suggestionLongPressTimer === null) return;
+  if (
+    Math.abs(event.clientX - suggestionLongPressStartX) > 10 ||
+    Math.abs(event.clientY - suggestionLongPressStartY) > 10
+  ) {
+    cancelSuggestionLongPress();
+  }
+});
+
+pointSuggestionButtons.addEventListener("pointerup", cancelSuggestionLongPress);
+pointSuggestionButtons.addEventListener("pointercancel", cancelSuggestionLongPress);
+pointSuggestionButtons.addEventListener("pointerleave", cancelSuggestionLongPress);
+pointSuggestionButtons.addEventListener("contextmenu", (event) => {
+  if (event.target.closest("[data-point-suggestion]")) event.preventDefault();
+});
+
 pointSuggestionButtons.addEventListener("click", async (event) => {
   const button = event.target.closest("[data-point-suggestion]");
-  if (!button || voiceSessionActive || !selectedInput?.isConnected || selectedInput.dataset.field !== "pointName") return;
-  const target = selectedInput;
-  target.value = button.dataset.pointSuggestion;
-  if (handleFieldChange(target, { forceHistory: true })) {
-    recordPointName(target.value);
-    hidePointSuggestions();
-    voiceButton.textContent = "🔊 復唱中…";
-    voiceStatus.textContent = `${target.value} と復唱します`;
-    await speakBack(
-      pointNameToSpeech(target.value, project.settings.pointAliases),
-      project.settings.voiceRate
-    );
-    moveAfterVoiceInput(target);
-    updateVoiceModeUi();
+  if (!button) return;
+  if (suggestionLongPressTriggered) {
+    suggestionLongPressTriggered = false;
+    return;
   }
+  await applyPointSuggestion(button.dataset.pointSuggestion);
 });
 
 tbody.addEventListener("click", (event) => {

@@ -58,8 +58,7 @@ function calculateNotebookUpward(sourceRows, toleranceMm, options) {
   const initialElevation = toNumber(options.initialElevation) ?? 0;
   let lastUsedIndex = -1;
   let instrumentHeight = null;
-  let heldFs = null;
-  let heldFsRowIndex = null;
+  let pendingFsRowIndexes = [];
   let routeEndElevation = null;
   let reconstructedStartElevation = null;
   let validSightCount = 0;
@@ -90,38 +89,42 @@ function calculateNotebookUpward(sourceRows, toleranceMm, options) {
     let resolvedElevation = manualElevation;
     let usesImplicitBaseline = false;
 
-    // 復路の最下段は、既知標高が空欄なら往路起点高（通常0m）を内部基準にする。
-    if (hasFs && instrumentHeight === null && resolvedElevation === null) {
-      resolvedElevation = initialElevation;
-      usesImplicitBaseline = true;
-    }
-
-    // 下段で保持したFSから器械高を復元し、上段のBSで標高を逆算する。
+    // 一つ下の器械位置に属するFS群を、上段のBSでまとめて確定する。
     if (hasBs) {
-      if (instrumentHeight !== null && heldFs !== null && heldFsRowIndex !== null) {
+      if (instrumentHeight !== null && pendingFsRowIndexes.length > 0) {
         if (resolvedElevation === null) {
           resolvedElevation = instrumentHeight - bs;
         }
-        const difference = bs - heldFs;
-        rows[heldFsRowIndex]._difference = difference;
-        rows[heldFsRowIndex]._complete = true;
-        validSightCount += 1;
+        pendingFsRowIndexes.forEach((fsRowIndex) => {
+          const fsRow = rows[fsRowIndex];
+          fsRow._difference = bs - fsRow.fs;
+          fsRow._complete = true;
+          validSightCount += 1;
+        });
         reconstructedStartElevation = resolvedElevation;
         instrumentHeight = null;
-        heldFs = null;
-        heldFsRowIndex = null;
+        pendingFsRowIndexes = [];
       } else {
         row._incomplete = true;
       }
     }
 
-    // 同じ行にBSとFSがある場合も、BSの逆算後に一つ上の区間用FSを保持する。
+    // 復路の最下段は既知標高が空欄なら往路起点高を内部基準にする。
+    // BSが見つかるまでの連続FSは、同じ器械高からすべて計算する。
     if (hasFs) {
+      if (instrumentHeight === null && resolvedElevation === null) {
+        resolvedElevation = initialElevation;
+        usesImplicitBaseline = true;
+      } else if (instrumentHeight !== null && resolvedElevation === null) {
+        resolvedElevation = instrumentHeight - fs;
+      }
+
       if (resolvedElevation !== null) {
-        instrumentHeight = resolvedElevation + fs;
-        heldFs = fs;
-        heldFsRowIndex = index;
-        if (routeEndElevation === null) routeEndElevation = resolvedElevation;
+        if (instrumentHeight === null) {
+          instrumentHeight = resolvedElevation + fs;
+          if (routeEndElevation === null) routeEndElevation = resolvedElevation;
+        }
+        pendingFsRowIndexes.push(index);
       } else {
         row._incomplete = true;
       }
@@ -142,9 +145,9 @@ function calculateNotebookUpward(sourceRows, toleranceMm, options) {
     }
   }
 
-  if (heldFsRowIndex !== null) {
-    rows[heldFsRowIndex]._incomplete = true;
-  }
+  pendingFsRowIndexes.forEach((index) => {
+    rows[index]._incomplete = true;
+  });
 
   const backDifference = validSightCount > 0 &&
     routeEndElevation !== null &&
