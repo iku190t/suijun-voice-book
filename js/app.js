@@ -6,20 +6,20 @@ import {
   LEVELING_TOLERANCE_PRESETS,
   sumObservationDistanceMeters,
   toNumber
-} from "./calculation.js?v=18";
-import { createVoiceController, normalizeSpokenNumber, prepareSpeechSynthesis, speakBack } from "./voice.js?v=18";
-import { clearProject, loadProject, saveProject } from "./storage.js?v=18";
-import { exportSheetCsv } from "./export.js?v=18";
+} from "./calculation.js?v=19";
+import { createVoiceController, normalizeSpokenNumber, prepareSpeechSynthesis, speakBack } from "./voice.js?v=19";
+import { clearProject, loadProject, saveProject } from "./storage.js?v=19";
+import { exportSheetCsv } from "./export.js?v=19";
 import {
   isValidStaffReading,
   reversePointNamesWithinUsedRows
-} from "./rules.js?v=18";
+} from "./rules.js?v=19";
 import {
   getSmartPointSuggestions,
   normalizePointName,
   pointNameToSpeech,
   recordPointNameUsage
-} from "./point-names.js?v=18";
+} from "./point-names.js?v=19";
 
 const DEFAULT_ROW_COUNT = 200;
 const NUMERIC_FIELDS = new Set(["bs", "fs", "elevation", "distance"]);
@@ -30,7 +30,7 @@ const notebook = document.querySelector("#notebook");
 const tableWrap = document.querySelector(".table-wrap");
 const distanceToggleButton = document.querySelector("#distanceToggleBtn");
 const tolerancePresetSelect = document.querySelector("#tolerancePreset");
-const voiceButtons = Array.from(document.querySelectorAll("[data-voice-direction]"));
+const voiceButton = document.querySelector("#voiceBtn");
 const voiceStatus = document.querySelector("#voiceStatus");
 const pointSuggestions = document.querySelector("#pointSuggestions");
 const pointSuggestionButtons = document.querySelector("#pointSuggestionButtons");
@@ -38,7 +38,6 @@ let activeSheet = "out";
 let selectedInput = null;
 let voiceTarget = null;
 let voiceSessionActive = false;
-let voiceMoveDirection = null;
 let selectedRowIndex = null;
 let autosaveTimer = null;
 let calculations = { out: null, back: null };
@@ -534,7 +533,7 @@ function getVoiceRowInputs(row) {
   });
 }
 
-function moveAfterVoiceInput(current, direction) {
+function moveAfterVoiceInput(current) {
   const field = current.dataset.field;
   const rowIndex = findRowIndex(current);
   if (!field || rowIndex < 0) return;
@@ -545,22 +544,10 @@ function moveAfterVoiceInput(current, direction) {
     return;
   }
 
-  if (direction === "up") {
-    selectMovedInput(tbody.rows[rowIndex - 1]?.querySelector(`[data-field="${field}"]`));
-    return;
-  }
-
-  if (direction === "down") {
-    ensureFollowingRow(rowIndex);
-    selectMovedInput(tbody.rows[rowIndex + 1]?.querySelector(`[data-field="${field}"]`));
-    return;
-  }
-
   const rowInputs = getVoiceRowInputs(tbody.rows[rowIndex]);
   const columnIndex = rowInputs.indexOf(current);
-  const offset = direction === "left" ? -1 : direction === "right" ? 1 : 0;
-  if (columnIndex < 0 || offset === 0) return;
-  selectMovedInput(rowInputs[columnIndex + offset]);
+  if (columnIndex < 0) return;
+  selectMovedInput(rowInputs[columnIndex + 1]);
 }
 
 tbody.addEventListener("focusin", (event) => {
@@ -811,16 +798,13 @@ pointAliasList.addEventListener("click", (event) => {
 const voiceController = createVoiceController({
   onStatus: (message) => {
     voiceStatus.textContent = message;
-    if (!message && voiceSessionActive && !voiceButtons.some((button) => button.classList.contains("listening"))) {
+    if (!message && voiceSessionActive && !voiceButton.classList.contains("listening")) {
       finishVoiceSession();
     }
   },
   onListeningChange: (listening) => {
-    voiceButtons.forEach((button) => {
-      const active = listening && button.dataset.voiceDirection === voiceMoveDirection;
-      button.classList.toggle("listening", active);
-      button.setAttribute("aria-pressed", String(active));
-    });
+    voiceButton.classList.toggle("listening", listening);
+    voiceButton.textContent = listening ? "● 認識中…" : "🎤 音声入力";
   },
   onResult: async (transcript) => {
     const target = voiceTarget;
@@ -841,7 +825,7 @@ const voiceController = createVoiceController({
         ? pointNameToSpeech(value, project.settings.pointAliases)
         : value;
       await speakBack(repeatText, project.settings.voiceRate);
-      moveAfterVoiceInput(target, voiceMoveDirection);
+      moveAfterVoiceInput(target);
     } finally {
       finishVoiceSession();
     }
@@ -857,25 +841,20 @@ const voiceController = createVoiceController({
 });
 
 if (!voiceController.supported) {
-  voiceButtons.forEach((button) => {
-    button.disabled = true;
-    button.title = "音声入力非対応";
-  });
+  voiceButton.disabled = true;
+  voiceButton.title = "音声入力非対応";
 }
 
-voiceButtons.forEach((button) => {
-  button.addEventListener("click", () => {
-    if (voiceSessionActive) return;
-    if (!selectedInput?.isConnected) {
-      showNotice("先に入力セルを選択してください。", "error");
-      return;
-    }
-    prepareSpeechSynthesis();
-    voiceTarget = selectedInput;
-    voiceMoveDirection = button.dataset.voiceDirection;
-    setVoiceSessionActive(true);
-    voiceController.start();
-  });
+voiceButton.addEventListener("click", () => {
+  if (voiceSessionActive) return;
+  if (!selectedInput?.isConnected) {
+    showNotice("先に入力セルを選択してください。", "error");
+    return;
+  }
+  prepareSpeechSynthesis();
+  voiceTarget = selectedInput;
+  setVoiceSessionActive(true);
+  voiceController.start();
 });
 
 if ("serviceWorker" in navigator) {

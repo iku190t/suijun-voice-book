@@ -15,7 +15,7 @@
   <link rel="manifest" href="./manifest.json">
   <link rel="icon" href="./icons/icon-192.png">
   <link rel="apple-touch-icon" href="./icons/icon-192.png">
-  <link rel="stylesheet" href="./css/style.css?v=18">
+  <link rel="stylesheet" href="./css/style.css?v=19">
 </head>
 <body>
   <header class="app-header">
@@ -102,13 +102,8 @@
   </main>
 
   <div class="voice-dock">
-    <div class="voice-pad" role="group" aria-label="音声入力後のセル移動方向">
-      <button class="voice-direction voice-up" type="button" data-voice-direction="up" aria-label="音声入力して上へ移動"><span aria-hidden="true">🎤 ↑</span></button>
-      <button class="voice-direction voice-left" type="button" data-voice-direction="left" aria-label="音声入力して左へ移動"><span aria-hidden="true">🎤 ←</span></button>
-      <div id="voiceStatus" class="voice-status" aria-live="polite"></div>
-      <button class="voice-direction voice-right" type="button" data-voice-direction="right" aria-label="音声入力して右へ移動"><span aria-hidden="true">🎤 →</span></button>
-      <button class="voice-direction voice-down" type="button" data-voice-direction="down" aria-label="音声入力して下へ移動"><span aria-hidden="true">🎤 ↓</span></button>
-    </div>
+    <button id="voiceBtn" type="button">🎤 音声入力</button>
+    <div id="voiceStatus" class="sr-only" aria-live="polite"></div>
   </div>
 
   <dialog id="settingsDialog" aria-labelledby="settingsDialogTitle">
@@ -173,6 +168,6 @@
   </dialog>
 
   <noscript>このアプリの利用にはJavaScriptを有効にしてください。</noscript>
-  <script type="module" src="./js/app.js?v=18"></script>
+  <script type="module" src="./js/app.js?v=19"></script>
 </body>
 </html>
