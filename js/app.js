@@ -6,7 +6,7 @@ import {
   LEVELING_TOLERANCE_PRESETS,
   sumObservationDistanceMeters,
   toNumber
-} from "./calculation.js?v=28";
+} from "./calculation.js?v=29";
 import {
   chooseLevelReading,
   createVoiceController,
@@ -14,13 +14,13 @@ import {
   normalizeSpokenNumber,
   prepareSpeechSynthesis,
   speakBack
-} from "./voice.js?v=28";
-import { clearProject, loadProject, saveProject } from "./storage.js?v=28";
-import { exportSheetCsv } from "./export.js?v=28";
+} from "./voice.js?v=29";
+import { clearProject, loadProject, saveProject } from "./storage.js?v=29";
+import { exportSheetCsv } from "./export.js?v=29";
 import {
   isValidStaffReading,
   reversePointNamesWithinUsedRows
-} from "./rules.js?v=28";
+} from "./rules.js?v=29";
 import {
   getSheetPointNameCandidates,
   getSmartPointSuggestions,
@@ -28,7 +28,7 @@ import {
   normalizePointName,
   pointNameToSpeech,
   recordPointNameUsage
-} from "./point-names.js?v=28";
+} from "./point-names.js?v=29";
 
 const DEFAULT_ROW_COUNT = 200;
 const NUMERIC_FIELDS = new Set(["bs", "fs", "elevation", "distance"]);
@@ -62,6 +62,12 @@ let longPressInput = null;
 let longPressPointerId = null;
 let longPressStartX = 0;
 let longPressStartY = 0;
+let pointerTapInput = null;
+let pointerTapId = null;
+let pointerTapStartX = 0;
+let pointerTapStartY = 0;
+let pointerTapMoved = false;
+let suppressNextCellClick = false;
 let cellDeleteTarget = null;
 const HISTORY_LIMIT = 50;
 const undoHistory = { out: [], back: [] };
@@ -275,10 +281,10 @@ function rowTemplate(row, index) {
     <td class="elevation-cell calculated"><input data-field="elevation" inputmode="decimal" autocomplete="off" aria-label="${index + 1}行目 既知標高または仮標高"></td>
     <td><input data-field="note" inputmode="text" autocomplete="off" aria-label="${index + 1}行目 備考"></td>`;
   tr.querySelector('[data-field="pointName"]').value = row.pointName || "";
-  tr.querySelector('[data-field="bs"]').value = displayValue(row.bs);
-  tr.querySelector('[data-field="fs"]').value = displayValue(row.fs);
+  tr.querySelector('[data-field="bs"]').value = displayValue(row.bs, row.bs !== null ? 3 : null);
+  tr.querySelector('[data-field="fs"]').value = displayValue(row.fs, row.fs !== null ? 3 : null);
   tr.querySelector('[data-field="elevation"]').value = displayValue(row.elevation, row.elevation !== null ? 3 : null);
-  tr.querySelector('[data-field="distance"]').value = displayValue(row.distance);
+  tr.querySelector('[data-field="distance"]').value = displayValue(row.distance, row.distance !== null ? 3 : null);
   tr.querySelector('[data-field="note"]').value = row.note || "";
   return tr;
 }
@@ -391,7 +397,7 @@ function recalculateAndRender() {
       ? row._difference.toFixed(3)
       : "";
     tr.querySelector(".round-trip-diff").textContent = Number.isFinite(row._roundTripDifferenceMm)
-      ? row._roundTripDifferenceMm.toFixed(1)
+      ? row._roundTripDifferenceMm.toFixed(3)
       : "";
     const elevationInput = tr.querySelector('[data-field="elevation"]');
     if (document.activeElement !== elevationInput || row.elevationType === "calculated") {
@@ -478,6 +484,14 @@ function sanitizeUnsignedDecimal(value) {
   return `${digitsAndDots.slice(0, dotIndex + 1)}${digitsAndDots.slice(dotIndex + 1).replace(/\./g, "")}`;
 }
 
+function formatNumericInput(input) {
+  if (!input?.matches("input") || !NUMERIC_FIELDS.has(input.dataset.field)) return;
+  const index = findRowIndex(input);
+  if (index < 0) return;
+  const value = project.sheets[activeSheet][index][input.dataset.field];
+  input.value = displayValue(value, value !== null ? 3 : null);
+}
+
 function handleFieldChange(input, { recordHistory = true, forceHistory = false } = {}) {
   const index = findRowIndex(input);
   if (index < 0) return false;
@@ -490,7 +504,8 @@ function handleFieldChange(input, { recordHistory = true, forceHistory = false }
   }
   if ((field === "bs" || field === "fs") && parsed !== null && !isValidStaffReading(parsed)) {
     showNotice("BS・FSは0m以上、10m未満で入力してください。", "error");
-    input.value = displayValue(project.sheets[activeSheet][index][field]);
+    const previousValue = project.sheets[activeSheet][index][field];
+    input.value = displayValue(previousValue, previousValue !== null ? 3 : null);
     input.setAttribute("aria-invalid", "true");
     return false;
   }
@@ -758,6 +773,8 @@ function startLongPress(input, event) {
   longPressStartY = event.clientY;
   longPressTimer = setTimeout(() => {
     longPressTimer = null;
+    pointerTapMoved = true;
+    suppressNextCellClick = true;
     showCellDeleteButton(longPressInput, longPressStartX, longPressStartY);
   }, 560);
 }
@@ -776,23 +793,57 @@ tbody.addEventListener("pointerdown", (event) => {
   const input = event.target.closest("input");
   if (!input) return;
   hideCellDeleteButton();
-  if (voiceModeActive || voiceSessionActive) {
-    selectVoiceTargetWithoutKeyboard(input);
-  } else {
-    markSelectedInput(input);
+  pointerTapInput = input;
+  pointerTapId = event.pointerId;
+  pointerTapStartX = event.clientX;
+  pointerTapStartY = event.clientY;
+  pointerTapMoved = false;
+  suppressNextCellClick = false;
+  if (event.pointerType === "touch" && !voiceModeActive && !voiceSessionActive) {
+    input.readOnly = true;
+    input.dataset.touchTapLock = "";
   }
   startLongPress(input, event);
 }, { capture: true });
 
 tbody.addEventListener("pointermove", (event) => {
-  if (!longPressTimer || event.pointerId !== longPressPointerId) return;
-  if (Math.hypot(event.clientX - longPressStartX, event.clientY - longPressStartY) > 12) {
+  if (event.pointerId !== pointerTapId) return;
+  if (Math.hypot(event.clientX - pointerTapStartX, event.clientY - pointerTapStartY) > 12) {
+    pointerTapMoved = true;
+    suppressNextCellClick = true;
     cancelLongPress();
   }
 }, { capture: true, passive: true });
 
-window.addEventListener("pointerup", cancelLongPress, { capture: true, passive: true });
-window.addEventListener("pointercancel", cancelLongPress, { capture: true, passive: true });
+function finishPointerGesture(event, cancelled = false) {
+  if (event.pointerId !== pointerTapId) {
+    cancelLongPress();
+    return;
+  }
+  const input = pointerTapInput;
+  const isTap = !cancelled && !pointerTapMoved;
+  cancelLongPress();
+  if (input?.hasAttribute("data-touch-tap-lock")) {
+    delete input.dataset.touchTapLock;
+    input.readOnly = voiceModeActive || voiceSessionActive;
+  }
+  if (isTap && input?.isConnected) {
+    if (voiceModeActive || voiceSessionActive) {
+      selectVoiceTargetWithoutKeyboard(input);
+    } else {
+      markSelectedInput(input);
+      input.focus({ preventScroll: true });
+      if (input.dataset.field === "pointName") showPointNameSuggestions(input);
+    }
+  } else if (input && document.activeElement === input) {
+    input.blur();
+  }
+  pointerTapInput = null;
+  pointerTapId = null;
+}
+
+window.addEventListener("pointerup", (event) => finishPointerGesture(event), { capture: true, passive: true });
+window.addEventListener("pointercancel", (event) => finishPointerGesture(event, true), { capture: true, passive: true });
 
 tbody.addEventListener("contextmenu", (event) => {
   const input = event.target.closest("input");
@@ -827,20 +878,14 @@ cellDeleteButton.addEventListener("click", () => {
   }
 });
 
-tbody.addEventListener("touchstart", (event) => {
-  const input = event.target.closest("input");
-  if (!input) return;
-  if (voiceModeActive || voiceSessionActive) {
-    selectVoiceTargetWithoutKeyboard(input);
-  } else {
-    markSelectedInput(input);
-  }
-}, { capture: true, passive: true });
-
 tbody.addEventListener("click", (event) => {
   const input = event.target.closest("input");
   if (!input || (!voiceModeActive && !voiceSessionActive)) return;
   event.preventDefault();
+  if (suppressNextCellClick) {
+    suppressNextCellClick = false;
+    return;
+  }
   selectVoiceTargetWithoutKeyboard(input);
 });
 
@@ -865,6 +910,7 @@ tbody.addEventListener("change", (event) => {
 
 tbody.addEventListener("focusout", (event) => {
   endHistoryGroup();
+  if (event.target.matches("input")) formatNumericInput(event.target);
   if (!event.target.matches('input[data-field="pointName"]')) return;
   setTimeout(() => {
     if (voiceModeActive && selectedInput === event.target && !event.target.value.trim()) return;
@@ -872,15 +918,22 @@ tbody.addEventListener("focusout", (event) => {
   }, 120);
 });
 
-pointSuggestionButtons.addEventListener("click", (event) => {
+pointSuggestionButtons.addEventListener("click", async (event) => {
   const button = event.target.closest("[data-point-suggestion]");
-  if (!button || !selectedInput?.isConnected || selectedInput.dataset.field !== "pointName") return;
+  if (!button || voiceSessionActive || !selectedInput?.isConnected || selectedInput.dataset.field !== "pointName") return;
   const target = selectedInput;
   target.value = button.dataset.pointSuggestion;
   if (handleFieldChange(target, { forceHistory: true })) {
     recordPointName(target.value);
     hidePointSuggestions();
+    voiceButton.textContent = "🔊 復唱中…";
+    voiceStatus.textContent = `${target.value} と復唱します`;
+    await speakBack(
+      pointNameToSpeech(target.value, project.settings.pointAliases),
+      project.settings.voiceRate
+    );
     moveAfterVoiceInput(target);
+    updateVoiceModeUi();
   }
 });
 
@@ -898,7 +951,10 @@ tbody.addEventListener("click", (event) => {
 tbody.addEventListener("keydown", (event) => {
   if (event.key !== "Enter" || !event.target.matches("input")) return;
   event.preventDefault();
-  if (handleFieldChange(event.target)) moveStraightDown(event.target);
+  if (handleFieldChange(event.target)) {
+    formatNumericInput(event.target);
+    moveStraightDown(event.target);
+  }
 });
 
 function showNotice(message, type = "") {
@@ -1125,6 +1181,7 @@ const voiceController = createVoiceController({
       if (UNSIGNED_DECIMAL_FIELDS.has(field)) value = sanitizeUnsignedDecimal(value);
       target.value = value;
       if (!handleFieldChange(target, { forceHistory: true })) return;
+      formatNumericInput(target);
       if (field === "pointName") recordPointName(value);
       voiceStatus.textContent = `${value} と復唱します`;
       voiceButton.textContent = "🔊 復唱中…";
@@ -1201,7 +1258,19 @@ voiceButton.addEventListener("click", () => {
 
 keyboardModeButton.addEventListener("click", () => {
   if (voiceSessionActive) return;
+  const target = selectedInput?.isConnected ? selectedInput : null;
   setVoiceModeActive(false);
+  if (!target) {
+    showNotice("キーボードを出すセルを先に選択してください。", "error");
+    return;
+  }
+  target.readOnly = false;
+  target.focus({ preventScroll: false });
+  target.click();
+  if (typeof target.setSelectionRange === "function") {
+    const end = target.value.length;
+    target.setSelectionRange(end, end);
+  }
 });
 
 if ("serviceWorker" in navigator) {

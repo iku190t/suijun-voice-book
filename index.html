@@ -15,7 +15,7 @@
   <link rel="manifest" href="./manifest.json">
   <link rel="icon" href="./icons/icon-192.png">
   <link rel="apple-touch-icon" href="./icons/icon-192.png">
-  <link rel="stylesheet" href="./css/style.css?v=28">
+  <link rel="stylesheet" href="./css/style.css?v=29">
 </head>
 <body>
   <header class="app-header">
@@ -34,10 +34,6 @@
       <div class="sheet-tabs" role="tablist" aria-label="野帳シート">
         <button id="outSheetTab" class="sheet-tab active" type="button" role="tab" aria-selected="true" data-sheet="out">往路</button>
         <button id="backSheetTab" class="sheet-tab" type="button" role="tab" aria-selected="false" data-sheet="back">復路</button>
-      </div>
-      <div class="history-buttons" aria-label="入力履歴">
-        <button id="undoBtn" type="button" aria-label="元に戻す" title="元に戻す">↶</button>
-        <button id="redoBtn" type="button" aria-label="やり直す" title="やり直す">↷</button>
       </div>
     </div>
 
@@ -80,6 +76,18 @@
     <div id="notice" class="notice" role="alert" hidden></div>
     <div class="sheet-heading">
       <strong id="activeSheetName">往路シート</strong>
+      <div class="history-buttons" aria-label="入力履歴">
+        <button id="undoBtn" type="button" aria-label="元に戻す" title="元に戻す">
+          <svg viewBox="0 0 48 32" aria-hidden="true">
+            <path d="M19 8H10m0 0 6-6m-6 6 6 6M12 8h17c8 0 13 5 13 12s-5 11-13 11H18"/>
+          </svg>
+        </button>
+        <button id="redoBtn" type="button" aria-label="やり直す" title="やり直す">
+          <svg viewBox="0 0 48 32" aria-hidden="true">
+            <path d="M29 8h9m0 0-6-6m6 6-6 6M36 8H19C11 8 6 13 6 20s5 11 13 11h11"/>
+          </svg>
+        </button>
+      </div>
       <span id="rowCount">200行</span>
     </div>
 
@@ -176,6 +184,6 @@
   </dialog>
 
   <noscript>このアプリの利用にはJavaScriptを有効にしてください。</noscript>
-  <script type="module" src="./js/app.js?v=28"></script>
+  <script type="module" src="./js/app.js?v=29"></script>
 </body>
 </html>

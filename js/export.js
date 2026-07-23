@@ -7,10 +7,10 @@ export function exportSheetCsv(sheet, calculatedRows) {
   const data = calculatedRows.map((row, index) => [
     index + 1,
     row.pointName,
-    row.distance ?? "",
-    row.bs ?? "",
-    row.fs ?? "",
-    Number.isFinite(row._roundTripDifferenceMm) ? row._roundTripDifferenceMm.toFixed(1) : "",
+    row.distance !== null ? Number(row.distance).toFixed(3) : "",
+    row.bs !== null ? Number(row.bs).toFixed(3) : "",
+    row.fs !== null ? Number(row.fs).toFixed(3) : "",
+    Number.isFinite(row._roundTripDifferenceMm) ? row._roundTripDifferenceMm.toFixed(3) : "",
     Number.isFinite(row._difference) ? row._difference.toFixed(3) : "",
     row.elevation !== null ? row.elevation.toFixed(3) : "",
     row.note
