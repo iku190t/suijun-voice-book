@@ -15,7 +15,7 @@
   <link rel="manifest" href="./manifest.json">
   <link rel="icon" href="./icons/icon-192.png">
   <link rel="apple-touch-icon" href="./icons/icon-192.png">
-  <link rel="stylesheet" href="./css/style.css?v=30">
+  <link rel="stylesheet" href="./css/style.css?v=31">
 </head>
 <body>
   <header class="app-header">
@@ -27,13 +27,6 @@
       <div class="brand-links">
         <a href="https://ez-survey.sakura.ne.jp/" target="_blank" rel="noopener noreferrer">株式会社アイズ測量</a>
         <button id="supportOpenBtn" class="support-button" type="button">♡ 応援</button>
-      </div>
-    </div>
-
-    <div class="sheet-switch-row">
-      <div class="sheet-tabs" role="tablist" aria-label="野帳シート">
-        <button id="outSheetTab" class="sheet-tab active" type="button" role="tab" aria-selected="true" data-sheet="out">往路</button>
-        <button id="backSheetTab" class="sheet-tab" type="button" role="tab" aria-selected="false" data-sheet="back">復路</button>
       </div>
     </div>
 
@@ -76,6 +69,7 @@
     <div id="notice" class="notice" role="alert" hidden></div>
     <div class="sheet-heading">
       <strong id="activeSheetName">往路シート</strong>
+      <button id="sheetToggleBtn" class="sheet-toggle-button" type="button" aria-label="復路シートへ切り替え">復路へ</button>
       <div class="history-buttons" aria-label="入力履歴">
         <button id="undoBtn" type="button" aria-label="元に戻す" title="元に戻す">
           <svg viewBox="0 0 48 32" aria-hidden="true">
@@ -88,7 +82,6 @@
           </svg>
         </button>
       </div>
-      <span id="rowCount">200行</span>
     </div>
 
     <div class="table-wrap" tabindex="0" aria-label="水準野帳。右側の項目は横方向にスクロールできます">
@@ -184,6 +177,6 @@
   </dialog>
 
   <noscript>このアプリの利用にはJavaScriptを有効にしてください。</noscript>
-  <script type="module" src="./js/app.js?v=30"></script>
+  <script type="module" src="./js/app.js?v=31"></script>
 </body>
 </html>

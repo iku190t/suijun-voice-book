@@ -94,31 +94,55 @@ export function createVoiceController({ onResult, onStatus, onListeningChange, s
   let finishRequested = false;
   let resultDelivered = false;
   let cancelRequested = false;
-  recognition.onstart = () => {
-    if (cancelRequested) {
-      try { recognition.abort(); } catch {}
-      return;
-    }
+  let recognitionState = "idle";
+  let restartQueued = false;
+
+  const beginRecognition = () => {
+    cancelRequested = false;
     pendingTranscript = "";
     pendingAlternatives = [];
     recognitionFailed = false;
     finishRequested = false;
     resultDelivered = false;
+    recognitionState = "starting";
+    try {
+      recognition.start();
+    } catch {
+      recognitionState = "idle";
+      onListeningChange(false);
+      onStatus("");
+    }
+  };
+
+  recognition.onstart = () => {
+    if (cancelRequested) {
+      try { recognition.abort(); } catch {}
+      return;
+    }
+    recognitionState = "listening";
     onListeningChange(true);
     onStatus("音声を聞き取り中");
   };
   recognition.onend = () => {
+    const wasCancelled = cancelRequested;
+    recognitionState = "idle";
+    if (wasCancelled && restartQueued) {
+      restartQueued = false;
+      beginRecognition();
+      return;
+    }
     onListeningChange(false);
+    cancelRequested = false;
     if (resultDelivered) {
       resultDelivered = false;
       return;
     }
-    if (!cancelRequested && !recognitionFailed && pendingTranscript) {
+    if (!wasCancelled && !recognitionFailed && pendingTranscript) {
       const transcript = pendingTranscript;
       const alternatives = pendingAlternatives;
       pendingTranscript = "";
       onStatus("認識結果を復唱します");
-      if (!cancelRequested) onResult(transcript, { alternatives });
+      onResult(transcript, { alternatives });
     } else {
       onStatus("");
     }
@@ -127,10 +151,12 @@ export function createVoiceController({ onResult, onStatus, onListeningChange, s
     recognitionFailed = true;
     pendingTranscript = "";
     pendingAlternatives = [];
+    if (cancelRequested) return;
     onListeningChange(false);
     onStatus("");
   };
   recognition.onresult = (event) => {
+    if (cancelRequested || recognitionState === "cancelling") return;
     const results = Array.from(event.results);
     pendingTranscript = results
       .map((result) => result[0]?.transcript || "")
@@ -164,21 +190,24 @@ export function createVoiceController({ onResult, onStatus, onListeningChange, s
   return {
     supported: true,
     start() {
-      cancelRequested = false;
-      try {
-        recognition.start();
-      } catch {
-        onListeningChange(false);
-        onStatus("");
+      if (recognitionState !== "idle") {
+        if (cancelRequested || recognitionState === "cancelling") {
+          restartQueued = true;
+          onStatus("音声入力を準備中");
+        }
+        return;
       }
+      beginRecognition();
     },
     cancel() {
+      restartQueued = false;
       cancelRequested = true;
       recognitionFailed = true;
       pendingTranscript = "";
       pendingAlternatives = [];
       finishRequested = true;
       resultDelivered = false;
+      if (recognitionState !== "idle") recognitionState = "cancelling";
       try { recognition.abort(); } catch {}
       window.speechSynthesis?.cancel?.();
       onListeningChange(false);

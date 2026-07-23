@@ -6,7 +6,7 @@ import {
   LEVELING_TOLERANCE_PRESETS,
   sumObservationDistanceMeters,
   toNumber
-} from "./calculation.js?v=30";
+} from "./calculation.js?v=31";
 import {
   chooseLevelReading,
   createVoiceController,
@@ -14,13 +14,13 @@ import {
   normalizeSpokenNumber,
   prepareSpeechSynthesis,
   speakBack
-} from "./voice.js?v=30";
-import { clearProject, loadProject, saveProject } from "./storage.js?v=30";
-import { exportSheetCsv } from "./export.js?v=30";
+} from "./voice.js?v=31";
+import { clearProject, loadProject, saveProject } from "./storage.js?v=31";
+import { exportSheetCsv } from "./export.js?v=31";
 import {
   isValidStaffReading,
   reversePointNamesWithinUsedRows
-} from "./rules.js?v=30";
+} from "./rules.js?v=31";
 import {
   getSheetPointNameCandidates,
   getSmartPointSuggestions,
@@ -28,7 +28,7 @@ import {
   normalizePointName,
   pointNameToSpeech,
   recordPointNameUsage
-} from "./point-names.js?v=30";
+} from "./point-names.js?v=31";
 
 const DEFAULT_ROW_COUNT = 200;
 const NUMERIC_FIELDS = new Set(["bs", "fs", "elevation", "distance"]);
@@ -47,6 +47,7 @@ const pointSuggestionButtons = document.querySelector("#pointSuggestionButtons")
 const cellDeleteButton = document.querySelector("#cellDeleteBtn");
 const undoButton = document.querySelector("#undoBtn");
 const redoButton = document.querySelector("#redoBtn");
+const sheetToggleButton = document.querySelector("#sheetToggleBtn");
 let activeSheet = "out";
 let selectedInput = null;
 let voiceTarget = null;
@@ -69,6 +70,7 @@ let pointerTapStartY = 0;
 let pointerTapMoved = false;
 let suppressNextCellClick = false;
 let cellDeleteTarget = null;
+let voiceSessionToken = 0;
 const HISTORY_LIMIT = 50;
 const undoHistory = { out: [], back: [] };
 const redoHistory = { out: [], back: [] };
@@ -300,12 +302,9 @@ function renderSheet() {
   tbody.replaceChildren(fragment);
   syncVoiceInputLocks();
   document.querySelector("#activeSheetName").textContent = activeSheet === "out" ? "往路シート" : "復路シート";
-  document.querySelector("#rowCount").textContent = `${project.sheets[activeSheet].length}行`;
-  document.querySelectorAll(".sheet-tab").forEach((button) => {
-    const active = button.dataset.sheet === activeSheet;
-    button.classList.toggle("active", active);
-    button.setAttribute("aria-selected", String(active));
-  });
+  const destinationName = activeSheet === "out" ? "復路" : "往路";
+  sheetToggleButton.textContent = `${destinationName}へ`;
+  sheetToggleButton.setAttribute("aria-label", `${destinationName}シートへ切り替え`);
   applyDistanceVisibility();
   applyTableScale(project.settings.tableScale);
   recalculateAndRender();
@@ -970,17 +969,6 @@ function scheduleAutosave() {
   autosaveTimer = setTimeout(() => { project = saveProject(project); }, 700);
 }
 
-document.querySelectorAll(".sheet-tab").forEach((button) => {
-  button.addEventListener("click", () => {
-    const targetSheet = button.dataset.sheet;
-    if (targetSheet === activeSheet) return;
-    synchronizePointNames(activeSheet, targetSheet);
-    activeSheet = targetSheet;
-    renderSheet();
-    project = saveProject(project);
-  });
-});
-
 tolerancePresetSelect.value = project.settings.tolerancePreset;
 tolerancePresetSelect.addEventListener("change", (event) => {
   project.settings.tolerancePreset = LEVELING_TOLERANCE_PRESETS[event.target.value]
@@ -1139,6 +1127,11 @@ pointAliasList.addEventListener("click", (event) => {
 
 const voiceController = createVoiceController({
   onStatus: (message) => {
+    if (!voiceSessionActive) {
+      voiceStatus.textContent = "";
+      updateVoiceModeUi();
+      return;
+    }
     voiceStatus.textContent = message;
     if (message.includes("復唱")) voiceButton.textContent = "🔊 復唱中…";
     if (!message && voiceSessionActive && !voiceButton.classList.contains("listening")) {
@@ -1146,13 +1139,19 @@ const voiceController = createVoiceController({
     }
   },
   onListeningChange: (listening) => {
+    if (!voiceSessionActive) {
+      voiceButton.classList.remove("listening");
+      updateVoiceModeUi();
+      return;
+    }
     voiceButton.classList.toggle("listening", listening);
     voiceButton.textContent = listening ? "■ 聞き取り中（押すと中止）" : "🔊 処理中…";
   },
   onResult: async (transcript, recognitionDetails = {}) => {
+    const resultSessionToken = voiceSessionToken;
     const target = voiceTarget;
     try {
-      if (!target?.isConnected) return;
+      if (!target?.isConnected || resultSessionToken !== voiceSessionToken) return;
       const field = target.dataset.field;
       let value;
       if (field === "bs" || field === "fs") {
@@ -1191,10 +1190,10 @@ const voiceController = createVoiceController({
           ? levelReadingToSpeech(value)
           : value;
       await speakBack(repeatText, project.settings.voiceRate);
-      if (!voiceSessionActive) return;
+      if (!voiceSessionActive || resultSessionToken !== voiceSessionToken) return;
       moveAfterVoiceInput(target);
     } finally {
-      finishVoiceSession();
+      if (resultSessionToken === voiceSessionToken) finishVoiceSession();
     }
   },
   shouldFinalize: (transcript, recognitionDetails = {}) => {
@@ -1210,18 +1209,23 @@ const voiceController = createVoiceController({
   }
 });
 
+function cancelActiveVoiceSession() {
+  voiceSessionToken += 1;
+  finishVoiceSession();
+  voiceController.cancel();
+  updateVoiceModeUi();
+}
+
 undoButton.addEventListener("click", () => {
   if (voiceSessionActive) {
-    voiceController.cancel();
-    finishVoiceSession();
+    cancelActiveVoiceSession();
   }
   undoCurrentSheet();
 });
 
 redoButton.addEventListener("click", () => {
   if (voiceSessionActive) {
-    voiceController.cancel();
-    finishVoiceSession();
+    cancelActiveVoiceSession();
   }
   redoCurrentSheet();
 });
@@ -1237,8 +1241,7 @@ voiceButton.addEventListener("click", () => {
     return;
   }
   if (voiceSessionActive) {
-    voiceController.cancel();
-    finishVoiceSession();
+    cancelActiveVoiceSession();
     return;
   }
   const activeInput = document.activeElement?.matches?.("#notebookBody input")
@@ -1251,9 +1254,19 @@ voiceButton.addEventListener("click", () => {
   }
   prepareSpeechSynthesis();
   voiceTarget = selectedInput;
+  voiceSessionToken += 1;
   setVoiceSessionActive(true);
   voiceButton.textContent = "● 準備中…";
   voiceController.start();
+});
+
+sheetToggleButton.addEventListener("click", () => {
+  if (voiceSessionActive) cancelActiveVoiceSession();
+  const targetSheet = activeSheet === "out" ? "back" : "out";
+  synchronizePointNames(activeSheet, targetSheet);
+  activeSheet = targetSheet;
+  renderSheet();
+  project = saveProject(project);
 });
 
 keyboardModeButton.addEventListener("click", () => {
