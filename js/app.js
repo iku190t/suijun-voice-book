@@ -6,20 +6,20 @@ import {
   LEVELING_TOLERANCE_PRESETS,
   sumObservationDistanceMeters,
   toNumber
-} from "./calculation.js?v=19";
-import { createVoiceController, normalizeSpokenNumber, prepareSpeechSynthesis, speakBack } from "./voice.js?v=19";
-import { clearProject, loadProject, saveProject } from "./storage.js?v=19";
-import { exportSheetCsv } from "./export.js?v=19";
+} from "./calculation.js?v=20";
+import { createVoiceController, normalizeSpokenNumber, prepareSpeechSynthesis, speakBack } from "./voice.js?v=20";
+import { clearProject, loadProject, saveProject } from "./storage.js?v=20";
+import { exportSheetCsv } from "./export.js?v=20";
 import {
   isValidStaffReading,
   reversePointNamesWithinUsedRows
-} from "./rules.js?v=19";
+} from "./rules.js?v=20";
 import {
   getSmartPointSuggestions,
   normalizePointName,
   pointNameToSpeech,
   recordPointNameUsage
-} from "./point-names.js?v=19";
+} from "./point-names.js?v=20";
 
 const DEFAULT_ROW_COUNT = 200;
 const NUMERIC_FIELDS = new Set(["bs", "fs", "elevation", "distance"]);
@@ -561,11 +561,23 @@ tbody.addEventListener("focusin", (event) => {
 });
 
 tbody.addEventListener("pointerdown", (event) => {
-  selectVoiceTargetWithoutKeyboard(event.target.closest("input"), event);
+  const input = event.target.closest("input");
+  if (!input) return;
+  if (voiceSessionActive) {
+    selectVoiceTargetWithoutKeyboard(input, event);
+  } else {
+    markSelectedInput(input);
+  }
 }, { capture: true });
 
 tbody.addEventListener("touchstart", (event) => {
-  selectVoiceTargetWithoutKeyboard(event.target.closest("input"), event);
+  const input = event.target.closest("input");
+  if (!input) return;
+  if (voiceSessionActive) {
+    selectVoiceTargetWithoutKeyboard(input, event);
+  } else {
+    markSelectedInput(input);
+  }
 }, { capture: true, passive: false });
 
 tbody.addEventListener("input", (event) => {
@@ -847,6 +859,10 @@ if (!voiceController.supported) {
 
 voiceButton.addEventListener("click", () => {
   if (voiceSessionActive) return;
+  const activeInput = document.activeElement?.matches?.("#notebookBody input")
+    ? document.activeElement
+    : null;
+  if (activeInput) markSelectedInput(activeInput);
   if (!selectedInput?.isConnected) {
     showNotice("先に入力セルを選択してください。", "error");
     return;
@@ -854,6 +870,7 @@ voiceButton.addEventListener("click", () => {
   prepareSpeechSynthesis();
   voiceTarget = selectedInput;
   setVoiceSessionActive(true);
+  voiceButton.textContent = "● 準備中…";
   voiceController.start();
 });
 
