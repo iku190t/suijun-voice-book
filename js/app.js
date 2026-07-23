@@ -1,12 +1,16 @@
-import { calculateNotebook, formatMeters, toNumber } from "./calculation.js?v=10";
-import { createVoiceController, normalizeSpokenNumber, prepareSpeechSynthesis, speakBack } from "./voice.js?v=10";
-import { clearProject, loadProject, saveProject } from "./storage.js?v=10";
-import { exportSheetCsv } from "./export.js?v=10";
+import { calculateNotebook, formatMeters, toNumber } from "./calculation.js?v=11";
+import { createVoiceController, normalizeSpokenNumber, prepareSpeechSynthesis, speakBack } from "./voice.js?v=11";
+import { clearProject, loadProject, saveProject } from "./storage.js?v=11";
+import { exportSheetCsv } from "./export.js?v=11";
 import {
   isValidStaffReading,
-  resolvePointAlias,
   reversePointNamesWithinUsedRows
-} from "./rules.js?v=10";
+} from "./rules.js?v=11";
+import {
+  getSmartPointSuggestions,
+  normalizePointName,
+  recordPointNameUsage
+} from "./point-names.js?v=11";
 
 const DEFAULT_ROW_COUNT = 200;
 const NUMERIC_FIELDS = new Set(["bs", "fs", "elevation", "distance"]);
@@ -18,6 +22,8 @@ const tableWrap = document.querySelector(".table-wrap");
 const distanceToggleButton = document.querySelector("#distanceToggleBtn");
 const voiceButton = document.querySelector("#voiceBtn");
 const voiceStatus = document.querySelector("#voiceStatus");
+const pointSuggestions = document.querySelector("#pointSuggestions");
+const pointSuggestionButtons = document.querySelector("#pointSuggestionButtons");
 let activeSheet = "out";
 let selectedInput = null;
 let voiceTarget = null;
@@ -57,7 +63,8 @@ function createBlankProject() {
       showDistance: false,
       voiceRate: 0.9,
       tableScale: 1,
-      pointAliases: []
+      pointAliases: [],
+      pointNameHistory: {}
     },
     sheets: {
       out: createRows("out"),
@@ -111,10 +118,18 @@ function normalizeLoadedProject(loaded) {
       }))
       .filter((alias) => alias.pointName && alias.spoken)
     : [];
+  const loadedHistory = loaded.settings?.pointNameHistory && typeof loaded.settings.pointNameHistory === "object"
+    ? loaded.settings.pointNameHistory
+    : {};
 
   return {
     version: 4,
-    settings: { ...blank.settings, ...(loaded.settings || {}), pointAliases: loadedAliases },
+    settings: {
+      ...blank.settings,
+      ...(loaded.settings || {}),
+      pointAliases: loadedAliases,
+      pointNameHistory: loadedHistory
+    },
     sheets: { out: outRows, back: backRows },
     savedAt: loaded.savedAt || null
   };
@@ -352,6 +367,45 @@ function markSelectedInput(input) {
   input?.classList.add("voice-selected");
 }
 
+function hidePointSuggestions() {
+  pointSuggestions.hidden = true;
+  pointSuggestionButtons.replaceChildren();
+}
+
+function showPointNameSuggestions(input) {
+  if (!input?.isConnected || input.dataset.field !== "pointName") {
+    hidePointSuggestions();
+    return;
+  }
+  const candidates = getSmartPointSuggestions(
+    input.value,
+    project.settings.pointAliases,
+    project.settings.pointNameHistory,
+    8
+  );
+  if (!candidates.length) {
+    hidePointSuggestions();
+    return;
+  }
+  const buttons = candidates.map((pointName) => {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.dataset.pointSuggestion = pointName;
+    button.textContent = pointName;
+    return button;
+  });
+  pointSuggestionButtons.replaceChildren(...buttons);
+  pointSuggestions.hidden = false;
+}
+
+function recordPointName(pointName) {
+  const normalized = normalizePointName(pointName, project.settings.pointAliases);
+  if (!normalized) return "";
+  project.settings.pointNameHistory = recordPointNameUsage(project.settings.pointNameHistory, normalized);
+  scheduleAutosave();
+  return normalized;
+}
+
 function moveStraightDown(current, focusTarget = true) {
   const field = current.dataset.field;
   const rowIndex = findRowIndex(current);
@@ -374,6 +428,7 @@ function moveStraightDown(current, focusTarget = true) {
 tbody.addEventListener("focusin", (event) => {
   if (!event.target.matches("input")) return;
   markSelectedInput(event.target);
+  if (event.target.dataset.field === "pointName") showPointNameSuggestions(event.target);
 });
 
 tbody.addEventListener("input", (event) => {
@@ -383,6 +438,34 @@ tbody.addEventListener("input", (event) => {
     if (event.target.value !== sanitized) event.target.value = sanitized;
   }
   handleFieldChange(event.target);
+  if (event.target.dataset.field === "pointName") showPointNameSuggestions(event.target);
+});
+
+tbody.addEventListener("change", (event) => {
+  if (!event.target.matches('input[data-field="pointName"]')) return;
+  const normalized = recordPointName(event.target.value);
+  if (normalized && normalized !== event.target.value) {
+    event.target.value = normalized;
+    handleFieldChange(event.target);
+  }
+});
+
+tbody.addEventListener("focusout", (event) => {
+  if (!event.target.matches('input[data-field="pointName"]')) return;
+  setTimeout(() => {
+    if (!pointSuggestions.contains(document.activeElement)) hidePointSuggestions();
+  }, 120);
+});
+
+pointSuggestionButtons.addEventListener("click", (event) => {
+  const button = event.target.closest("[data-point-suggestion]");
+  if (!button || !selectedInput?.isConnected || selectedInput.dataset.field !== "pointName") return;
+  selectedInput.value = button.dataset.pointSuggestion;
+  if (handleFieldChange(selectedInput)) {
+    recordPointName(selectedInput.value);
+    selectedInput.focus();
+  }
+  hidePointSuggestions();
 });
 
 tbody.addEventListener("click", (event) => {
@@ -583,11 +666,12 @@ const voiceController = createVoiceController({
     let value = NUMERIC_FIELDS.has(field)
       ? normalizeSpokenNumber(transcript)
       : field === "pointName"
-        ? resolvePointAlias(transcript, project.settings.pointAliases) || transcript.trim()
+        ? normalizePointName(transcript, project.settings.pointAliases)
         : transcript.trim();
     if (UNSIGNED_DECIMAL_FIELDS.has(field)) value = sanitizeUnsignedDecimal(value);
     target.value = value;
     if (!handleFieldChange(target)) return;
+    if (field === "pointName") recordPointName(value);
     voiceStatus.textContent = `${value} と復唱します`;
     await speakBack(value, project.settings.voiceRate);
     moveStraightDown(target, false);
@@ -596,9 +680,7 @@ const voiceController = createVoiceController({
   },
   shouldFinalize: (transcript) => {
     if (!voiceTarget) return false;
-    if (voiceTarget.dataset.field === "pointName") {
-      return resolvePointAlias(transcript, project.settings.pointAliases) !== null;
-    }
+    if (voiceTarget.dataset.field === "pointName") return false;
     if (!NUMERIC_FIELDS.has(voiceTarget.dataset.field)) return false;
     let value = normalizeSpokenNumber(transcript);
     if (UNSIGNED_DECIMAL_FIELDS.has(voiceTarget.dataset.field)) value = sanitizeUnsignedDecimal(value);

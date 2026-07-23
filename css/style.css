@@ -197,6 +197,23 @@ dialog .eyebrow { color: var(--brand-2); }
 .alias-remove { min-width: 44px; padding: 5px; border-color: #e5a7a7; color: #8d2020; background: #fff7f7; }
 .add-alias-button { width: 100%; margin-top: 9px; color: #0f527c; background: #e9f7ff; }
 .table-wrap.pinching { border-color: #1b8dce; box-shadow: 0 0 0 3px rgba(27,141,206,.18); }
+.point-suggestions {
+  position: fixed;
+  z-index: 45;
+  right: 10px;
+  bottom: calc(84px + env(safe-area-inset-bottom));
+  left: 10px;
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 8px 10px;
+  border: 1px solid #76b9df;
+  border-radius: 12px;
+  background: rgba(240, 250, 255, .98);
+  box-shadow: 0 5px 22px rgba(10, 70, 110, .25);
+}
+.point-suggestions > strong { display: block; margin-bottom: 6px; color: #174f73; font-size: .75rem; }
+.point-suggestion-buttons { display: flex; gap: 6px; overflow-x: auto; }
+.point-suggestion-buttons button { flex: 0 0 auto; min-height: 40px; padding: 6px 11px; color: #0f527c; background: #fff; }
 
 @media (max-width: 760px) {
   .summary { grid-template-columns: 1fr 1fr; }

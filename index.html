@@ -15,7 +15,7 @@
   <link rel="manifest" href="./manifest.json">
   <link rel="icon" href="./icons/icon-192.png">
   <link rel="apple-touch-icon" href="./icons/icon-192.png">
-  <link rel="stylesheet" href="./css/style.css?v=10">
+  <link rel="stylesheet" href="./css/style.css?v=11">
 </head>
 <body>
   <header class="app-header">
@@ -87,6 +87,10 @@
         <tbody id="notebookBody"></tbody>
       </table>
     </div>
+    <section id="pointSuggestions" class="point-suggestions" aria-label="測点名の優先候補" hidden>
+      <strong>測点名候補</strong>
+      <div id="pointSuggestionButtons" class="point-suggestion-buttons"></div>
+    </section>
   </main>
 
   <div class="voice-dock">
@@ -156,6 +160,6 @@
   </dialog>
 
   <noscript>このアプリの利用にはJavaScriptを有効にしてください。</noscript>
-  <script type="module" src="./js/app.js?v=10"></script>
+  <script type="module" src="./js/app.js?v=11"></script>
 </body>
 </html>
