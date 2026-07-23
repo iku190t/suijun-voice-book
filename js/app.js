@@ -6,7 +6,7 @@ import {
   LEVELING_TOLERANCE_PRESETS,
   sumObservationDistanceMeters,
   toNumber
-} from "./calculation.js?v=36";
+} from "./calculation.js?v=37";
 import {
   chooseLevelReading,
   createVoiceController,
@@ -14,13 +14,13 @@ import {
   normalizeSpokenNumber,
   prepareSpeechSynthesis,
   speakBack
-} from "./voice.js?v=36";
-import { clearProject, loadProject, saveProject } from "./storage.js?v=36";
-import { exportSheetCsv } from "./export.js?v=36";
+} from "./voice.js?v=37";
+import { clearProject, loadProject, saveProject } from "./storage.js?v=37";
+import { exportSheetCsv } from "./export.js?v=37";
 import {
   isValidStaffReading,
   reversePointNamesWithinUsedRows
-} from "./rules.js?v=36";
+} from "./rules.js?v=37";
 import {
   getSheetPointNameCandidates,
   getSmartPointSuggestions,
@@ -28,7 +28,7 @@ import {
   normalizePointName,
   pointNameToSpeech,
   recordPointNameUsage
-} from "./point-names.js?v=36";
+} from "./point-names.js?v=37";
 
 const DEFAULT_ROW_COUNT = 200;
 const NUMERIC_FIELDS = new Set(["bs", "fs", "elevation", "distance"]);
@@ -380,7 +380,8 @@ function recalculateAndRender() {
   const toleranceState = getToleranceState();
   calculations.out = calculateNotebook(project.sheets.out, toleranceState.toleranceMm ?? 10);
   calculations.back = calculateNotebook(project.sheets.back, toleranceState.toleranceMm ?? 10, {
-    initialElevation: calculations.out.lastElevation ?? 0
+    direction: "up",
+    initialElevation: calculations.out.startElevation ?? 0
   });
   applyRoundTripDifferences(calculations.out.rows, calculations.back.rows);
   project.sheets.out = stripCalculatedFields(calculations.out.rows);

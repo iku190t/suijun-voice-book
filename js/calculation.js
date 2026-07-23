@@ -53,7 +53,125 @@ function rowHasPairingData(row) {
   );
 }
 
+function calculateNotebookUpward(sourceRows, toleranceMm, options) {
+  const rows = sourceRows.map((row) => ({ ...row }));
+  const initialElevation = toNumber(options.initialElevation) ?? 0;
+  let lastUsedIndex = -1;
+  let instrumentHeight = null;
+  let heldFs = null;
+  let heldFsRowIndex = null;
+  let routeEndElevation = null;
+  let reconstructedStartElevation = null;
+  let validSightCount = 0;
+
+  sourceRows.forEach((row, index) => {
+    if (rowHasPairingData(row)) lastUsedIndex = index;
+  });
+
+  rows.forEach((row) => {
+    row.bs = toNumber(row.bs);
+    row.fs = toNumber(row.fs);
+    row.distance = toNumber(row.distance);
+    row._difference = null;
+    row._roundTripDifferenceMm = null;
+    row._complete = false;
+    row._incomplete = false;
+  });
+
+  for (let index = lastUsedIndex; index >= 0; index -= 1) {
+    const row = rows[index];
+    const bs = row.bs;
+    const fs = row.fs;
+    const hasBs = bs !== null;
+    const hasFs = fs !== null;
+    const manualElevation = row.elevationType === "manual"
+      ? toNumber(row.elevation)
+      : null;
+    let resolvedElevation = manualElevation;
+    let usesImplicitBaseline = false;
+
+    // 復路の最下段は、既知標高が空欄なら往路起点高（通常0m）を内部基準にする。
+    if (hasFs && instrumentHeight === null && resolvedElevation === null) {
+      resolvedElevation = initialElevation;
+      usesImplicitBaseline = true;
+    }
+
+    // 下段で保持したFSから器械高を復元し、上段のBSで標高を逆算する。
+    if (hasBs) {
+      if (instrumentHeight !== null && heldFs !== null && heldFsRowIndex !== null) {
+        if (resolvedElevation === null) {
+          resolvedElevation = instrumentHeight - bs;
+        }
+        const difference = bs - heldFs;
+        rows[heldFsRowIndex]._difference = difference;
+        rows[heldFsRowIndex]._complete = true;
+        validSightCount += 1;
+        reconstructedStartElevation = resolvedElevation;
+        instrumentHeight = null;
+        heldFs = null;
+        heldFsRowIndex = null;
+      } else {
+        row._incomplete = true;
+      }
+    }
+
+    // 同じ行にBSとFSがある場合も、BSの逆算後に一つ上の区間用FSを保持する。
+    if (hasFs) {
+      if (resolvedElevation !== null) {
+        instrumentHeight = resolvedElevation + fs;
+        heldFs = fs;
+        heldFsRowIndex = index;
+        if (routeEndElevation === null) routeEndElevation = resolvedElevation;
+      } else {
+        row._incomplete = true;
+      }
+    }
+
+    if (manualElevation !== null) {
+      row.elevation = manualElevation;
+      row.elevationType = "manual";
+    } else if (usesImplicitBaseline) {
+      row.elevation = null;
+      row.elevationType = "calculated";
+    } else if (resolvedElevation !== null) {
+      row.elevation = resolvedElevation;
+      row.elevationType = "calculated";
+    } else {
+      row.elevation = null;
+      row.elevationType = "calculated";
+    }
+  }
+
+  if (heldFsRowIndex !== null) {
+    rows[heldFsRowIndex]._incomplete = true;
+  }
+
+  const backDifference = validSightCount > 0 &&
+    routeEndElevation !== null &&
+    reconstructedStartElevation !== null
+    ? routeEndElevation - reconstructedStartElevation
+    : null;
+  const safeTolerance = Number.isFinite(Number(toleranceMm)) && Number(toleranceMm) >= 0
+    ? Number(toleranceMm)
+    : 10;
+
+  return {
+    rows,
+    outDifference: null,
+    backDifference,
+    closureMm: null,
+    closurePassed: null,
+    toleranceMm: safeTolerance,
+    startElevation: reconstructedStartElevation,
+    lastElevation: routeEndElevation
+  };
+}
+
 export function calculateNotebook(sourceRows, toleranceMm = 10, options = {}) {
+  if (options.direction === "up") {
+    return calculateNotebookUpward(sourceRows, toleranceMm, options);
+  }
+
   const rows = sourceRows.map((row) => ({ ...row }));
   const initialElevation = toNumber(options.initialElevation) ?? 0;
   let instrumentHeight = null;
@@ -151,6 +269,7 @@ export function calculateNotebook(sourceRows, toleranceMm = 10, options = {}) {
     closureMm: null,
     closurePassed: null,
     toleranceMm: safeTolerance,
+    startElevation: routeStartElevation,
     lastElevation: lastSightElevation
   };
 }
