@@ -90,6 +90,12 @@ function rowTemplate(row, index) {
     <td><input data-field="distance" inputmode="decimal" autocomplete="off" aria-label="${index + 1}行目 距離"></td>
     <td><input data-field="note" inputmode="text" autocomplete="off" aria-label="${index + 1}行目 備考"></td>`;
   tr.querySelector('[data-field="route"]').value = row.route;
+  tr.querySelector('[data-field="pointName"]').value = row.pointName || "";
+  tr.querySelector('[data-field="bs"]').value = displayValue(row.bs);
+  tr.querySelector('[data-field="fs"]').value = displayValue(row.fs);
+  tr.querySelector('[data-field="elevation"]').value = displayValue(row.elevation, row.elevation !== null ? 3 : null);
+  tr.querySelector('[data-field="distance"]').value = displayValue(row.distance);
+  tr.querySelector('[data-field="note"]').value = row.note || "";
   return tr;
 }
 
