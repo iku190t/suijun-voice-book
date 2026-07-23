@@ -6,20 +6,20 @@ import {
   LEVELING_TOLERANCE_PRESETS,
   sumObservationDistanceMeters,
   toNumber
-} from "./calculation.js?v=20";
-import { createVoiceController, normalizeSpokenNumber, prepareSpeechSynthesis, speakBack } from "./voice.js?v=20";
-import { clearProject, loadProject, saveProject } from "./storage.js?v=20";
-import { exportSheetCsv } from "./export.js?v=20";
+} from "./calculation.js?v=21";
+import { createVoiceController, normalizeSpokenNumber, prepareSpeechSynthesis, speakBack } from "./voice.js?v=21";
+import { clearProject, loadProject, saveProject } from "./storage.js?v=21";
+import { exportSheetCsv } from "./export.js?v=21";
 import {
   isValidStaffReading,
   reversePointNamesWithinUsedRows
-} from "./rules.js?v=20";
+} from "./rules.js?v=21";
 import {
   getSmartPointSuggestions,
   normalizePointName,
   pointNameToSpeech,
   recordPointNameUsage
-} from "./point-names.js?v=20";
+} from "./point-names.js?v=21";
 
 const DEFAULT_ROW_COUNT = 200;
 const NUMERIC_FIELDS = new Set(["bs", "fs", "elevation", "distance"]);
@@ -533,6 +533,15 @@ function getVoiceRowInputs(row) {
   });
 }
 
+function getFieldBelowPreviousReading(rowIndex) {
+  if (rowIndex === 0) return "bs";
+  const previousRow = project.sheets[activeSheet][rowIndex - 1];
+  if (!previousRow) return null;
+  if (previousRow.bs !== null) return "bs";
+  if (previousRow.fs !== null) return "fs";
+  return null;
+}
+
 function moveAfterVoiceInput(current) {
   const field = current.dataset.field;
   const rowIndex = findRowIndex(current);
@@ -541,6 +550,19 @@ function moveAfterVoiceInput(current) {
   if (field === "fs") {
     ensureFollowingRow(rowIndex);
     selectMovedInput(tbody.rows[rowIndex + 1]?.querySelector('[data-field="pointName"]'));
+    return;
+  }
+
+  if (field === "pointName" && project.settings.showDistance) {
+    selectMovedInput(tbody.rows[rowIndex]?.querySelector('[data-field="distance"]'));
+    return;
+  }
+
+  if (field === "pointName" || field === "distance") {
+    const readingField = getFieldBelowPreviousReading(rowIndex);
+    if (readingField) {
+      selectMovedInput(tbody.rows[rowIndex]?.querySelector(`[data-field="${readingField}"]`));
+    }
     return;
   }
 
