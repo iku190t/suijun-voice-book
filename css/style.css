@@ -89,11 +89,10 @@ main { max-width: 1540px; margin: 0 auto; padding: 9px 8px 28px; }
 .notice.error { border-color: #dc7c7c; color: #7f1717; background: #fff0f0; }
 .notice.success { border-color: #70b893; color: #155c39; background: #ecfff4; }
 .sheet-heading { display: flex; justify-content: flex-start; align-items: center; min-height: 52px; padding: 0 4px 7px; color: #174f73; }
-.sheet-heading strong { font-size: 1rem; }
 .sheet-toggle-button {
   min-width: 82px;
   min-height: 42px;
-  margin-left: 12px;
+  margin-left: 0;
   padding: 6px 12px;
   border: 2px solid #168bd1;
   border-radius: 12px;
@@ -105,6 +104,7 @@ main { max-width: 1540px; margin: 0 auto; padding: 9px 8px 28px; }
 .table-wrap {
   overflow-x: auto;
   overflow-y: visible;
+  padding-top: 17px;
   touch-action: pan-x pan-y;
   border: 1px solid #9fc9e2;
   border-radius: 9px;
@@ -125,27 +125,27 @@ th:nth-child(8), td:nth-child(8) { width: var(--elevation-width, 134px); }
 th:nth-child(9), td:nth-child(9) { width: var(--note-width, 180px); }
 .distance-column { display: none; }
 table.show-distance .distance-column { display: table-cell; }
-.point-heading { position: relative; z-index: 4; overflow: hidden; }
+.point-heading { position: relative; z-index: 4; overflow: visible; }
 .distance-inline-toggle {
   position: absolute;
   z-index: 12;
-  top: 50%;
-  right: 2px;
-  width: 42px;
-  min-width: 42px;
-  height: 44px;
-  min-height: 44px;
+  top: 0;
+  right: 0;
+  width: 34px;
+  min-width: 34px;
+  height: 34px;
+  min-height: 34px;
   padding: 0;
-  transform: translateY(-50%);
-  border: 0;
-  border-radius: 0;
-  color: #fff;
-  background: transparent;
-  box-shadow: none;
-  font-size: 1.45rem;
+  transform: translate(50%, -50%);
+  border: 2px solid #bfe8ff;
+  border-radius: 50%;
+  color: #176d9f;
+  background: #fff;
+  box-shadow: 0 2px 6px rgba(9, 83, 128, .22);
+  font-size: 1.15rem;
   line-height: 1;
 }
-.distance-inline-toggle:active { transform: translateY(calc(-50% + 1px)); }
+.distance-inline-toggle:active { transform: translate(50%, calc(-50% + 1px)); }
 td input { width: 100%; height: 100%; min-height: var(--input-height, 47px); padding: 6px; border: 0; border-radius: 0; outline: none; background: transparent; text-align: center; font-size: var(--input-font-size, 16px); font-variant-numeric: tabular-nums; }
 td input[data-field="pointName"], td input[data-field="note"] { text-align: left; }
 td input:focus { position: relative; z-index: 8; box-shadow: inset 0 0 0 3px var(--focus); background: #eef6ff; }
@@ -288,5 +288,5 @@ dialog .eyebrow { color: var(--brand-2); }
   .history-buttons { gap: 5px; margin-left: auto; }
   .history-buttons button { width: 42px; min-width: 42px; }
   .history-buttons svg { width: 36px; }
-  .sheet-toggle-button { min-width: 76px; margin-left: 8px; padding-inline: 9px; }
+  .sheet-toggle-button { min-width: 76px; margin-left: 0; padding-inline: 9px; }
 }

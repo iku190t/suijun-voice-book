@@ -6,7 +6,7 @@ import {
   LEVELING_TOLERANCE_PRESETS,
   sumObservationDistanceMeters,
   toNumber
-} from "./calculation.js?v=34";
+} from "./calculation.js?v=35";
 import {
   chooseLevelReading,
   createVoiceController,
@@ -14,13 +14,13 @@ import {
   normalizeSpokenNumber,
   prepareSpeechSynthesis,
   speakBack
-} from "./voice.js?v=34";
-import { clearProject, loadProject, saveProject } from "./storage.js?v=34";
-import { exportSheetCsv } from "./export.js?v=34";
+} from "./voice.js?v=35";
+import { clearProject, loadProject, saveProject } from "./storage.js?v=35";
+import { exportSheetCsv } from "./export.js?v=35";
 import {
   isValidStaffReading,
   reversePointNamesWithinUsedRows
-} from "./rules.js?v=34";
+} from "./rules.js?v=35";
 import {
   getSheetPointNameCandidates,
   getSmartPointSuggestions,
@@ -28,7 +28,7 @@ import {
   normalizePointName,
   pointNameToSpeech,
   recordPointNameUsage
-} from "./point-names.js?v=34";
+} from "./point-names.js?v=35";
 
 const DEFAULT_ROW_COUNT = 200;
 const NUMERIC_FIELDS = new Set(["bs", "fs", "elevation", "distance"]);
@@ -301,7 +301,6 @@ function renderSheet() {
   project.sheets[activeSheet].forEach((row, index) => fragment.appendChild(rowTemplate(row, index)));
   tbody.replaceChildren(fragment);
   syncVoiceInputLocks();
-  document.querySelector("#activeSheetName").textContent = activeSheet === "out" ? "往路" : "復路";
   const destinationName = activeSheet === "out" ? "復路" : "往路";
   sheetToggleButton.textContent = destinationName;
   sheetToggleButton.setAttribute("aria-label", `${destinationName}に切り替え`);
