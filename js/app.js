@@ -1,7 +1,7 @@
-import { calculateNotebook, formatMeters, toNumber } from "./calculation.js?v=7";
-import { createVoiceController, normalizeSpokenNumber, prepareSpeechSynthesis, speakBack } from "./voice.js?v=7";
-import { clearProject, loadProject, saveProject } from "./storage.js?v=7";
-import { exportSheetCsv } from "./export.js?v=7";
+import { calculateNotebook, formatMeters, toNumber } from "./calculation.js?v=8";
+import { createVoiceController, normalizeSpokenNumber, prepareSpeechSynthesis, speakBack } from "./voice.js?v=8";
+import { clearProject, loadProject, saveProject } from "./storage.js?v=8";
+import { exportSheetCsv } from "./export.js?v=8";
 
 const DEFAULT_ROW_COUNT = 200;
 const NUMERIC_FIELDS = new Set(["bs", "fs", "elevation", "distance"]);
@@ -213,6 +213,11 @@ tableWrap.addEventListener("touchend", (event) => {
     tableWrap.classList.remove("pinching");
     scheduleAutosave();
   }
+}, { passive: true });
+
+tableWrap.addEventListener("touchcancel", () => {
+  pinchStartDistance = null;
+  tableWrap.classList.remove("pinching");
 }, { passive: true });
 
 function recalculateAndRender() {

@@ -123,7 +123,7 @@ td input[data-field="pointName"], td input[data-field="note"] { text-align: left
 td input:focus { position: relative; z-index: 8; box-shadow: inset 0 0 0 3px var(--focus); background: #eef6ff; }
 td input.voice-selected { position: relative; z-index: 7; box-shadow: inset 0 0 0 3px #28a6e8; background: #e7f7ff; }
 tr:nth-child(even) td { background-color: rgba(46, 145, 203, .035); }
-td.calc { padding: 4px; background: #eaf6fc !important; font-weight: 750; font-variant-numeric: tabular-nums; }
+td.calc { padding: 4px; background: #eaf6fc !important; font-size: var(--input-font-size, 16px); font-weight: 750; font-variant-numeric: tabular-nums; }
 tr.incomplete td { background-color: #fff4d6 !important; }
 tr.incomplete .diff { color: #9b5700; font-size: .68rem; }
 tr.row-selected td { box-shadow: inset 0 2px #1c91d0, inset 0 -2px #1c91d0; }
@@ -138,6 +138,7 @@ tr.row-selected td { box-shadow: inset 0 2px #1c91d0, inset 0 -2px #1c91d0; }
   border-radius: 0;
   color: #0f527c;
   background: #dff3ff;
+  font-size: var(--input-font-size, 16px);
   font-weight: 850;
   font-variant-numeric: tabular-nums;
 }
