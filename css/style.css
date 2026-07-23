@@ -49,20 +49,21 @@ a { color: #0d5d74; }
 .history-buttons button {
   display: grid;
   place-items: center;
-  width: 62px;
-  min-width: 62px;
-  height: 46px;
-  min-height: 46px;
-  padding: 3px 6px;
-  border: 3px solid #168bd1;
-  border-radius: 16px;
+  width: 44px;
+  min-width: 44px;
+  height: 44px;
+  min-height: 44px;
+  padding: 7px 4px;
+  border: 0;
+  border-radius: 10px;
   color: #0877bb;
-  background: #f5fcff;
-  box-shadow: 0 3px 0 rgba(4, 90, 143, .2);
+  background: transparent;
+  box-shadow: none;
 }
-.history-buttons svg { width: 48px; height: 32px; overflow: visible; }
+.history-buttons button:active { background: #dff3ff; }
+.history-buttons svg { width: 38px; height: 26px; overflow: visible; }
 .history-buttons path { fill: none; stroke: currentColor; stroke-width: 4.5; stroke-linecap: round; stroke-linejoin: round; }
-.history-buttons button:disabled { border-color: #b8d8e9; color: #a8c9db; background: #f4f8fa; }
+.history-buttons button:disabled { color: #a8c9db; background: transparent; }
 
 .summary { display: grid; grid-template-columns: repeat(4, minmax(120px, 1fr)); gap: 7px; max-width: 1500px; margin: 0 auto 9px; }
 .summary-card, .tolerance-card {
@@ -281,6 +282,6 @@ dialog .eyebrow { color: var(--brand-2); }
   .voice-dock button { min-height: 116px; }
   body { padding-bottom: 144px; }
   .history-buttons { gap: 5px; margin-left: 9px; }
-  .history-buttons button { width: 52px; min-width: 52px; }
-  .history-buttons svg { width: 42px; }
+  .history-buttons button { width: 42px; min-width: 42px; }
+  .history-buttons svg { width: 36px; }
 }

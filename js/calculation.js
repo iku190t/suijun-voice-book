@@ -167,16 +167,16 @@ export function applyRoundTripDifferences(outRows, backRows) {
 
   outRows.forEach((row) => { row._roundTripDifferenceMm = null; });
   backRows.forEach((row) => { row._roundTripDifferenceMm = null; });
-  if (lastUsedIndex < 1) return;
+  if (lastUsedIndex < 0) return;
 
   const usedRowCount = lastUsedIndex + 1;
-  for (let outIndex = 1; outIndex < usedRowCount; outIndex += 1) {
-    const backIndex = usedRowCount - outIndex;
-    const outDifference = outRows[outIndex]?._difference;
-    const backDifference = backRows[backIndex]?._difference;
-    if (!Number.isFinite(outDifference) || !Number.isFinite(backDifference)) continue;
+  for (let outIndex = 0; outIndex < usedRowCount; outIndex += 1) {
+    const backIndex = usedRowCount - 1 - outIndex;
+    const outElevation = outRows[outIndex]?.elevation;
+    const backElevation = backRows[backIndex]?.elevation;
+    if (!Number.isFinite(outElevation) || !Number.isFinite(backElevation)) continue;
 
-    const differenceMm = Math.abs((outDifference + backDifference) * 1000);
+    const differenceMm = Math.abs(outElevation - backElevation) * 1000;
     outRows[outIndex]._roundTripDifferenceMm = differenceMm;
     backRows[backIndex]._roundTripDifferenceMm = differenceMm;
   }

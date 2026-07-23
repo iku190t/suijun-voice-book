@@ -6,7 +6,7 @@ import {
   LEVELING_TOLERANCE_PRESETS,
   sumObservationDistanceMeters,
   toNumber
-} from "./calculation.js?v=29";
+} from "./calculation.js?v=30";
 import {
   chooseLevelReading,
   createVoiceController,
@@ -14,13 +14,13 @@ import {
   normalizeSpokenNumber,
   prepareSpeechSynthesis,
   speakBack
-} from "./voice.js?v=29";
-import { clearProject, loadProject, saveProject } from "./storage.js?v=29";
-import { exportSheetCsv } from "./export.js?v=29";
+} from "./voice.js?v=30";
+import { clearProject, loadProject, saveProject } from "./storage.js?v=30";
+import { exportSheetCsv } from "./export.js?v=30";
 import {
   isValidStaffReading,
   reversePointNamesWithinUsedRows
-} from "./rules.js?v=29";
+} from "./rules.js?v=30";
 import {
   getSheetPointNameCandidates,
   getSmartPointSuggestions,
@@ -28,7 +28,7 @@ import {
   normalizePointName,
   pointNameToSpeech,
   recordPointNameUsage
-} from "./point-names.js?v=29";
+} from "./point-names.js?v=30";
 
 const DEFAULT_ROW_COUNT = 200;
 const NUMERIC_FIELDS = new Set(["bs", "fs", "elevation", "distance"]);
@@ -336,7 +336,7 @@ function applyTableScale(value) {
     "--elevation-width": 134,
     "--note-width": 180,
     "--input-font-size": 16,
-    "--header-font-size": 12
+    "--header-font-size": 16
   };
   Object.entries(pixels).forEach(([property, base]) => {
     notebook.style.setProperty(property, `${Math.round(base * scale * 10) / 10}px`);
