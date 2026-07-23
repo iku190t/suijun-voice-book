@@ -94,8 +94,9 @@ th:nth-child(2), td:nth-child(2) { width: var(--point-width, 116px); }
 th:nth-child(3), td:nth-child(3) { width: var(--distance-width, 94px); }
 th:nth-child(4), td:nth-child(4), th:nth-child(5), td:nth-child(5) { width: var(--reading-width, 96px); }
 th:nth-child(6), td:nth-child(6) { width: var(--difference-width, 100px); }
-th:nth-child(7), td:nth-child(7) { width: var(--elevation-width, 134px); }
-th:nth-child(8), td:nth-child(8) { width: var(--note-width, 180px); }
+th:nth-child(7), td:nth-child(7) { width: var(--round-trip-width, 104px); }
+th:nth-child(8), td:nth-child(8) { width: var(--elevation-width, 134px); }
+th:nth-child(9), td:nth-child(9) { width: var(--note-width, 180px); }
 .distance-column { display: none; }
 table.show-distance .distance-column { display: table-cell; }
 .point-heading { position: relative; z-index: 4; overflow: visible; }

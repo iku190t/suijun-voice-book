@@ -1,17 +1,17 @@
-import { calculateNotebook, formatMeters, toNumber } from "./calculation.js?v=13";
-import { createVoiceController, normalizeSpokenNumber, prepareSpeechSynthesis, speakBack } from "./voice.js?v=13";
-import { clearProject, loadProject, saveProject } from "./storage.js?v=13";
-import { exportSheetCsv } from "./export.js?v=13";
+import { applyRoundTripDifferences, calculateNotebook, formatMeters, toNumber } from "./calculation.js?v=14";
+import { createVoiceController, normalizeSpokenNumber, prepareSpeechSynthesis, speakBack } from "./voice.js?v=14";
+import { clearProject, loadProject, saveProject } from "./storage.js?v=14";
+import { exportSheetCsv } from "./export.js?v=14";
 import {
   isValidStaffReading,
   reversePointNamesWithinUsedRows
-} from "./rules.js?v=13";
+} from "./rules.js?v=14";
 import {
   getSmartPointSuggestions,
   normalizePointName,
   pointNameToSpeech,
   recordPointNameUsage
-} from "./point-names.js?v=13";
+} from "./point-names.js?v=14";
 
 const DEFAULT_ROW_COUNT = 200;
 const NUMERIC_FIELDS = new Set(["bs", "fs", "elevation", "distance"]);
@@ -171,6 +171,7 @@ function rowTemplate(row, index) {
     <td><input data-field="bs" inputmode="decimal" pattern="[0-9]*[.]?[0-9]*" autocomplete="off" spellcheck="false" aria-label="${index + 1}行目 後視 BS"></td>
     <td><input data-field="fs" inputmode="decimal" pattern="[0-9]*[.]?[0-9]*" autocomplete="off" spellcheck="false" aria-label="${index + 1}行目 前視 FS"></td>
     <td class="calc diff"></td>
+    <td class="calc round-trip-diff"></td>
     <td class="elevation-cell calculated"><input data-field="elevation" inputmode="decimal" autocomplete="off" aria-label="${index + 1}行目 既知標高または仮標高"></td>
     <td><input data-field="note" inputmode="text" autocomplete="off" aria-label="${index + 1}行目 備考"></td>`;
   tr.querySelector('[data-field="pointName"]').value = row.pointName || "";
@@ -213,7 +214,7 @@ function applyTableScale(value) {
   const scale = clamp(Number(value) || 1, 0.7, 1.8);
   project.settings.tableScale = scale;
   const pixels = {
-    "--table-min-width": 790,
+    "--table-min-width": 894,
     "--row-height": 48,
     "--input-height": 47,
     "--number-width": 42,
@@ -221,6 +222,7 @@ function applyTableScale(value) {
     "--distance-width": 94,
     "--reading-width": 96,
     "--difference-width": 100,
+    "--round-trip-width": 104,
     "--elevation-width": 134,
     "--note-width": 180,
     "--input-font-size": 16,
@@ -268,7 +270,10 @@ tableWrap.addEventListener("touchcancel", () => {
 
 function recalculateAndRender() {
   calculations.out = calculateNotebook(project.sheets.out, project.settings.closureToleranceMm);
-  calculations.back = calculateNotebook(project.sheets.back, project.settings.closureToleranceMm);
+  calculations.back = calculateNotebook(project.sheets.back, project.settings.closureToleranceMm, {
+    initialElevation: calculations.out.lastElevation ?? 0
+  });
+  applyRoundTripDifferences(calculations.out.rows, calculations.back.rows);
   project.sheets.out = stripCalculatedFields(calculations.out.rows);
   project.sheets.back = stripCalculatedFields(calculations.back.rows);
 
@@ -279,6 +284,9 @@ function recalculateAndRender() {
     tr.classList.toggle("incomplete", row._incomplete);
     tr.querySelector(".diff").textContent = Number.isFinite(row._difference)
       ? row._difference.toFixed(3)
+      : "";
+    tr.querySelector(".round-trip-diff").textContent = Number.isFinite(row._roundTripDifferenceMm)
+      ? row._roundTripDifferenceMm.toFixed(1)
       : "";
     const elevationInput = tr.querySelector('[data-field="elevation"]');
     if (document.activeElement !== elevationInput || row.elevationType === "calculated") {
@@ -297,7 +305,7 @@ function recalculateAndRender() {
 }
 
 function stripCalculatedFields(rows) {
-  return rows.map(({ _complete, _incomplete, _difference, ...row }) => row);
+  return rows.map(({ _complete, _incomplete, _difference, _roundTripDifferenceMm, ...row }) => row);
 }
 
 function updateClosure(outDifference, backDifference) {

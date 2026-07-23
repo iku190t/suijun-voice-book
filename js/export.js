@@ -3,7 +3,7 @@ function escapeCsv(value) {
 }
 
 export function exportSheetCsv(sheet, calculatedRows) {
-  const headers = ["No.", "点名", "距離", "後視 BS", "前視 FS", "高低差", "既知標高・仮標高", "備考"];
+  const headers = ["No.", "点名", "距離", "後視 BS", "前視 FS", "高低差", "往復差 mm", "既知標高・仮標高", "備考"];
   const data = calculatedRows.map((row, index) => [
     index + 1,
     row.pointName,
@@ -11,6 +11,7 @@ export function exportSheetCsv(sheet, calculatedRows) {
     row.bs ?? "",
     row.fs ?? "",
     Number.isFinite(row._difference) ? row._difference.toFixed(3) : "",
+    Number.isFinite(row._roundTripDifferenceMm) ? row._roundTripDifferenceMm.toFixed(1) : "",
     row.elevation !== null ? row.elevation.toFixed(3) : "",
     row.note
   ]);
