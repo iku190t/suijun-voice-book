@@ -6,20 +6,21 @@ import {
   LEVELING_TOLERANCE_PRESETS,
   sumObservationDistanceMeters,
   toNumber
-} from "./calculation.js?v=25";
-import { createVoiceController, normalizeSpokenNumber, prepareSpeechSynthesis, speakBack } from "./voice.js?v=25";
-import { clearProject, loadProject, saveProject } from "./storage.js?v=25";
-import { exportSheetCsv } from "./export.js?v=25";
+} from "./calculation.js?v=26";
+import { createVoiceController, normalizeSpokenNumber, prepareSpeechSynthesis, speakBack } from "./voice.js?v=26";
+import { clearProject, loadProject, saveProject } from "./storage.js?v=26";
+import { exportSheetCsv } from "./export.js?v=26";
 import {
   isValidStaffReading,
   reversePointNamesWithinUsedRows
-} from "./rules.js?v=25";
+} from "./rules.js?v=26";
 import {
+  getNextPointNameCandidates,
   getSmartPointSuggestions,
   normalizePointName,
   pointNameToSpeech,
   recordPointNameUsage
-} from "./point-names.js?v=25";
+} from "./point-names.js?v=26";
 
 const DEFAULT_ROW_COUNT = 200;
 const NUMERIC_FIELDS = new Set(["bs", "fs", "elevation", "distance"]);
@@ -35,6 +36,7 @@ const keyboardModeButton = document.querySelector("#keyboardModeBtn");
 const voiceStatus = document.querySelector("#voiceStatus");
 const pointSuggestions = document.querySelector("#pointSuggestions");
 const pointSuggestionButtons = document.querySelector("#pointSuggestionButtons");
+const cellDeleteButton = document.querySelector("#cellDeleteBtn");
 let activeSheet = "out";
 let selectedInput = null;
 let voiceTarget = null;
@@ -45,6 +47,12 @@ let autosaveTimer = null;
 let calculations = { out: null, back: null };
 let pinchStartDistance = null;
 let pinchStartScale = 1;
+let longPressTimer = null;
+let longPressInput = null;
+let longPressPointerId = null;
+let longPressStartX = 0;
+let longPressStartY = 0;
+let cellDeleteTarget = null;
 
 function makeId() {
   return globalThis.crypto?.randomUUID?.() || `row-${Date.now()}-${Math.random().toString(36).slice(2)}`;
@@ -151,7 +159,7 @@ function normalizeLoadedProject(loaded) {
 
 let project = normalizeLoadedProject(loadProject());
 project.settings.voiceRate = clamp(Number(project.settings.voiceRate) || 0.9, 0.5, 1.5);
-project.settings.tableScale = clamp(Number(project.settings.tableScale) || 1, 0.7, 1.8);
+project.settings.tableScale = clamp(Number(project.settings.tableScale) || 1, 0.5, 1.8);
 if (!LEVELING_TOLERANCE_PRESETS[project.settings.tolerancePreset]) {
   project.settings.tolerancePreset = "grade3";
 }
@@ -185,8 +193,8 @@ function rowTemplate(row, index) {
     <td class="distance-column"><input data-field="distance" inputmode="decimal" pattern="[0-9]*[.]?[0-9]*" autocomplete="off" spellcheck="false" aria-label="${index + 1}行目 距離"></td>
     <td><input data-field="bs" inputmode="decimal" pattern="[0-9]*[.]?[0-9]*" autocomplete="off" spellcheck="false" aria-label="${index + 1}行目 後視 BS"></td>
     <td><input data-field="fs" inputmode="decimal" pattern="[0-9]*[.]?[0-9]*" autocomplete="off" spellcheck="false" aria-label="${index + 1}行目 前視 FS"></td>
-    <td class="calc diff"></td>
     <td class="calc round-trip-diff"></td>
+    <td class="calc diff"></td>
     <td class="elevation-cell calculated"><input data-field="elevation" inputmode="decimal" autocomplete="off" aria-label="${index + 1}行目 既知標高または仮標高"></td>
     <td><input data-field="note" inputmode="text" autocomplete="off" aria-label="${index + 1}行目 備考"></td>`;
   tr.querySelector('[data-field="pointName"]').value = row.pointName || "";
@@ -227,7 +235,7 @@ function applyDistanceVisibility() {
 }
 
 function applyTableScale(value) {
-  const scale = clamp(Number(value) || 1, 0.7, 1.8);
+  const scale = clamp(Number(value) || 1, 0.5, 1.8);
   project.settings.tableScale = scale;
   const pixels = {
     "--table-min-width": 894,
@@ -451,6 +459,7 @@ function updateVoiceModeUi() {
 function setVoiceModeActive(active) {
   voiceModeActive = Boolean(active);
   if (!voiceModeActive) voiceTarget = null;
+  if (!voiceModeActive) hideCellDeleteButton();
   syncVoiceInputLocks();
   updateVoiceModeUi();
   hidePointSuggestions();
@@ -458,6 +467,7 @@ function setVoiceModeActive(active) {
 
 function setVoiceSessionActive(active) {
   voiceSessionActive = Boolean(active);
+  if (voiceSessionActive) hideCellDeleteButton();
   document.body.classList.toggle("voice-session-active", voiceSessionActive);
   syncVoiceInputLocks();
   updateVoiceModeUi();
@@ -467,6 +477,9 @@ function finishVoiceSession() {
   setVoiceSessionActive(false);
   voiceTarget = null;
   voiceStatus.textContent = "";
+  if (selectedInput?.isConnected && selectedInput.dataset.field === "pointName" && !selectedInput.value.trim()) {
+    showPointNameSuggestions(selectedInput);
+  }
 }
 
 function selectVoiceTargetWithoutKeyboard(input) {
@@ -474,12 +487,37 @@ function selectVoiceTargetWithoutKeyboard(input) {
   voiceTarget = input;
   markSelectedInput(input);
   input.blur();
-  hidePointSuggestions();
+  if (!voiceSessionActive && input.dataset.field === "pointName" && !input.value.trim()) {
+    showPointNameSuggestions(input);
+  } else {
+    hidePointSuggestions();
+  }
 }
 
 function hidePointSuggestions() {
   pointSuggestions.hidden = true;
   pointSuggestionButtons.replaceChildren();
+  document.body.classList.remove("point-suggestions-visible");
+}
+
+function getLearnedPointSuccessors(previousPointName) {
+  const previous = normalizePointName(previousPointName, project.settings.pointAliases);
+  if (!previous) return [];
+  const successors = new Map();
+  let sequence = 0;
+  Object.values(project.sheets).forEach((rows) => {
+    rows.forEach((row, index) => {
+      if (normalizePointName(row.pointName, project.settings.pointAliases) !== previous) return;
+      const nextPointName = normalizePointName(rows[index + 1]?.pointName || "", project.settings.pointAliases);
+      if (!nextPointName || nextPointName === previous) return;
+      const current = successors.get(nextPointName) || { count: 0, lastSeen: 0 };
+      successors.set(nextPointName, { count: current.count + 1, lastSeen: sequence });
+      sequence += 1;
+    });
+  });
+  return [...successors.entries()]
+    .sort((left, right) => right[1].count - left[1].count || right[1].lastSeen - left[1].lastSeen)
+    .map(([pointName]) => pointName);
 }
 
 function showPointNameSuggestions(input) {
@@ -487,12 +525,24 @@ function showPointNameSuggestions(input) {
     hidePointSuggestions();
     return;
   }
-  const candidates = getSmartPointSuggestions(
-    input.value,
-    project.settings.pointAliases,
-    project.settings.pointNameHistory,
-    8
-  );
+  const rowIndex = findRowIndex(input);
+  const previousPointName = rowIndex > 0
+    ? project.sheets[activeSheet][rowIndex - 1]?.pointName || ""
+    : "";
+  const candidates = input.value.trim()
+    ? getSmartPointSuggestions(
+      input.value,
+      project.settings.pointAliases,
+      project.settings.pointNameHistory,
+      3
+    )
+    : getNextPointNameCandidates(
+      previousPointName,
+      project.settings.pointAliases,
+      project.settings.pointNameHistory,
+      getLearnedPointSuccessors(previousPointName),
+      3
+    );
   if (!candidates.length) {
     hidePointSuggestions();
     return;
@@ -506,6 +556,7 @@ function showPointNameSuggestions(input) {
   });
   pointSuggestionButtons.replaceChildren(...buttons);
   pointSuggestions.hidden = false;
+  document.body.classList.add("point-suggestions-visible");
 }
 
 function recordPointName(pointName) {
@@ -549,6 +600,11 @@ function selectMovedInput(target, focusTarget = false) {
     target.focus({ preventScroll: false });
   } else {
     target.scrollIntoView({ block: "nearest", inline: "nearest" });
+  }
+  if (!voiceSessionActive && target.dataset.field === "pointName" && !target.value.trim()) {
+    showPointNameSuggestions(target);
+  } else {
+    hidePointSuggestions();
   }
 }
 
@@ -604,6 +660,46 @@ function moveAfterVoiceInput(current) {
   selectMovedInput(rowInputs[columnIndex + 1]);
 }
 
+function cancelLongPress() {
+  if (longPressTimer) clearTimeout(longPressTimer);
+  longPressTimer = null;
+  longPressInput = null;
+  longPressPointerId = null;
+}
+
+function hideCellDeleteButton() {
+  cellDeleteButton.hidden = true;
+  cellDeleteTarget = null;
+}
+
+function showCellDeleteButton(input, clientX, clientY) {
+  if (!voiceModeActive || voiceSessionActive || !input?.isConnected) return;
+  cellDeleteTarget = input;
+  markSelectedInput(input);
+  voiceTarget = input;
+  hidePointSuggestions();
+  const left = clamp(clientX + 10, 8, Math.max(8, window.innerWidth - 100));
+  const top = clientY > window.innerHeight - 90
+    ? Math.max(8, clientY - 62)
+    : clientY + 12;
+  cellDeleteButton.style.left = `${left}px`;
+  cellDeleteButton.style.top = `${top}px`;
+  cellDeleteButton.hidden = false;
+}
+
+function startLongPress(input, event) {
+  cancelLongPress();
+  if (!voiceModeActive || voiceSessionActive || !input?.isConnected) return;
+  longPressInput = input;
+  longPressPointerId = event.pointerId;
+  longPressStartX = event.clientX;
+  longPressStartY = event.clientY;
+  longPressTimer = setTimeout(() => {
+    longPressTimer = null;
+    showCellDeleteButton(longPressInput, longPressStartX, longPressStartY);
+  }, 560);
+}
+
 tbody.addEventListener("focusin", (event) => {
   if (!event.target.matches("input")) return;
   if (voiceModeActive || voiceSessionActive) {
@@ -617,12 +713,57 @@ tbody.addEventListener("focusin", (event) => {
 tbody.addEventListener("pointerdown", (event) => {
   const input = event.target.closest("input");
   if (!input) return;
+  hideCellDeleteButton();
   if (voiceModeActive || voiceSessionActive) {
     selectVoiceTargetWithoutKeyboard(input);
   } else {
     markSelectedInput(input);
   }
+  startLongPress(input, event);
 }, { capture: true });
+
+tbody.addEventListener("pointermove", (event) => {
+  if (!longPressTimer || event.pointerId !== longPressPointerId) return;
+  if (Math.hypot(event.clientX - longPressStartX, event.clientY - longPressStartY) > 12) {
+    cancelLongPress();
+  }
+}, { capture: true, passive: true });
+
+window.addEventListener("pointerup", cancelLongPress, { capture: true, passive: true });
+window.addEventListener("pointercancel", cancelLongPress, { capture: true, passive: true });
+
+tbody.addEventListener("contextmenu", (event) => {
+  const input = event.target.closest("input");
+  if (!input || !voiceModeActive || voiceSessionActive) return;
+  event.preventDefault();
+  cancelLongPress();
+  showCellDeleteButton(input, event.clientX, event.clientY);
+});
+
+tableWrap.addEventListener("scroll", () => {
+  cancelLongPress();
+  hideCellDeleteButton();
+}, { passive: true });
+
+document.addEventListener("pointerdown", (event) => {
+  if (event.target === cellDeleteButton || cellDeleteButton.hidden) return;
+  hideCellDeleteButton();
+}, { capture: true });
+
+cellDeleteButton.addEventListener("click", () => {
+  const target = cellDeleteTarget;
+  hideCellDeleteButton();
+  if (!target?.isConnected) return;
+  target.value = "";
+  if (!handleFieldChange(target)) return;
+  markSelectedInput(target);
+  voiceTarget = target;
+  if (target.dataset.field === "pointName") {
+    showPointNameSuggestions(target);
+  } else {
+    hidePointSuggestions();
+  }
+});
 
 tbody.addEventListener("touchstart", (event) => {
   const input = event.target.closest("input");
@@ -670,12 +811,13 @@ tbody.addEventListener("focusout", (event) => {
 pointSuggestionButtons.addEventListener("click", (event) => {
   const button = event.target.closest("[data-point-suggestion]");
   if (!button || !selectedInput?.isConnected || selectedInput.dataset.field !== "pointName") return;
-  selectedInput.value = button.dataset.pointSuggestion;
-  if (handleFieldChange(selectedInput)) {
-    recordPointName(selectedInput.value);
-    selectedInput.focus();
+  const target = selectedInput;
+  target.value = button.dataset.pointSuggestion;
+  if (handleFieldChange(target)) {
+    recordPointName(target.value);
+    hidePointSuggestions();
+    moveAfterVoiceInput(target);
   }
-  hidePointSuggestions();
 });
 
 tbody.addEventListener("click", (event) => {
@@ -932,6 +1074,7 @@ voiceButton.addEventListener("click", () => {
   }
   if (voiceSessionActive) {
     voiceController.cancel();
+    finishVoiceSession();
     return;
   }
   const activeInput = document.activeElement?.matches?.("#notebookBody input")

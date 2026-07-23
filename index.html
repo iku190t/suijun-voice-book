@@ -15,7 +15,7 @@
   <link rel="manifest" href="./manifest.json">
   <link rel="icon" href="./icons/icon-192.png">
   <link rel="apple-touch-icon" href="./icons/icon-192.png">
-  <link rel="stylesheet" href="./css/style.css?v=25">
+  <link rel="stylesheet" href="./css/style.css?v=26">
 </head>
 <body>
   <header class="app-header">
@@ -86,8 +86,8 @@
             <th class="distance-column">距離 m</th>
             <th>後視 BS</th>
             <th>前視 FS</th>
-            <th>高低差</th>
             <th>往復差 mm</th>
+            <th>高低差</th>
             <th>既知/仮標高</th>
             <th>備考</th>
           </tr>
@@ -95,17 +95,18 @@
         <tbody id="notebookBody"></tbody>
       </table>
     </div>
-    <section id="pointSuggestions" class="point-suggestions" aria-label="測点名の優先候補" hidden>
-      <strong>測点名候補</strong>
-      <div id="pointSuggestionButtons" class="point-suggestion-buttons"></div>
-    </section>
   </main>
 
   <div class="voice-dock">
+    <section id="pointSuggestions" class="point-suggestions" aria-label="測点名の優先候補" hidden>
+      <strong>点名候補</strong>
+      <div id="pointSuggestionButtons" class="point-suggestion-buttons"></div>
+    </section>
     <button id="voiceBtn" type="button">🎤 音声モード</button>
     <button id="keyboardModeBtn" class="keyboard-mode-button" type="button" hidden>⌨️ キーボードへ戻る</button>
     <div id="voiceStatus" class="sr-only" aria-live="polite"></div>
   </div>
+  <button id="cellDeleteBtn" class="cell-delete-popover" type="button" hidden>削除</button>
 
   <dialog id="settingsDialog" aria-labelledby="settingsDialogTitle">
     <form method="dialog">
@@ -169,6 +170,6 @@
   </dialog>
 
   <noscript>このアプリの利用にはJavaScriptを有効にしてください。</noscript>
-  <script type="module" src="./js/app.js?v=25"></script>
+  <script type="module" src="./js/app.js?v=26"></script>
 </body>
 </html>

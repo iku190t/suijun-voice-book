@@ -1,4 +1,4 @@
-import { resolvePointAlias } from "./rules.js?v=25";
+import { resolvePointAlias } from "./rules.js?v=26";
 
 const BASE_PRIORITY_POINT_NAMES = [...new Set(`
 BM,KBM,TBM,仮BM,水準点,仮水準点,既知点,未知点,固定点,既設点,新設点,閉合点,確認点,チェック点,
@@ -188,6 +188,52 @@ export function getSmartPointSuggestions(inputText, manualAliases = [], history 
     .filter((candidate, index, all) => all.findIndex((item) => item.pointName === candidate.pointName) === index)
     .slice(0, limit)
     .map((candidate) => candidate.pointName);
+}
+
+export function incrementPointName(pointName, manualAliases = []) {
+  const normalized = normalizePointName(pointName, manualAliases);
+  const match = normalized.match(/^(.*?)(\d+)$/);
+  if (!match) return "";
+  const numberText = match[2];
+  const nextNumber = String(Number(numberText) + 1);
+  const paddedNumber = numberText.length > 1 && numberText.startsWith("0")
+    ? nextNumber.padStart(numberText.length, "0")
+    : nextNumber;
+  return `${match[1]}${paddedNumber}`;
+}
+
+export function getNextPointNameCandidates(
+  previousPointName,
+  manualAliases = [],
+  history = {},
+  learnedSuccessors = [],
+  limit = 3
+) {
+  const previous = normalizePointName(previousPointName, manualAliases);
+  const incremented = incrementPointName(previous, manualAliases);
+  const recentNames = Object.entries(history || {})
+    .map(([pointName, usage]) => ({
+      pointName: normalizePointName(pointName, manualAliases),
+      lastUsed: Number(usage?.lastUsed) || 0,
+      count: Number(usage?.count) || 0
+    }))
+    .filter((item) => item.pointName)
+    .sort((left, right) => right.lastUsed - left.lastUsed || right.count - left.count)
+    .map((item) => item.pointName);
+  const manualNames = manualAliases
+    .map((alias) => normalizePointName(String(alias?.pointName ?? ""), manualAliases))
+    .filter(Boolean);
+  const fallbackNames = ["TP1", "NO.1", "BM1"];
+  const ordered = [
+    incremented,
+    ...learnedSuccessors,
+    ...recentNames,
+    ...manualNames,
+    ...fallbackNames
+  ]
+    .map((pointName) => normalizePointName(String(pointName ?? ""), manualAliases))
+    .filter((pointName) => pointName && pointName !== previous);
+  return [...new Set(ordered)].slice(0, limit);
 }
 
 export function isPriorityPointName(pointName) {
