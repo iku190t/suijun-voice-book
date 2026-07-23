@@ -71,6 +71,7 @@ export function calculateNotebook(sourceRows, toleranceMm = 10, options = {}) {
       ? toNumber(row.elevation)
       : null;
     let resolvedElevation = manualElevation;
+    let usesImplicitBaseline = false;
     let validFs = false;
     let invalidObservation = false;
 
@@ -98,6 +99,7 @@ export function calculateNotebook(sourceRows, toleranceMm = 10, options = {}) {
     // 最初のBS行は、既知標高が空欄なら0mを基準標高とする。
     if (hasBs && resolvedElevation === null && !hasFs && instrumentHeight === null) {
       resolvedElevation = initialElevation;
+      usesImplicitBaseline = true;
     }
 
     // 同じ行にFSとBSがある場合も、上のFS計算後に新しい器械高へ切り替える。
@@ -114,6 +116,10 @@ export function calculateNotebook(sourceRows, toleranceMm = 10, options = {}) {
     if (manualElevation !== null) {
       row.elevation = manualElevation;
       row.elevationType = "manual";
+    } else if (usesImplicitBaseline) {
+      // 計算内部では0m（または復路の起点高）を使うが、未入力の既知標高セルは空欄を保つ。
+      row.elevation = null;
+      row.elevationType = "calculated";
     } else if (resolvedElevation !== null) {
       row.elevation = resolvedElevation;
       row.elevationType = "calculated";
