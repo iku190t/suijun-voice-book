@@ -6,7 +6,7 @@ import {
   LEVELING_TOLERANCE_PRESETS,
   sumObservationDistanceMeters,
   toNumber
-} from "./calculation.js?v=32";
+} from "./calculation.js?v=33";
 import {
   chooseLevelReading,
   createVoiceController,
@@ -14,13 +14,13 @@ import {
   normalizeSpokenNumber,
   prepareSpeechSynthesis,
   speakBack
-} from "./voice.js?v=32";
-import { clearProject, loadProject, saveProject } from "./storage.js?v=32";
-import { exportSheetCsv } from "./export.js?v=32";
+} from "./voice.js?v=33";
+import { clearProject, loadProject, saveProject } from "./storage.js?v=33";
+import { exportSheetCsv } from "./export.js?v=33";
 import {
   isValidStaffReading,
   reversePointNamesWithinUsedRows
-} from "./rules.js?v=32";
+} from "./rules.js?v=33";
 import {
   getSheetPointNameCandidates,
   getSmartPointSuggestions,
@@ -28,7 +28,7 @@ import {
   normalizePointName,
   pointNameToSpeech,
   recordPointNameUsage
-} from "./point-names.js?v=32";
+} from "./point-names.js?v=33";
 
 const DEFAULT_ROW_COUNT = 200;
 const NUMERIC_FIELDS = new Set(["bs", "fs", "elevation", "distance"]);
@@ -1016,9 +1016,13 @@ document.querySelector("#saveBtn").addEventListener("click", () => {
   project = saveProject(project);
   showNotice("上書き保存しました。", "success");
 });
-document.querySelector("#csvBtn").addEventListener("click", () => {
-  exportSheetCsv(activeSheet, calculations[activeSheet].rows);
-  showNotice(`${activeSheet === "out" ? "往路" : "復路"}シートをCSV出力しました。`, "success");
+document.querySelector("#csvBtn").addEventListener("click", async () => {
+  const result = await exportSheetCsv(activeSheet, calculations[activeSheet].rows);
+  if (result === "shared") {
+    showNotice("CSVを共有しました。Gmailなどで送信できます。", "success");
+  } else if (result === "downloaded") {
+    showNotice(`${activeSheet === "out" ? "往路" : "復路"}シートをCSV出力しました。`, "success");
+  }
 });
 const clearDialog = document.querySelector("#clearDialog");
 document.querySelector("#clearBtn").addEventListener("click", () => clearDialog.showModal());

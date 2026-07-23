@@ -125,23 +125,24 @@ th:nth-child(8), td:nth-child(8) { width: var(--elevation-width, 134px); }
 th:nth-child(9), td:nth-child(9) { width: var(--note-width, 180px); }
 .distance-column { display: none; }
 table.show-distance .distance-column { display: table-cell; }
-.point-heading { position: relative; z-index: 4; overflow: visible; }
+.point-heading { position: relative; z-index: 4; overflow: hidden; }
 .distance-inline-toggle {
   position: absolute;
   z-index: 12;
   top: 50%;
-  right: -17px;
-  width: 34px;
-  min-width: 34px;
-  height: 34px;
-  min-height: 34px;
+  right: 2px;
+  width: 42px;
+  min-width: 42px;
+  height: 44px;
+  min-height: 44px;
   padding: 0;
   transform: translateY(-50%);
-  border: 2px solid #fff;
-  border-radius: 50%;
-  color: #07517c;
-  background: #d9f4ff;
-  font-size: 1.15rem;
+  border: 0;
+  border-radius: 0;
+  color: #fff;
+  background: transparent;
+  box-shadow: none;
+  font-size: 1.45rem;
   line-height: 1;
 }
 .distance-inline-toggle:active { transform: translateY(calc(-50% + 1px)); }
