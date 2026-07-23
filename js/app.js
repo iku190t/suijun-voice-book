@@ -1,7 +1,12 @@
-import { calculateNotebook, formatMeters, toNumber } from "./calculation.js?v=8";
-import { createVoiceController, normalizeSpokenNumber, prepareSpeechSynthesis, speakBack } from "./voice.js?v=8";
-import { clearProject, loadProject, saveProject } from "./storage.js?v=8";
-import { exportSheetCsv } from "./export.js?v=8";
+import { calculateNotebook, formatMeters, toNumber } from "./calculation.js?v=9";
+import { createVoiceController, normalizeSpokenNumber, prepareSpeechSynthesis, speakBack } from "./voice.js?v=9";
+import { clearProject, loadProject, saveProject } from "./storage.js?v=9";
+import { exportSheetCsv } from "./export.js?v=9";
+import {
+  isValidStaffReading,
+  resolvePointAlias,
+  reversePointNamesWithinUsedRows
+} from "./rules.js?v=9";
 
 const DEFAULT_ROW_COUNT = 200;
 const NUMERIC_FIELDS = new Set(["bs", "fs", "elevation", "distance"]);
@@ -46,12 +51,13 @@ function createRows(route, count = DEFAULT_ROW_COUNT) {
 
 function createBlankProject() {
   return {
-    version: 3,
+    version: 4,
     settings: {
       closureToleranceMm: 10,
       showDistance: false,
       voiceRate: 0.9,
-      tableScale: 1
+      tableScale: 1,
+      pointAliases: []
     },
     sheets: {
       out: createRows("out"),
@@ -62,14 +68,16 @@ function createBlankProject() {
 }
 
 function normalizeRow(row, route) {
+  const bs = toNumber(row?.bs);
+  const fs = toNumber(row?.fs);
   return {
     ...createRow(route),
     ...row,
     id: row?.id || makeId(),
     route,
     elevationType: row?.elevationType === "manual" ? "manual" : "calculated",
-    bs: toNumber(row?.bs),
-    fs: toNumber(row?.fs),
+    bs: bs === null || isValidStaffReading(bs) ? bs : null,
+    fs: fs === null || isValidStaffReading(fs) ? fs : null,
     elevation: toNumber(row?.elevation),
     distance: toNumber(row?.distance)
   };
@@ -91,12 +99,22 @@ function normalizeLoadedProject(loaded) {
 
   outRows = outRows.map((row) => normalizeRow(row, "out"));
   backRows = backRows.map((row) => normalizeRow(row, "back"));
-  while (outRows.length < DEFAULT_ROW_COUNT) outRows.push(createRow("out"));
-  while (backRows.length < DEFAULT_ROW_COUNT) backRows.push(createRow("back"));
+  const rowCount = Math.max(DEFAULT_ROW_COUNT, outRows.length, backRows.length);
+  while (outRows.length < rowCount) outRows.push(createRow("out"));
+  while (backRows.length < rowCount) backRows.push(createRow("back"));
+
+  const loadedAliases = Array.isArray(loaded.settings?.pointAliases)
+    ? loaded.settings.pointAliases
+      .map((alias) => ({
+        pointName: String(alias?.pointName ?? "").trim(),
+        spoken: String(alias?.spoken ?? "").trim()
+      }))
+      .filter((alias) => alias.pointName && alias.spoken)
+    : [];
 
   return {
-    version: 3,
-    settings: { ...blank.settings, ...(loaded.settings || {}) },
+    version: 4,
+    settings: { ...blank.settings, ...(loaded.settings || {}), pointAliases: loadedAliases },
     sheets: { out: outRows, back: backRows },
     savedAt: loaded.savedAt || null
   };
@@ -105,6 +123,17 @@ function normalizeLoadedProject(loaded) {
 let project = normalizeLoadedProject(loadProject());
 project.settings.voiceRate = clamp(Number(project.settings.voiceRate) || 0.9, 0.5, 1.5);
 project.settings.tableScale = clamp(Number(project.settings.tableScale) || 1, 0.7, 1.8);
+
+function synchronizeRowCounts() {
+  const rowCount = Math.max(DEFAULT_ROW_COUNT, project.sheets.out.length, project.sheets.back.length);
+  while (project.sheets.out.length < rowCount) project.sheets.out.push(createRow("out"));
+  while (project.sheets.back.length < rowCount) project.sheets.back.push(createRow("back"));
+}
+
+function synchronizePointNames(sourceSheet, targetSheet) {
+  synchronizeRowCounts();
+  return reversePointNamesWithinUsedRows(project.sheets[sourceSheet], project.sheets[targetSheet]);
+}
 
 function clamp(value, minimum, maximum) {
   return Math.min(maximum, Math.max(minimum, value));
@@ -301,6 +330,12 @@ function handleFieldChange(input) {
     input.setAttribute("aria-invalid", "true");
     return false;
   }
+  if ((field === "bs" || field === "fs") && parsed !== null && !isValidStaffReading(parsed)) {
+    showNotice("BS・FSは0m以上、10m未満で入力してください。", "error");
+    input.value = displayValue(project.sheets[activeSheet][index][field]);
+    input.setAttribute("aria-invalid", "true");
+    return false;
+  }
   input.removeAttribute("aria-invalid");
   project.sheets[activeSheet][index][field] = parsed;
   if (field === "elevation") {
@@ -322,7 +357,8 @@ function moveStraightDown(current, focusTarget = true) {
   const rowIndex = findRowIndex(current);
   if (!field || rowIndex < 0) return;
   if (rowIndex === project.sheets[activeSheet].length - 1) {
-    project.sheets[activeSheet].push(createRow(activeSheet));
+    project.sheets.out.push(createRow("out"));
+    project.sheets.back.push(createRow("back"));
     renderSheet();
   }
   const target = tbody.rows[rowIndex + 1]?.querySelector(`[data-field="${field}"]`);
@@ -381,8 +417,12 @@ function scheduleAutosave() {
 
 document.querySelectorAll(".sheet-tab").forEach((button) => {
   button.addEventListener("click", () => {
-    activeSheet = button.dataset.sheet;
+    const targetSheet = button.dataset.sheet;
+    if (targetSheet === activeSheet) return;
+    synchronizePointNames(activeSheet, targetSheet);
+    activeSheet = targetSheet;
     renderSheet();
+    project = saveProject(project);
   });
 });
 
@@ -397,8 +437,8 @@ document.querySelector("#closureTolerance").addEventListener("input", (event) =>
 const rowDialog = document.querySelector("#rowDialog");
 document.querySelector("#insertRowBtn").addEventListener("click", () => {
   if (selectedRowIndex === null) return;
-  const rows = project.sheets[activeSheet];
-  rows.splice(selectedRowIndex + 1, 0, createRow(activeSheet));
+  project.sheets.out.splice(selectedRowIndex + 1, 0, createRow("out"));
+  project.sheets.back.splice(selectedRowIndex + 1, 0, createRow("back"));
   rowDialog.close();
   renderSheet();
   scheduleAutosave();
@@ -411,7 +451,8 @@ document.querySelector("#deleteSelectedRowBtn").addEventListener("click", () => 
     return;
   }
   if (!confirm(`${selectedRowIndex + 1}行目を削除しますか？`)) return;
-  rows.splice(selectedRowIndex, 1);
+  project.sheets.out.splice(selectedRowIndex, 1);
+  project.sheets.back.splice(selectedRowIndex, 1);
   rowDialog.close();
   renderSheet();
   scheduleAutosave();
@@ -420,30 +461,6 @@ distanceToggleButton.addEventListener("click", () => {
   project.settings.showDistance = !project.settings.showDistance;
   applyDistanceVisibility();
   scheduleAutosave();
-});
-document.querySelector("#reverseCopyBtn").addEventListener("click", () => {
-  const pointNames = project.sheets.out
-    .map((row) => String(row.pointName || "").trim())
-    .filter(Boolean)
-    .reverse();
-  if (!pointNames.length) {
-    showNotice("往路に点名が入力されていません。", "error");
-    return;
-  }
-  const hasBackPointNames = project.sheets.back.some((row) => String(row.pointName || "").trim());
-  if (hasBackPointNames && !confirm("復路の点名を、往路の逆順で置き換えますか？BS・FSは変更しません。")) return;
-
-  while (project.sheets.back.length < pointNames.length) {
-    project.sheets.back.push(createRow("back"));
-  }
-  project.sheets.back.forEach((row) => { row.pointName = ""; });
-  pointNames.forEach((pointName, index) => {
-    project.sheets.back[index].pointName = pointName;
-  });
-  activeSheet = "back";
-  renderSheet();
-  project = saveProject(project);
-  showNotice(`往路の点名${pointNames.length}件を逆順で復路へ入れました。`, "success");
 });
 document.querySelector("#saveBtn").addEventListener("click", () => {
   project = saveProject(project);
@@ -467,7 +484,7 @@ clearDialog.querySelectorAll("[data-clear-target]").forEach((button) => {
       project = createBlankProject();
       project.settings = settings;
     } else {
-      project.sheets[target] = createRows(target);
+      project.sheets[target] = createRows(target, project.sheets[target === "out" ? "back" : "out"].length);
     }
     clearDialog.close();
     renderSheet();
@@ -482,13 +499,74 @@ document.querySelector("#supportOpenBtn").addEventListener("click", () => suppor
 const settingsDialog = document.querySelector("#settingsDialog");
 const voiceRateInput = document.querySelector("#voiceRate");
 const voiceRateValue = document.querySelector("#voiceRateValue");
+const pointAliasList = document.querySelector("#pointAliasList");
 voiceRateInput.value = project.settings.voiceRate.toFixed(1);
 voiceRateValue.textContent = `${project.settings.voiceRate.toFixed(1)}倍`;
-document.querySelector("#settingsOpenBtn").addEventListener("click", () => settingsDialog.showModal());
+document.querySelector("#settingsOpenBtn").addEventListener("click", () => {
+  renderPointAliasEditors();
+  settingsDialog.showModal();
+});
 voiceRateInput.addEventListener("input", () => {
   project.settings.voiceRate = clamp(Number(voiceRateInput.value) || 0.9, 0.5, 1.5);
   voiceRateValue.textContent = `${project.settings.voiceRate.toFixed(1)}倍`;
   scheduleAutosave();
+});
+
+function createPointAliasEditor(alias = {}) {
+  const row = document.createElement("div");
+  row.className = "alias-row";
+
+  const pointName = document.createElement("input");
+  pointName.type = "text";
+  pointName.dataset.aliasField = "pointName";
+  pointName.value = alias.pointName || "";
+  pointName.placeholder = "T-1";
+  pointName.setAttribute("aria-label", "入力する点名");
+
+  const spoken = document.createElement("input");
+  spoken.type = "text";
+  spoken.dataset.aliasField = "spoken";
+  spoken.value = alias.spoken || "";
+  spoken.placeholder = "ティノイチ";
+  spoken.setAttribute("aria-label", "音声での読み");
+
+  const remove = document.createElement("button");
+  remove.type = "button";
+  remove.className = "alias-remove";
+  remove.dataset.removeAlias = "";
+  remove.textContent = "×";
+  remove.setAttribute("aria-label", "この点名を削除");
+  row.append(pointName, spoken, remove);
+  return row;
+}
+
+function renderPointAliasEditors() {
+  const editors = project.settings.pointAliases.map((alias) => createPointAliasEditor(alias));
+  if (!editors.length) editors.push(createPointAliasEditor());
+  pointAliasList.replaceChildren(...editors);
+}
+
+function collectPointAliases() {
+  project.settings.pointAliases = [...pointAliasList.querySelectorAll(".alias-row")]
+    .map((row) => ({
+      pointName: row.querySelector('[data-alias-field="pointName"]').value.trim(),
+      spoken: row.querySelector('[data-alias-field="spoken"]').value.trim()
+    }))
+    .filter((alias) => alias.pointName && alias.spoken);
+  scheduleAutosave();
+}
+
+document.querySelector("#addPointAliasBtn").addEventListener("click", () => {
+  pointAliasList.append(createPointAliasEditor());
+  pointAliasList.lastElementChild.querySelector("input").focus();
+});
+pointAliasList.addEventListener("input", collectPointAliases);
+pointAliasList.addEventListener("click", (event) => {
+  const remove = event.target.closest("[data-remove-alias]");
+  if (!remove) return;
+  remove.closest(".alias-row").remove();
+  if (!pointAliasList.children.length) pointAliasList.append(createPointAliasEditor());
+  collectPointAliases();
 });
 
 const voiceController = createVoiceController({
@@ -502,7 +580,11 @@ const voiceController = createVoiceController({
     const target = voiceTarget;
     if (!target?.isConnected) return;
     const field = target.dataset.field;
-    let value = NUMERIC_FIELDS.has(field) ? normalizeSpokenNumber(transcript) : transcript.trim();
+    let value = NUMERIC_FIELDS.has(field)
+      ? normalizeSpokenNumber(transcript)
+      : field === "pointName"
+        ? resolvePointAlias(transcript, project.settings.pointAliases) || transcript.trim()
+        : transcript.trim();
     if (UNSIGNED_DECIMAL_FIELDS.has(field)) value = sanitizeUnsignedDecimal(value);
     target.value = value;
     if (!handleFieldChange(target)) return;
@@ -513,7 +595,11 @@ const voiceController = createVoiceController({
     voiceStatus.textContent = "";
   },
   shouldFinalize: (transcript) => {
-    if (!voiceTarget || !NUMERIC_FIELDS.has(voiceTarget.dataset.field)) return false;
+    if (!voiceTarget) return false;
+    if (voiceTarget.dataset.field === "pointName") {
+      return resolvePointAlias(transcript, project.settings.pointAliases) !== null;
+    }
+    if (!NUMERIC_FIELDS.has(voiceTarget.dataset.field)) return false;
     let value = normalizeSpokenNumber(transcript);
     if (UNSIGNED_DECIMAL_FIELDS.has(voiceTarget.dataset.field)) value = sanitizeUnsignedDecimal(value);
     return value.replace(/^[-+]/, "").length >= 5;
