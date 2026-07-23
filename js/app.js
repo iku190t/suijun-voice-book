@@ -6,20 +6,20 @@ import {
   LEVELING_TOLERANCE_PRESETS,
   sumObservationDistanceMeters,
   toNumber
-} from "./calculation.js?v=21";
-import { createVoiceController, normalizeSpokenNumber, prepareSpeechSynthesis, speakBack } from "./voice.js?v=21";
-import { clearProject, loadProject, saveProject } from "./storage.js?v=21";
-import { exportSheetCsv } from "./export.js?v=21";
+} from "./calculation.js?v=22";
+import { createVoiceController, normalizeSpokenNumber, prepareSpeechSynthesis, speakBack } from "./voice.js?v=22";
+import { clearProject, loadProject, saveProject } from "./storage.js?v=22";
+import { exportSheetCsv } from "./export.js?v=22";
 import {
   isValidStaffReading,
   reversePointNamesWithinUsedRows
-} from "./rules.js?v=21";
+} from "./rules.js?v=22";
 import {
   getSmartPointSuggestions,
   normalizePointName,
   pointNameToSpeech,
   recordPointNameUsage
-} from "./point-names.js?v=21";
+} from "./point-names.js?v=22";
 
 const DEFAULT_ROW_COUNT = 200;
 const NUMERIC_FIELDS = new Set(["bs", "fs", "elevation", "distance"]);
@@ -31,12 +31,14 @@ const tableWrap = document.querySelector(".table-wrap");
 const distanceToggleButton = document.querySelector("#distanceToggleBtn");
 const tolerancePresetSelect = document.querySelector("#tolerancePreset");
 const voiceButton = document.querySelector("#voiceBtn");
+const keyboardModeButton = document.querySelector("#keyboardModeBtn");
 const voiceStatus = document.querySelector("#voiceStatus");
 const pointSuggestions = document.querySelector("#pointSuggestions");
 const pointSuggestionButtons = document.querySelector("#pointSuggestionButtons");
 let activeSheet = "out";
 let selectedInput = null;
 let voiceTarget = null;
+let voiceModeActive = false;
 let voiceSessionActive = false;
 let selectedRowIndex = null;
 let autosaveTimer = null;
@@ -203,7 +205,7 @@ function renderSheet() {
   const fragment = document.createDocumentFragment();
   project.sheets[activeSheet].forEach((row, index) => fragment.appendChild(rowTemplate(row, index)));
   tbody.replaceChildren(fragment);
-  if (voiceSessionActive) setVoiceSessionActive(true);
+  syncVoiceInputLocks();
   document.querySelector("#activeSheetName").textContent = activeSheet === "out" ? "往路シート" : "復路シート";
   document.querySelector("#rowCount").textContent = `${project.sheets[activeSheet].length}行`;
   document.querySelectorAll(".sheet-tab").forEach((button) => {
@@ -427,13 +429,38 @@ function markSelectedInput(input) {
   input?.classList.add("voice-selected");
 }
 
+function syncVoiceInputLocks() {
+  const locked = voiceModeActive || voiceSessionActive;
+  tbody.querySelectorAll("input").forEach((input) => {
+    input.readOnly = locked;
+  });
+  if (locked) document.activeElement?.blur();
+}
+
+function updateVoiceModeUi() {
+  document.body.classList.toggle("voice-mode-active", voiceModeActive);
+  voiceButton.classList.toggle("voice-mode", voiceModeActive);
+  keyboardModeButton.hidden = !voiceModeActive;
+  keyboardModeButton.disabled = voiceSessionActive;
+  if (!voiceSessionActive) {
+    voiceButton.classList.remove("listening");
+    voiceButton.textContent = voiceModeActive ? "🎤 聞き取る" : "🎤 音声モード";
+  }
+}
+
+function setVoiceModeActive(active) {
+  voiceModeActive = Boolean(active);
+  if (!voiceModeActive) voiceTarget = null;
+  syncVoiceInputLocks();
+  updateVoiceModeUi();
+  hidePointSuggestions();
+}
+
 function setVoiceSessionActive(active) {
   voiceSessionActive = Boolean(active);
   document.body.classList.toggle("voice-session-active", voiceSessionActive);
-  tbody.querySelectorAll("input").forEach((input) => {
-    input.readOnly = voiceSessionActive;
-  });
-  if (voiceSessionActive) document.activeElement?.blur();
+  syncVoiceInputLocks();
+  updateVoiceModeUi();
 }
 
 function finishVoiceSession() {
@@ -443,7 +470,7 @@ function finishVoiceSession() {
 }
 
 function selectVoiceTargetWithoutKeyboard(input, event) {
-  if (!voiceSessionActive || !input?.matches("input")) return;
+  if ((!voiceModeActive && !voiceSessionActive) || !input?.matches("input")) return;
   event?.preventDefault();
   voiceTarget = input;
   markSelectedInput(input);
@@ -574,7 +601,7 @@ function moveAfterVoiceInput(current) {
 
 tbody.addEventListener("focusin", (event) => {
   if (!event.target.matches("input")) return;
-  if (voiceSessionActive) {
+  if (voiceModeActive || voiceSessionActive) {
     selectVoiceTargetWithoutKeyboard(event.target, event);
     return;
   }
@@ -585,7 +612,7 @@ tbody.addEventListener("focusin", (event) => {
 tbody.addEventListener("pointerdown", (event) => {
   const input = event.target.closest("input");
   if (!input) return;
-  if (voiceSessionActive) {
+  if (voiceModeActive || voiceSessionActive) {
     selectVoiceTargetWithoutKeyboard(input, event);
   } else {
     markSelectedInput(input);
@@ -595,7 +622,7 @@ tbody.addEventListener("pointerdown", (event) => {
 tbody.addEventListener("touchstart", (event) => {
   const input = event.target.closest("input");
   if (!input) return;
-  if (voiceSessionActive) {
+  if (voiceModeActive || voiceSessionActive) {
     selectVoiceTargetWithoutKeyboard(input, event);
   } else {
     markSelectedInput(input);
@@ -832,13 +859,14 @@ pointAliasList.addEventListener("click", (event) => {
 const voiceController = createVoiceController({
   onStatus: (message) => {
     voiceStatus.textContent = message;
+    if (message.includes("復唱")) voiceButton.textContent = "🔊 復唱中…";
     if (!message && voiceSessionActive && !voiceButton.classList.contains("listening")) {
       finishVoiceSession();
     }
   },
   onListeningChange: (listening) => {
     voiceButton.classList.toggle("listening", listening);
-    voiceButton.textContent = listening ? "● 認識中…" : "🎤 音声入力";
+    voiceButton.textContent = listening ? "● 聞き取り中…" : "🔊 処理中…";
   },
   onResult: async (transcript) => {
     const target = voiceTarget;
@@ -855,6 +883,7 @@ const voiceController = createVoiceController({
       if (!handleFieldChange(target)) return;
       if (field === "pointName") recordPointName(value);
       voiceStatus.textContent = `${value} と復唱します`;
+      voiceButton.textContent = "🔊 復唱中…";
       const repeatText = field === "pointName"
         ? pointNameToSpeech(value, project.settings.pointAliases)
         : value;
@@ -880,6 +909,10 @@ if (!voiceController.supported) {
 }
 
 voiceButton.addEventListener("click", () => {
+  if (!voiceModeActive) {
+    setVoiceModeActive(true);
+    return;
+  }
   if (voiceSessionActive) return;
   const activeInput = document.activeElement?.matches?.("#notebookBody input")
     ? document.activeElement
@@ -894,6 +927,11 @@ voiceButton.addEventListener("click", () => {
   setVoiceSessionActive(true);
   voiceButton.textContent = "● 準備中…";
   voiceController.start();
+});
+
+keyboardModeButton.addEventListener("click", () => {
+  if (voiceSessionActive) return;
+  setVoiceModeActive(false);
 });
 
 if ("serviceWorker" in navigator) {

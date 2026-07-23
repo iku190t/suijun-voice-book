@@ -15,7 +15,7 @@
   <link rel="manifest" href="./manifest.json">
   <link rel="icon" href="./icons/icon-192.png">
   <link rel="apple-touch-icon" href="./icons/icon-192.png">
-  <link rel="stylesheet" href="./css/style.css?v=21">
+  <link rel="stylesheet" href="./css/style.css?v=22">
 </head>
 <body>
   <header class="app-header">
@@ -102,7 +102,8 @@
   </main>
 
   <div class="voice-dock">
-    <button id="voiceBtn" type="button">🎤 音声入力</button>
+    <button id="voiceBtn" type="button">🎤 音声モード</button>
+    <button id="keyboardModeBtn" class="keyboard-mode-button" type="button" hidden>⌨️ キーボードへ戻る</button>
     <div id="voiceStatus" class="sr-only" aria-live="polite"></div>
   </div>
 
@@ -168,6 +169,6 @@
   </dialog>
 
   <noscript>このアプリの利用にはJavaScriptを有効にしてください。</noscript>
-  <script type="module" src="./js/app.js?v=21"></script>
+  <script type="module" src="./js/app.js?v=22"></script>
 </body>
 </html>

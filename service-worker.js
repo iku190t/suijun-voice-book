@@ -1,15 +1,15 @@
-const CACHE_NAME = "suijun-voice-book-v21";
+const CACHE_NAME = "suijun-voice-book-v22";
 const APP_ASSETS = [
   "./",
   "./index.html",
-  "./css/style.css?v=21",
-  "./js/app.js?v=21",
-  "./js/calculation.js?v=21",
-  "./js/voice.js?v=21",
-  "./js/storage.js?v=21",
-  "./js/export.js?v=21",
-  "./js/rules.js?v=21",
-  "./js/point-names.js?v=21",
+  "./css/style.css?v=22",
+  "./js/app.js?v=22",
+  "./js/calculation.js?v=22",
+  "./js/voice.js?v=22",
+  "./js/storage.js?v=22",
+  "./js/export.js?v=22",
+  "./js/rules.js?v=22",
+  "./js/point-names.js?v=22",
   "./manifest.json",
   "./icons/icon-192.png",
   "./icons/icon-512.png"
