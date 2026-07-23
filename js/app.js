@@ -1,17 +1,25 @@
-import { applyRoundTripDifferences, calculateNotebook, formatMeters, toNumber } from "./calculation.js?v=14";
-import { createVoiceController, normalizeSpokenNumber, prepareSpeechSynthesis, speakBack } from "./voice.js?v=14";
-import { clearProject, loadProject, saveProject } from "./storage.js?v=14";
-import { exportSheetCsv } from "./export.js?v=14";
+import {
+  applyRoundTripDifferences,
+  calculateNotebook,
+  calculateToleranceMm,
+  formatMeters,
+  LEVELING_TOLERANCE_PRESETS,
+  sumObservationDistanceMeters,
+  toNumber
+} from "./calculation.js?v=15";
+import { createVoiceController, normalizeSpokenNumber, prepareSpeechSynthesis, speakBack } from "./voice.js?v=15";
+import { clearProject, loadProject, saveProject } from "./storage.js?v=15";
+import { exportSheetCsv } from "./export.js?v=15";
 import {
   isValidStaffReading,
   reversePointNamesWithinUsedRows
-} from "./rules.js?v=14";
+} from "./rules.js?v=15";
 import {
   getSmartPointSuggestions,
   normalizePointName,
   pointNameToSpeech,
   recordPointNameUsage
-} from "./point-names.js?v=14";
+} from "./point-names.js?v=15";
 
 const DEFAULT_ROW_COUNT = 200;
 const NUMERIC_FIELDS = new Set(["bs", "fs", "elevation", "distance"]);
@@ -21,6 +29,7 @@ const notice = document.querySelector("#notice");
 const notebook = document.querySelector("#notebook");
 const tableWrap = document.querySelector(".table-wrap");
 const distanceToggleButton = document.querySelector("#distanceToggleBtn");
+const tolerancePresetSelect = document.querySelector("#tolerancePreset");
 const voiceButton = document.querySelector("#voiceBtn");
 const voiceStatus = document.querySelector("#voiceStatus");
 const pointSuggestions = document.querySelector("#pointSuggestions");
@@ -58,9 +67,9 @@ function createRows(route, count = DEFAULT_ROW_COUNT) {
 
 function createBlankProject() {
   return {
-    version: 4,
+    version: 5,
     settings: {
-      closureToleranceMm: 10,
+      tolerancePreset: "grade3",
       showDistance: false,
       voiceRate: 0.9,
       tableScale: 1,
@@ -115,7 +124,7 @@ function normalizeLoadedProject(loaded) {
   const loadedAliases = Array.isArray(loaded.settings?.pointAliases)
     ? loaded.settings.pointAliases
       .map((alias) => ({
-        pointName: String(alias?.pointName ?? "").trim(),
+        pointName: String(alias?.pointName ?? "").normalize("NFKC").trim().toUpperCase(),
         spoken: String(alias?.spoken ?? "").trim()
       }))
       .filter((alias) => alias.pointName && alias.spoken)
@@ -125,7 +134,7 @@ function normalizeLoadedProject(loaded) {
     : {};
 
   return {
-    version: 4,
+    version: 5,
     settings: {
       ...blank.settings,
       ...(loaded.settings || {}),
@@ -140,6 +149,9 @@ function normalizeLoadedProject(loaded) {
 let project = normalizeLoadedProject(loadProject());
 project.settings.voiceRate = clamp(Number(project.settings.voiceRate) || 0.9, 0.5, 1.5);
 project.settings.tableScale = clamp(Number(project.settings.tableScale) || 1, 0.7, 1.8);
+if (!LEVELING_TOLERANCE_PRESETS[project.settings.tolerancePreset]) {
+  project.settings.tolerancePreset = "grade3";
+}
 
 function synchronizeRowCounts() {
   const rowCount = Math.max(DEFAULT_ROW_COUNT, project.sheets.out.length, project.sheets.back.length);
@@ -269,8 +281,9 @@ tableWrap.addEventListener("touchcancel", () => {
 }, { passive: true });
 
 function recalculateAndRender() {
-  calculations.out = calculateNotebook(project.sheets.out, project.settings.closureToleranceMm);
-  calculations.back = calculateNotebook(project.sheets.back, project.settings.closureToleranceMm, {
+  const toleranceState = getToleranceState();
+  calculations.out = calculateNotebook(project.sheets.out, toleranceState.toleranceMm ?? 10);
+  calculations.back = calculateNotebook(project.sheets.back, toleranceState.toleranceMm ?? 10, {
     initialElevation: calculations.out.lastElevation ?? 0
   });
   applyRoundTripDifferences(calculations.out.rows, calculations.back.rows);
@@ -301,14 +314,37 @@ function recalculateAndRender() {
   const backDifference = calculations.back.backDifference;
   document.querySelector("#outDiff").textContent = formatMeters(outDifference);
   document.querySelector("#backDiff").textContent = formatMeters(backDifference);
-  updateClosure(outDifference, backDifference);
+  updateToleranceDisplay(toleranceState);
+  updateClosure(outDifference, backDifference, toleranceState.toleranceMm);
 }
 
 function stripCalculatedFields(rows) {
   return rows.map(({ _complete, _incomplete, _difference, _roundTripDifferenceMm, ...row }) => row);
 }
 
-function updateClosure(outDifference, backDifference) {
+function getToleranceState() {
+  const presetKey = project.settings.tolerancePreset;
+  const preset = LEVELING_TOLERANCE_PRESETS[presetKey] || LEVELING_TOLERANCE_PRESETS.grade3;
+  const outDistanceMeters = sumObservationDistanceMeters(project.sheets.out);
+  const backDistanceMeters = sumObservationDistanceMeters(project.sheets.back);
+  const distanceMeters = outDistanceMeters > 0 ? outDistanceMeters : backDistanceMeters;
+  return {
+    presetKey,
+    preset,
+    distanceMeters,
+    toleranceMm: calculateToleranceMm(presetKey, distanceMeters)
+  };
+}
+
+function updateToleranceDisplay(toleranceState) {
+  tolerancePresetSelect.value = toleranceState.presetKey;
+  document.querySelector("#toleranceFormula").textContent = `${toleranceState.preset.coefficient}mm√S`;
+  document.querySelector("#calculatedTolerance").textContent = toleranceState.toleranceMm === null
+    ? "距離待ち"
+    : `許容 ${toleranceState.toleranceMm.toFixed(1)}mm`;
+}
+
+function updateClosure(outDifference, backDifference, toleranceMm) {
   const card = document.querySelector("#closureCard");
   const value = document.querySelector("#closure");
   const judgement = document.querySelector("#closureJudgement");
@@ -320,8 +356,13 @@ function updateClosure(outDifference, backDifference) {
     return;
   }
   const closureMm = Math.abs((outDifference + backDifference) * 1000);
-  const passed = closureMm <= project.settings.closureToleranceMm;
   value.textContent = `${closureMm.toFixed(1)} mm`;
+  if (toleranceMm === null) {
+    judgement.textContent = "距離待ち";
+    card.classList.add("pending");
+    return;
+  }
+  const passed = closureMm <= toleranceMm;
   judgement.textContent = passed ? "合格" : "要確認";
   card.classList.add(passed ? "pass" : "fail");
 }
@@ -526,10 +567,11 @@ document.querySelectorAll(".sheet-tab").forEach((button) => {
   });
 });
 
-document.querySelector("#closureTolerance").value = project.settings.closureToleranceMm;
-document.querySelector("#closureTolerance").addEventListener("input", (event) => {
-  const value = Number(event.target.value);
-  project.settings.closureToleranceMm = Number.isFinite(value) && value >= 0 ? value : 10;
+tolerancePresetSelect.value = project.settings.tolerancePreset;
+tolerancePresetSelect.addEventListener("change", (event) => {
+  project.settings.tolerancePreset = LEVELING_TOLERANCE_PRESETS[event.target.value]
+    ? event.target.value
+    : "grade3";
   recalculateAndRender();
   scheduleAutosave();
 });
@@ -649,7 +691,7 @@ function renderPointAliasEditors() {
 function collectPointAliases() {
   project.settings.pointAliases = [...pointAliasList.querySelectorAll(".alias-row")]
     .map((row) => ({
-      pointName: row.querySelector('[data-alias-field="pointName"]').value.trim(),
+      pointName: row.querySelector('[data-alias-field="pointName"]').value.normalize("NFKC").trim().toUpperCase(),
       spoken: row.querySelector('[data-alias-field="spoken"]').value.trim()
     }))
     .filter((alias) => alias.pointName && alias.spoken);
@@ -660,7 +702,12 @@ document.querySelector("#addPointAliasBtn").addEventListener("click", () => {
   pointAliasList.append(createPointAliasEditor());
   pointAliasList.lastElementChild.querySelector("input").focus();
 });
-pointAliasList.addEventListener("input", collectPointAliases);
+pointAliasList.addEventListener("input", (event) => {
+  if (event.target.matches('[data-alias-field="pointName"]')) {
+    event.target.value = event.target.value.normalize("NFKC").toUpperCase();
+  }
+  collectPointAliases();
+});
 pointAliasList.addEventListener("click", (event) => {
   const remove = event.target.closest("[data-remove-alias]");
   if (!remove) return;

@@ -1,4 +1,4 @@
-import { resolvePointAlias } from "./rules.js?v=14";
+import { resolvePointAlias } from "./rules.js?v=15";
 
 const BASE_PRIORITY_POINT_NAMES = [...new Set(`
 BM,KBM,TBM,仮BM,水準点,仮水準点,既知点,未知点,固定点,既設点,新設点,閉合点,確認点,チェック点,
@@ -125,7 +125,7 @@ export function normalizePointName(inputText, manualAliases = []) {
   if (manualResult) text = manualResult;
   const builtinResult = resolvePointAlias(text, BUILTIN_POINT_ALIASES);
   if (builtinResult) text = builtinResult;
-  return normalizeNumberedPointName(text);
+  return normalizeNumberedPointName(text).toUpperCase();
 }
 
 function dynamicNumberedCandidates(normalizedInput) {

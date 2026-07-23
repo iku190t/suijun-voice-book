@@ -15,8 +15,8 @@
 * { box-sizing: border-box; }
 html, body { touch-action: pan-x pan-y; }
 body { margin: 0; padding-bottom: 92px; color: var(--ink); background: var(--paper); }
-button, input { font: inherit; }
-button, input { min-height: 44px; border: 1px solid #8dbbd7; border-radius: 9px; background: #fff; color: var(--ink); }
+button, input, select { font: inherit; }
+button, input, select { min-height: 44px; border: 1px solid #8dbbd7; border-radius: 9px; background: #fff; color: var(--ink); }
 button { padding: 9px 13px; font-weight: 800; cursor: pointer; touch-action: manipulation; }
 button:active { transform: translateY(1px); }
 button:disabled { opacity: .6; cursor: not-allowed; }
@@ -60,9 +60,9 @@ a { color: #0d5d74; }
 .closure.pass em { background: #b8f0d1; color: #0c5434; }
 .closure.fail em { background: #ffd1cc; color: #7a1818; }
 .closure.pending em { background: #dae2df; color: #46514e; }
-.tolerance-input { display: flex; align-items: center; gap: 5px; }
-.tolerance-input input { width: 66px; min-height: 38px; padding: 5px 7px; text-align: right; font-size: 16px; }
-.tolerance-input b { font-size: .72rem; }
+.tolerance-card select { min-height: 38px; padding: 5px 25px 5px 8px; font-size: 16px; font-weight: 800; }
+.tolerance-formula { grid-column: 1; color: #d8f2ff; font-size: .68rem; font-weight: 750; }
+.calculated-tolerance { grid-column: 2; justify-self: end; font-size: .78rem; font-variant-numeric: tabular-nums; }
 
 .toolbar { display: flex; gap: 7px; max-width: 1500px; margin: 0 auto; overflow-x: auto; scrollbar-width: thin; }
 .toolbar > * { flex: 0 0 auto; }

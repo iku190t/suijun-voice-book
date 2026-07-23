@@ -36,7 +36,7 @@ export function loadProject() {
     return {
       version: 2,
       meta: {},
-      settings: { closureToleranceMm: 10 },
+      settings: { tolerancePreset: "grade3" },
       rows: legacyRows.map((row, index) => ({
         id: `legacy-${index}-${Date.now()}`,
         route: row.route === "back" ? "back" : "out",

@@ -15,7 +15,7 @@
   <link rel="manifest" href="./manifest.json">
   <link rel="icon" href="./icons/icon-192.png">
   <link rel="apple-touch-icon" href="./icons/icon-192.png">
-  <link rel="stylesheet" href="./css/style.css?v=14">
+  <link rel="stylesheet" href="./css/style.css?v=15">
 </head>
 <body>
   <header class="app-header">
@@ -49,9 +49,16 @@
         <strong id="closure">—</strong>
         <em id="closureJudgement">判定待ち</em>
       </div>
-      <label class="tolerance-card">
-        <span>許容値</span>
-        <span class="tolerance-input"><input id="closureTolerance" type="number" min="0" step="1" inputmode="numeric"><b>mm</b></span>
+      <label class="tolerance-card" for="tolerancePreset">
+        <span>精度区分</span>
+        <select id="tolerancePreset" aria-label="水準測量の精度区分">
+          <option value="grade1">1級</option>
+          <option value="grade2">2級</option>
+          <option value="grade3">3級</option>
+          <option value="grade4">4級</option>
+        </select>
+        <span id="toleranceFormula" class="tolerance-formula">10mm√S</span>
+        <strong id="calculatedTolerance" class="calculated-tolerance">距離待ち</strong>
       </label>
     </section>
 
@@ -76,7 +83,7 @@
           <tr>
             <th>No.</th>
             <th class="point-heading">点名<button id="distanceToggleBtn" class="distance-inline-toggle" type="button" aria-label="距離列を表示">＋</button></th>
-            <th class="distance-column">距離</th>
+            <th class="distance-column">距離 m</th>
             <th>後視 BS</th>
             <th>前視 FS</th>
             <th>高低差</th>
@@ -161,6 +168,6 @@
   </dialog>
 
   <noscript>このアプリの利用にはJavaScriptを有効にしてください。</noscript>
-  <script type="module" src="./js/app.js?v=14"></script>
+  <script type="module" src="./js/app.js?v=15"></script>
 </body>
 </html>

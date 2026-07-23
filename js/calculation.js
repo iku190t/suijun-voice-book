@@ -10,6 +10,27 @@ export function formatMeters(value) {
   return Number.isFinite(value) ? `${value.toFixed(3)} m` : "—";
 }
 
+export const LEVELING_TOLERANCE_PRESETS = Object.freeze({
+  grade1: { label: "1級", coefficient: 2.5 },
+  grade2: { label: "2級", coefficient: 5 },
+  grade3: { label: "3級", coefficient: 10 },
+  grade4: { label: "4級", coefficient: 20 }
+});
+
+export function sumObservationDistanceMeters(rows) {
+  return rows.reduce((total, row) => {
+    const distance = toNumber(row.distance);
+    return distance !== null && distance > 0 ? total + distance : total;
+  }, 0);
+}
+
+export function calculateToleranceMm(presetKey, distanceMeters) {
+  const preset = LEVELING_TOLERANCE_PRESETS[presetKey] || LEVELING_TOLERANCE_PRESETS.grade3;
+  const meters = toNumber(distanceMeters);
+  if (meters === null || meters <= 0) return null;
+  return preset.coefficient * Math.sqrt(meters / 1000);
+}
+
 export function rowHasData(row) {
   return Boolean(
     row.pointName ||
