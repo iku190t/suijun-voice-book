@@ -6,7 +6,7 @@ import {
   LEVELING_TOLERANCE_PRESETS,
   sumObservationDistanceMeters,
   toNumber
-} from "./calculation.js?v=31";
+} from "./calculation.js?v=32";
 import {
   chooseLevelReading,
   createVoiceController,
@@ -14,13 +14,13 @@ import {
   normalizeSpokenNumber,
   prepareSpeechSynthesis,
   speakBack
-} from "./voice.js?v=31";
-import { clearProject, loadProject, saveProject } from "./storage.js?v=31";
-import { exportSheetCsv } from "./export.js?v=31";
+} from "./voice.js?v=32";
+import { clearProject, loadProject, saveProject } from "./storage.js?v=32";
+import { exportSheetCsv } from "./export.js?v=32";
 import {
   isValidStaffReading,
   reversePointNamesWithinUsedRows
-} from "./rules.js?v=31";
+} from "./rules.js?v=32";
 import {
   getSheetPointNameCandidates,
   getSmartPointSuggestions,
@@ -28,7 +28,7 @@ import {
   normalizePointName,
   pointNameToSpeech,
   recordPointNameUsage
-} from "./point-names.js?v=31";
+} from "./point-names.js?v=32";
 
 const DEFAULT_ROW_COUNT = 200;
 const NUMERIC_FIELDS = new Set(["bs", "fs", "elevation", "distance"]);
@@ -396,7 +396,7 @@ function recalculateAndRender() {
       ? row._difference.toFixed(3)
       : "";
     tr.querySelector(".round-trip-diff").textContent = Number.isFinite(row._roundTripDifferenceMm)
-      ? row._roundTripDifferenceMm.toFixed(3)
+      ? String(Math.round(row._roundTripDifferenceMm))
       : "";
     const elevationInput = tr.querySelector('[data-field="elevation"]');
     if (document.activeElement !== elevationInput || row.elevationType === "calculated") {
