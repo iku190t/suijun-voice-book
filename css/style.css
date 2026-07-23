@@ -180,6 +180,18 @@ tr.row-selected td { box-shadow: inset 0 2px #1c91d0, inset 0 -2px #1c91d0; }
 .voice-left { grid-area: 2 / 1; }
 .voice-right { grid-area: 2 / 3; }
 .voice-down { grid-area: 3 / 2; }
+.voice-status {
+  grid-area: 2 / 2;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 0;
+  color: #fff;
+  font-size: .68rem;
+  font-weight: 800;
+  line-height: 1.2;
+  text-align: center;
+}
 .voice-dock button.listening { color: #fff; background: #d9473f; animation: pulse 1s infinite; }
 @keyframes pulse { 50% { box-shadow: 0 0 0 7px rgba(255,105,97,.2); } }
 .sr-only { position: absolute !important; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0; }
