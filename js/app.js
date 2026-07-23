@@ -5,21 +5,15 @@ import { exportSheetCsv } from "./export.js";
 
 const DEFAULT_ROW_COUNT = 200;
 const NUMERIC_FIELDS = new Set(["bs", "fs", "elevation", "distance"]);
-const FIELD_LABELS = {
-  pointName: "点名",
-  bs: "後視 BS",
-  fs: "前視 FS",
-  elevation: "既知/仮標高",
-  distance: "距離",
-  note: "備考"
-};
 const tbody = document.querySelector("#notebookBody");
 const notice = document.querySelector("#notice");
-const selectedCellLabel = document.querySelector("#selectedCellLabel");
+const notebook = document.querySelector("#notebook");
+const distanceToggleButton = document.querySelector("#distanceToggleBtn");
 const voiceButton = document.querySelector("#voiceBtn");
 const voiceStatus = document.querySelector("#voiceStatus");
 let activeSheet = "out";
 let selectedInput = null;
+let voiceTarget = null;
 let autosaveTimer = null;
 let calculations = { out: null, back: null };
 
@@ -48,7 +42,7 @@ function createRows(route, count = DEFAULT_ROW_COUNT) {
 function createBlankProject() {
   return {
     version: 3,
-    settings: { closureToleranceMm: 10 },
+    settings: { closureToleranceMm: 10, showDistance: false },
     sheets: {
       out: createRows("out"),
       back: createRows("back")
@@ -109,13 +103,13 @@ function rowTemplate(row, index) {
   const tr = document.createElement("tr");
   tr.dataset.rowId = row.id;
   tr.innerHTML = `
-    <td class="sticky-no row-number">${index + 1}</td>
-    <td class="sticky-point"><input data-field="pointName" inputmode="text" autocomplete="off" aria-label="${index + 1}行目 点名"></td>
+    <td class="row-number">${index + 1}</td>
+    <td><input data-field="pointName" inputmode="text" autocomplete="off" aria-label="${index + 1}行目 点名"></td>
+    <td class="distance-column"><input data-field="distance" inputmode="decimal" autocomplete="off" aria-label="${index + 1}行目 距離"></td>
     <td><input data-field="bs" inputmode="decimal" autocomplete="off" aria-label="${index + 1}行目 後視 BS"></td>
     <td><input data-field="fs" inputmode="decimal" autocomplete="off" aria-label="${index + 1}行目 前視 FS"></td>
     <td class="calc diff"></td>
     <td class="elevation-cell calculated"><input data-field="elevation" inputmode="decimal" autocomplete="off" aria-label="${index + 1}行目 既知標高または仮標高"></td>
-    <td><input data-field="distance" inputmode="decimal" autocomplete="off" aria-label="${index + 1}行目 距離"></td>
     <td><input data-field="note" inputmode="text" autocomplete="off" aria-label="${index + 1}行目 備考"></td>`;
   tr.querySelector('[data-field="pointName"]').value = row.pointName || "";
   tr.querySelector('[data-field="bs"]').value = displayValue(row.bs);
@@ -128,7 +122,7 @@ function rowTemplate(row, index) {
 
 function renderSheet() {
   selectedInput = null;
-  selectedCellLabel.textContent = "入力セルを選択してください";
+  voiceTarget = null;
   const fragment = document.createDocumentFragment();
   project.sheets[activeSheet].forEach((row, index) => fragment.appendChild(rowTemplate(row, index)));
   tbody.replaceChildren(fragment);
@@ -139,7 +133,15 @@ function renderSheet() {
     button.classList.toggle("active", active);
     button.setAttribute("aria-selected", String(active));
   });
+  applyDistanceVisibility();
   recalculateAndRender();
+}
+
+function applyDistanceVisibility() {
+  const visible = Boolean(project.settings.showDistance);
+  notebook.classList.toggle("show-distance", visible);
+  distanceToggleButton.textContent = visible ? "－ 距離" : "＋ 距離";
+  distanceToggleButton.setAttribute("aria-pressed", String(visible));
 }
 
 function recalculateAndRender() {
@@ -237,8 +239,6 @@ function moveStraightDown(current) {
 tbody.addEventListener("focusin", (event) => {
   if (!event.target.matches("input")) return;
   selectedInput = event.target;
-  const row = findRowIndex(event.target) + 1;
-  selectedCellLabel.textContent = `${activeSheet === "out" ? "往路" : "復路"} ${row}行目 ${FIELD_LABELS[event.target.dataset.field]}`;
 });
 
 tbody.addEventListener("input", (event) => {
@@ -304,6 +304,11 @@ document.querySelector("#deleteRowBtn").addEventListener("click", () => {
   recalculateAndRender();
   scheduleAutosave();
 });
+distanceToggleButton.addEventListener("click", () => {
+  project.settings.showDistance = !project.settings.showDistance;
+  applyDistanceVisibility();
+  scheduleAutosave();
+});
 document.querySelector("#saveBtn").addEventListener("click", () => {
   project = saveProject(project);
   showNotice("上書き保存しました。", "success");
@@ -312,13 +317,27 @@ document.querySelector("#csvBtn").addEventListener("click", () => {
   exportSheetCsv(activeSheet, calculations[activeSheet].rows);
   showNotice(`${activeSheet === "out" ? "往路" : "復路"}シートをCSV出力しました。`, "success");
 });
-document.querySelector("#clearBtn").addEventListener("click", () => {
-  if (!confirm("往路・復路の全データを消去しますか？この操作は元に戻せません。")) return;
-  clearProject();
-  project = createBlankProject();
-  renderSheet();
-  project = saveProject(project);
-  showNotice("往路・復路を全消去しました。", "success");
+const clearDialog = document.querySelector("#clearDialog");
+document.querySelector("#clearBtn").addEventListener("click", () => clearDialog.showModal());
+clearDialog.querySelectorAll("[data-clear-target]").forEach((button) => {
+  button.addEventListener("click", () => {
+    const target = button.dataset.clearTarget;
+    const targetLabel = target === "out" ? "往路シート" : target === "back" ? "復路シート" : "全シート";
+    if (!confirm(`${targetLabel}のデータを消去しますか？この操作は元に戻せません。`)) return;
+
+    if (target === "all") {
+      const settings = { ...project.settings };
+      clearProject();
+      project = createBlankProject();
+      project.settings = settings;
+    } else {
+      project.sheets[target] = createRows(target);
+    }
+    clearDialog.close();
+    renderSheet();
+    project = saveProject(project);
+    showNotice(`${targetLabel}を消去しました。`, "success");
+  });
 });
 
 const supportDialog = document.querySelector("#supportDialog");
@@ -330,15 +349,16 @@ const voiceController = createVoiceController({
     voiceButton.classList.toggle("listening", listening);
     voiceButton.textContent = listening ? "● 認識中…" : "🎤 音声入力";
   },
-  onResult: (transcript) => {
-    if (!selectedInput?.isConnected) return;
-    const field = selectedInput.dataset.field;
+  onResult: async (transcript) => {
+    const target = voiceTarget;
+    if (!target?.isConnected) return;
+    const field = target.dataset.field;
     const value = NUMERIC_FIELDS.has(field) ? normalizeSpokenNumber(transcript) : transcript.trim();
-    selectedInput.value = value;
-    if (!handleFieldChange(selectedInput)) return;
-    speakBack(value);
-    const current = selectedInput;
-    moveStraightDown(current);
+    target.value = value;
+    if (!handleFieldChange(target)) return;
+    await speakBack(value);
+    moveStraightDown(target);
+    voiceTarget = null;
   }
 });
 
@@ -352,6 +372,8 @@ voiceButton.addEventListener("click", () => {
     showNotice("先に入力セルを選択してください。", "error");
     return;
   }
+  voiceTarget = selectedInput;
+  selectedInput.blur();
   voiceController.start();
 });
 

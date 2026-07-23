@@ -16,13 +16,27 @@ export function normalizeSpokenNumber(text) {
 }
 
 export function speakBack(value) {
-  if (!("speechSynthesis" in window) || !value) return;
+  if (!("speechSynthesis" in window) || value === "" || value === null || value === undefined) {
+    return Promise.resolve();
+  }
   const spoken = String(value).replace(/^-/, "マイナス").replace(".", "点");
   window.speechSynthesis.cancel();
   const utterance = new SpeechSynthesisUtterance(spoken);
   utterance.lang = "ja-JP";
   utterance.rate = 0.9;
-  window.speechSynthesis.speak(utterance);
+  return new Promise((resolve) => {
+    let completed = false;
+    const finish = () => {
+      if (completed) return;
+      completed = true;
+      clearTimeout(fallbackTimer);
+      resolve();
+    };
+    const fallbackTimer = setTimeout(finish, 8000);
+    utterance.onend = finish;
+    utterance.onerror = finish;
+    window.speechSynthesis.speak(utterance);
+  });
 }
 
 export function createVoiceController({ onResult, onStatus, onListeningChange }) {
