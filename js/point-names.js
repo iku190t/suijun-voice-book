@@ -1,4 +1,4 @@
-import { normalizeAliasKey, resolvePointAlias } from "./rules.js?v=65";
+import { normalizeAliasKey, resolvePointAlias } from "./rules.js?v=66";
 
 const BASE_PRIORITY_POINT_NAMES = [...new Set(`
 BM,KBM,TBM,仮BM,水準点,仮水準点,既知点,未知点,固定点,既設点,新設点,閉合点,確認点,チェック点,
@@ -46,6 +46,8 @@ const NUMBERED_PREFIXES = ["TP", "BM", "KBM", "TBM", "NO.", "P", "K", "T", "IP."
 const DOTTED_PREFIXES = new Set(["NO", "IP", "BP", "BC", "EC", "EP", "SP", "MC", "KA", "KE"]);
 const CONNECTOR_PREFIXES = new Set(["TP", "KBM", "TBM", "BM", "CL", "IP", "BP", "BC", "EC", "EP", "SP", "MC", "KA", "KE", "NO"]);
 const SPOKEN_NUMBER_WORDS = [
+  ["ふぁいぶ", "5"], ["すりー", "3"], ["しっくす", "6"], ["せぶん", "7"],
+  ["えいと", "8"], ["ないん", "9"], ["ふぉー", "4"], ["つー", "2"], ["わん", "1"],
   ["きゅう", "9"], ["しち", "7"], ["いち", "1"], ["はち", "8"],
   ["ろく", "6"], ["なな", "7"], ["よん", "4"], ["さん", "3"],
   ["ぜろ", "0"], ["れい", "0"], ["まる", "0"], ["に", "2"],
@@ -56,24 +58,24 @@ const SPOKEN_LETTERS = [
   ["A", "エー", "エイ"],
   ["B", "ビー"],
   ["C", "シー"],
-  ["D", "ディー", "ディ"],
+  ["D", "ディー", "ディ", "デー"],
   ["E", "イー"],
   ["F", "エフ"],
   ["G", "ジー"],
   ["H", "エイチ", "エッチ"],
   ["I", "アイ"],
   ["J", "ジェー", "ジェイ"],
-  ["K", "ケー"],
+  ["K", "ケー", "ケイ", "ケ"],
   ["L", "エル"],
   ["M", "エム"],
   ["N", "エヌ"],
-  ["O", "オー"],
+  ["O", "オー", "オウ"],
   ["P", "ピー"],
-  ["Q", "キュー"],
+  ["Q", "キュー", "キュウ"],
   ["R", "アール"],
   ["S", "エス"],
   ["T", "ティー", "ティ"],
-  ["U", "ユー"],
+  ["U", "ユー", "ユウ"],
   ["V", "ブイ", "ヴィー"],
   ["W", "ダブリュー", "ダブル"],
   ["X", "エックス"],
@@ -90,6 +92,9 @@ const SPOKEN_SEPARATORS = [
   reading: normalizeAliasKey(reading),
   value
 })).sort((left, right) => right.reading.length - left.reading.length);
+const SPOKEN_PLUS_MARKERS = ["プラス", "足す", "+"]
+  .map((reading) => normalizeAliasKey(reading))
+  .sort((left, right) => right.length - left.length);
 const SPOKEN_DIGIT_TOKENS = SPOKEN_NUMBER_WORDS
   .map(([reading, value]) => ({ reading, value }))
   .sort((left, right) => right.reading.length - left.reading.length);
@@ -114,9 +119,15 @@ const DEFAULT_POINT_READINGS = {
   ".": "テン", "-": "ハイフン"
 };
 
-function spokenNumberToArabic(input) {
+function spokenNumberToArabic(input, allowHomophoneCorrections = true) {
+  if (allowHomophoneCorrections) {
+    input = input
+      .replace(/位置|一地|一値|市/g, "いち")
+      .replace(/荷/g, "に")
+      .replace(/散/g, "さん");
+  }
   input = input.replace(/[〇零一二三四五六七八九十百千]+/g, kanjiNumberToArabic);
-  if (/^\d+$/.test(input)) return String(Number(input));
+  if (/^\d+$/.test(input)) return input;
   const hasUnit = SPOKEN_NUMBER_UNITS.some((unit) => input.includes(unit.reading));
   if (!hasUnit) {
     let remaining = input;
@@ -134,6 +145,12 @@ function spokenNumberToArabic(input) {
   let total = 0;
   let pendingDigit = null;
   while (remaining) {
+    if (/^\d/.test(remaining)) {
+      if (pendingDigit !== null) return "";
+      pendingDigit = Number(remaining[0]);
+      remaining = remaining.slice(1);
+      continue;
+    }
     const digit = SPOKEN_DIGIT_TOKENS.find((token) => remaining.startsWith(token.reading));
     if (digit) {
       if (pendingDigit !== null) return "";
@@ -150,37 +167,72 @@ function spokenNumberToArabic(input) {
   return String(total + (pendingDigit ?? 0));
 }
 
-function normalizeSpokenPointCode(input) {
-  const key = normalizeAliasKey(input);
-  if (!key) return "";
-  let index = 0;
-  let letters = "";
-  while (index < key.length) {
-    const asciiLetter = key[index]?.match(/[a-z]/)?.[0];
-    if (asciiLetter) {
-      letters += asciiLetter.toUpperCase();
-      index += 1;
-      continue;
-    }
-    const match = SPOKEN_LETTERS.find((candidate) => key.startsWith(candidate.reading, index));
-    if (!match) break;
-    letters += match.letter;
-    index += match.reading.length;
+function spokenNumberExpressionToArabic(input, allowHomophoneCorrections = true) {
+  for (let index = 1; index < input.length; index += 1) {
+    const marker = SPOKEN_PLUS_MARKERS.find((candidate) => input.startsWith(candidate, index));
+    if (!marker) continue;
+    const base = spokenNumberToArabic(input.slice(0, index), allowHomophoneCorrections);
+    const offset = spokenNumberToArabic(
+      input.slice(index + marker.length),
+      allowHomophoneCorrections
+    );
+    if (base && offset) return `${base}+${offset}`;
   }
-  if (!letters || letters.length > 6) return "";
-  if (index === key.length) return letters;
+  return spokenNumberToArabic(input, allowHomophoneCorrections);
+}
 
-  let separator = "";
-  const separatorMatch = SPOKEN_SEPARATORS.find((candidate) => key.startsWith(candidate.reading, index));
-  if (separatorMatch) {
-    separator = separatorMatch.reading === "の" && CONNECTOR_PREFIXES.has(letters)
+function parseSpokenPointSuffix(key, index, letters) {
+  if (index === key.length) return letters;
+  const separatorCandidates = [
+    { reading: "", value: "" },
+    ...SPOKEN_SEPARATORS.filter((candidate) => key.startsWith(candidate.reading, index))
+  ];
+  for (const candidate of separatorCandidates) {
+    const separator = candidate.reading === "の" && CONNECTOR_PREFIXES.has(letters)
       ? ""
-      : separatorMatch.value;
-    index += separatorMatch.reading.length;
+      : candidate.value;
+    const number = spokenNumberExpressionToArabic(key.slice(index + candidate.reading.length));
+    if (number) return `${letters}${separator}${number}`;
   }
-  const number = spokenNumberToArabic(key.slice(index));
-  if (!number) return "";
-  return `${letters}${separator}${number}`;
+  return "";
+}
+
+function parseSpokenLetters(key, index = 0, letters = "") {
+  if (letters) {
+    const pointName = parseSpokenPointSuffix(key, index, letters);
+    if (pointName) return pointName;
+    if (letters.length >= 6) return "";
+  }
+
+  const candidates = [];
+  const asciiLetter = key[index]?.match(/[a-z]/)?.[0];
+  if (asciiLetter) {
+    candidates.push({ letter: asciiLetter.toUpperCase(), reading: asciiLetter });
+  }
+  SPOKEN_LETTERS.forEach((candidate) => {
+    if (key.startsWith(candidate.reading, index)) candidates.push(candidate);
+  });
+  for (const candidate of candidates) {
+    const pointName = parseSpokenLetters(
+      key,
+      index + candidate.reading.length,
+      `${letters}${candidate.letter}`
+    );
+    if (pointName) return pointName;
+  }
+  return "";
+}
+
+function normalizeSpokenPointCode(input) {
+  const key = normalizeAliasKey(input)
+    .replace(/^そくてんなんばー/, "えぬおー")
+    .replace(/^なんばー/, "えぬおー")
+    .replace(/^系(?=\d|いち|わん)/, "けい")
+    .replace(/^経(?=\d|いち|わん)/, "けい");
+  if (!key) return "";
+  const numberOnly = spokenNumberExpressionToArabic(key, false);
+  if (numberOnly) return numberOnly;
+  return parseSpokenLetters(key);
 }
 
 function kanjiNumberToArabic(text) {
@@ -234,7 +286,7 @@ function normalizeNumberedPointName(input) {
   if (standard) {
     const prefix = standard[1].toUpperCase();
     const separator = DOTTED_PREFIXES.has(prefix) ? "." : "";
-    return `${prefix}${separator}${Number(standard[2])}`;
+    return `${prefix}${separator}${standard[2]}`;
   }
   if (/^(TP|KBM|TBM|BM|CL|IP|BP|BC|EC|EP|SP|MC|KA|KE|NO|P|K|T)$/i.test(text)) return text.toUpperCase();
   return text;
@@ -247,10 +299,15 @@ export function normalizePointName(inputText, manualAliases = []) {
 
   const manualResult = resolvePointAlias(text, manualAliases);
   if (manualResult) text = manualResult;
-  const builtinResult = resolvePointAlias(text, BUILTIN_POINT_ALIASES);
-  if (builtinResult) text = builtinResult;
-  const spokenCode = normalizeSpokenPointCode(text);
-  if (spokenCode) text = spokenCode;
+  let spokenCode = normalizeSpokenPointCode(text);
+  if (spokenCode) {
+    text = spokenCode;
+  } else {
+    const builtinResult = resolvePointAlias(text, BUILTIN_POINT_ALIASES);
+    if (builtinResult) text = builtinResult;
+    spokenCode = normalizeSpokenPointCode(text);
+    if (spokenCode) text = spokenCode;
+  }
   return normalizeNumberedPointName(text).toUpperCase();
 }
 
