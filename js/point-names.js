@@ -1,4 +1,4 @@
-import { resolvePointAlias } from "./rules.js?v=50";
+import { resolvePointAlias } from "./rules.js?v=51";
 
 const BASE_PRIORITY_POINT_NAMES = [...new Set(`
 BM,KBM,TBM,仮BM,水準点,仮水準点,既知点,未知点,固定点,既設点,新設点,閉合点,確認点,チェック点,

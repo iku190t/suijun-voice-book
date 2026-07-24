@@ -6,7 +6,7 @@ import {
   LEVELING_TOLERANCE_PRESETS,
   sumObservationDistanceMeters,
   toNumber
-} from "./calculation.js?v=50";
+} from "./calculation.js?v=51";
 import {
   chooseLevelReading,
   createVoiceController,
@@ -14,22 +14,22 @@ import {
   normalizeSpokenNumber,
   prepareSpeechSynthesis,
   speakBack
-} from "./voice.js?v=50";
-import { clearProject, loadProject, saveProject } from "./storage.js?v=50";
-import { exportSheetCsv } from "./export.js?v=50";
+} from "./voice.js?v=51";
+import { clearProject, loadProject, saveProject } from "./storage.js?v=51";
+import { exportSheetCsv } from "./export.js?v=51";
 import {
   isValidStaffReading,
   reversePointNamesWithinUsedRows
-} from "./rules.js?v=50";
+} from "./rules.js?v=51";
 import {
   getRankedPointNameCandidates,
   normalizePointName,
   pointNameToSpeech,
   recordPointNameUsage
-} from "./point-names.js?v=50";
+} from "./point-names.js?v=51";
 
 const DEFAULT_ROW_COUNT = 200;
-const POINT_SUGGESTION_LIMIT = 4;
+const POINT_SUGGESTION_LIMIT = 10;
 const POINT_SUGGESTION_SEEDS = ["NO.0", "TP0", "KBM0", "T-0", "BC.0", "SP.0"];
 const NUMERIC_FIELDS = new Set(["bs", "fs", "elevation", "distance"]);
 const UNSIGNED_DECIMAL_FIELDS = new Set(["bs", "fs", "distance"]);
@@ -76,6 +76,7 @@ let suggestionLongPressTimer = null;
 let suggestionLongPressStartX = 0;
 let suggestionLongPressStartY = 0;
 let suggestionLongPressTriggered = false;
+let suggestionGestureMoved = false;
 let suggestionEditInput = null;
 let suggestionEditFocusPending = false;
 let suggestionPositionFrame = null;
@@ -661,7 +662,14 @@ function showPointNameSuggestions(input) {
     button.textContent = pointName;
     return button;
   });
-  pointSuggestionButtons.replaceChildren(...buttons);
+  const primaryButton = buttons[0];
+  const alternatives = document.createElement("div");
+  alternatives.className = "point-suggestion-alternatives";
+  alternatives.append(...buttons.slice(1));
+  pointSuggestionButtons.replaceChildren(
+    ...(primaryButton ? [primaryButton] : []),
+    ...(alternatives.childElementCount ? [alternatives] : [])
+  );
   pointSuggestions.hidden = false;
   document.body.classList.add("point-suggestions-visible");
   keepSelectedPointAboveSuggestions(input);
@@ -1173,6 +1181,7 @@ pointSuggestionButtons.addEventListener("pointerdown", (event) => {
   if (!button || voiceSessionActive) return;
   cancelSuggestionLongPress();
   suggestionLongPressTriggered = false;
+  suggestionGestureMoved = false;
   suggestionLongPressStartX = event.clientX;
   suggestionLongPressStartY = event.clientY;
   suggestionLongPressTimer = setTimeout(() => {
@@ -1187,6 +1196,7 @@ pointSuggestionButtons.addEventListener("pointermove", (event) => {
     Math.abs(event.clientX - suggestionLongPressStartX) > 10 ||
     Math.abs(event.clientY - suggestionLongPressStartY) > 10
   ) {
+    suggestionGestureMoved = true;
     cancelSuggestionLongPress();
   }
 });
@@ -1203,6 +1213,10 @@ pointSuggestionButtons.addEventListener("contextmenu", (event) => {
 pointSuggestionButtons.addEventListener("click", async (event) => {
   const button = event.target.closest("[data-point-suggestion]");
   if (!button) return;
+  if (suggestionGestureMoved) {
+    suggestionGestureMoved = false;
+    return;
+  }
   if (suggestionLongPressTriggered) {
     suggestionLongPressTriggered = false;
     return;

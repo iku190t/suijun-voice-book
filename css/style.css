@@ -251,7 +251,7 @@ dialog .eyebrow { color: var(--brand-2); }
 .point-suggestions-heading { display: flex; align-items: center; gap: 10px; margin-bottom: 6px; }
 .point-suggestions-heading strong { color: #174f73; font-size: .75rem; }
 .point-suggestions-heading span { color: #55798f; font-size: .68rem; }
-.point-suggestion-buttons { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 7px; }
+.point-suggestion-buttons { display: grid; gap: 7px; }
 .point-suggestion-buttons button {
   min-width: 0;
   height: 42px;
@@ -266,11 +266,29 @@ dialog .eyebrow { color: var(--brand-2); }
   user-select: none;
 }
 .point-suggestion-buttons .primary-point-suggestion {
-  grid-column: 1 / -1;
   height: 62px;
   min-height: 62px;
   font-size: 1.32rem;
   font-weight: 900;
+}
+.point-suggestion-alternatives {
+  display: flex;
+  gap: 7px;
+  width: 100%;
+  overflow-x: auto;
+  overscroll-behavior: contain;
+  scroll-snap-type: x mandatory;
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+  touch-action: pan-x;
+}
+.point-suggestion-alternatives::-webkit-scrollbar { display: none; }
+.point-suggestion-alternatives > button {
+  flex: 0 0 calc((100% - 14px) / 3);
+  scroll-snap-align: start;
+}
+.point-suggestion-alternatives > .point-suggestion-editor {
+  flex: 0 0 100%;
 }
 .point-suggestion-editor {
   display: grid;
@@ -396,7 +414,6 @@ body.point-suggestions-visible:not(.voice-mode-active) .point-suggestions-headin
   line-height: 1.1;
 }
 body.point-suggestions-visible:not(.voice-mode-active) .point-suggestion-buttons {
-  grid-template-columns: 1fr;
   gap: 4px;
 }
 body.point-suggestions-visible:not(.voice-mode-active) .point-suggestion-buttons > button,
@@ -412,6 +429,28 @@ body.point-suggestions-visible:not(.voice-mode-active) .point-suggestion-buttons
   color: #063e62;
   background: #bfe9ff;
   font-weight: 900;
+}
+body.point-suggestions-visible:not(.voice-mode-active) .point-suggestion-alternatives {
+  display: grid;
+  max-height: 128px;
+  grid-template-columns: 1fr;
+  gap: 4px;
+  overflow-x: hidden;
+  overflow-y: auto;
+  scroll-snap-type: y mandatory;
+  touch-action: pan-y;
+  -webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 10%, #000 90%, transparent 100%);
+  mask-image: linear-gradient(to bottom, transparent 0, #000 10%, #000 90%, transparent 100%);
+}
+body.point-suggestions-visible:not(.voice-mode-active) .point-suggestion-alternatives > button {
+  width: 100%;
+  min-width: 0;
+  height: 40px;
+  min-height: 40px;
+  scroll-snap-align: start;
+}
+body.point-suggestions-visible:not(.voice-mode-active) .point-suggestion-alternatives > .point-suggestion-editor {
+  width: 100%;
 }
 body.point-suggestions-visible:not(.voice-mode-active) .point-suggestion-editor {
   grid-template-columns: 1fr 1fr;
