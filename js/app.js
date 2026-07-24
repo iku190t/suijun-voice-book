@@ -6,7 +6,7 @@ import {
   LEVELING_TOLERANCE_PRESETS,
   sumObservationDistanceMeters,
   toNumber
-} from "./calculation.js?v=63";
+} from "./calculation.js?v=64";
 import {
   chooseLevelReading,
   createVoiceController,
@@ -14,13 +14,13 @@ import {
   normalizeSpokenNumber,
   prepareSpeechSynthesis,
   speakBack
-} from "./voice.js?v=63";
-import { clearProject, loadProject, saveProject } from "./storage.js?v=63";
-import { exportSheetCsv } from "./export.js?v=63";
+} from "./voice.js?v=64";
+import { clearProject, loadProject, saveProject } from "./storage.js?v=64";
+import { exportSheetCsv } from "./export.js?v=64";
 import {
   isValidStaffReading,
   reversePointNamesWithinUsedRows
-} from "./rules.js?v=63";
+} from "./rules.js?v=64";
 import {
   choosePointName,
   getRankedPointNameCandidates,
@@ -28,7 +28,7 @@ import {
   normalizePointName,
   pointNameToSpeech,
   recordPointNameUsage
-} from "./point-names.js?v=63";
+} from "./point-names.js?v=64";
 
 const DEFAULT_ROW_COUNT = 200;
 const POINT_SUGGESTION_LIMIT = 10;
@@ -45,6 +45,7 @@ const voiceButton = document.querySelector("#voiceBtn");
 const keyboardModeButton = document.querySelector("#keyboardModeBtn");
 const voiceStatus = document.querySelector("#voiceStatus");
 const voiceDock = document.querySelector(".voice-dock");
+const pointScriptControls = document.querySelector("#pointScriptControls");
 const pointSuggestions = document.querySelector("#pointSuggestions");
 const pointSuggestionButtons = document.querySelector("#pointSuggestionButtons");
 const pointClipboardPopover = document.querySelector("#pointClipboardPopover");
@@ -194,6 +195,11 @@ function createBlankProject() {
       voiceRate: 0.9,
       tableScale: 1,
       pointAliases: [],
+      pointNameScripts: {
+        kanji: true,
+        hiragana: false,
+        katakana: false
+      },
       pointNameHistory: {}
     },
     sheets: {
@@ -252,6 +258,9 @@ function normalizeLoadedProject(loaded) {
   const loadedHistory = loaded.settings?.pointNameHistory && typeof loaded.settings.pointNameHistory === "object"
     ? loaded.settings.pointNameHistory
     : {};
+  const loadedScripts = loaded.settings?.pointNameScripts && typeof loaded.settings.pointNameScripts === "object"
+    ? loaded.settings.pointNameScripts
+    : {};
 
   return {
     version: 5,
@@ -259,6 +268,11 @@ function normalizeLoadedProject(loaded) {
       ...blank.settings,
       ...(loaded.settings || {}),
       pointAliases: loadedAliases,
+      pointNameScripts: {
+        kanji: loadedScripts.kanji !== false,
+        hiragana: loadedScripts.hiragana === true,
+        katakana: loadedScripts.katakana === true
+      },
       pointNameHistory: loadedHistory
     },
     sheets: { out: outRows, back: backRows },
@@ -1572,8 +1586,12 @@ const settingsDialog = document.querySelector("#settingsDialog");
 const voiceRateInput = document.querySelector("#voiceRate");
 const voiceRateValue = document.querySelector("#voiceRateValue");
 const pointAliasList = document.querySelector("#pointAliasList");
+const pointScriptInputs = [...pointScriptControls.querySelectorAll("[data-point-script]")];
 voiceRateInput.value = project.settings.voiceRate.toFixed(1);
 voiceRateValue.textContent = `${project.settings.voiceRate.toFixed(1)}倍`;
+pointScriptInputs.forEach((input) => {
+  input.checked = Boolean(project.settings.pointNameScripts[input.dataset.pointScript]);
+});
 document.querySelector("#settingsOpenBtn").addEventListener("click", () => {
   renderPointAliasEditors();
   settingsDialog.showModal();
@@ -1581,6 +1599,12 @@ document.querySelector("#settingsOpenBtn").addEventListener("click", () => {
 voiceRateInput.addEventListener("input", () => {
   project.settings.voiceRate = clamp(Number(voiceRateInput.value) || 0.9, 0.5, 1.5);
   voiceRateValue.textContent = `${project.settings.voiceRate.toFixed(1)}倍`;
+  scheduleAutosave();
+});
+pointScriptControls.addEventListener("change", (event) => {
+  const input = event.target.closest("[data-point-script]");
+  if (!input) return;
+  project.settings.pointNameScripts[input.dataset.pointScript] = input.checked;
   scheduleAutosave();
 });
 
@@ -1690,7 +1714,8 @@ const voiceController = createVoiceController({
         value = choosePointName(
           transcript,
           recognitionDetails.alternatives,
-          project.settings.pointAliases
+          project.settings.pointAliases,
+          project.settings.pointNameScripts
         );
         if (!value) {
           showNotice("点名として確定できません。登録済みの点名でもう一度入力してください。", "error");
@@ -1728,7 +1753,8 @@ const voiceController = createVoiceController({
       return Boolean(choosePointName(
         transcript,
         recognitionDetails.alternatives,
-        project.settings.pointAliases
+        project.settings.pointAliases,
+        project.settings.pointNameScripts
       ));
     }
     if (!NUMERIC_FIELDS.has(voiceTarget.dataset.field)) return false;

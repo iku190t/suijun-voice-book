@@ -1,4 +1,4 @@
-import { resolvePointAlias } from "./rules.js?v=63";
+import { resolvePointAlias } from "./rules.js?v=64";
 
 const BASE_PRIORITY_POINT_NAMES = [...new Set(`
 BM,KBM,TBM,仮BM,水準点,仮水準点,既知点,未知点,固定点,既設点,新設点,閉合点,確認点,チェック点,
@@ -128,7 +128,27 @@ export function normalizePointName(inputText, manualAliases = []) {
   return normalizeNumberedPointName(text).toUpperCase();
 }
 
-export function choosePointName(transcript, alternatives = [], manualAliases = []) {
+const HIRAGANA_PATTERN = /[\u3040-\u309f]/;
+const KATAKANA_PATTERN = /[\u30a0-\u30ff\u31f0-\u31ff]/;
+const KANJI_PATTERN = /[\u3005\u3400-\u4dbf\u4e00-\u9fff\uf900-\ufaff]/;
+
+function normalizeAllowedScripts(allowedScripts = {}) {
+  return {
+    kanji: allowedScripts.kanji !== false,
+    hiragana: allowedScripts.hiragana === true,
+    katakana: allowedScripts.katakana === true
+  };
+}
+
+function isAllowedByScript(value, allowedScripts) {
+  if (!allowedScripts.kanji && KANJI_PATTERN.test(value)) return false;
+  if (!allowedScripts.hiragana && HIRAGANA_PATTERN.test(value)) return false;
+  if (!allowedScripts.katakana && KATAKANA_PATTERN.test(value)) return false;
+  return true;
+}
+
+export function choosePointName(transcript, alternatives = [], manualAliases = [], allowedScripts = {}) {
+  const scripts = normalizeAllowedScripts(allowedScripts);
   const inputs = [...new Set([
     String(transcript ?? "").trim(),
     ...(Array.isArray(alternatives) ? alternatives : []).map((value) => String(value ?? "").trim())
@@ -142,9 +162,15 @@ export function choosePointName(transcript, alternatives = [], manualAliases = [
       /^(?=.*\d)[A-Z0-9.+\-]+$/.test(normalized) ||
       /^(TP|KBM|TBM|BM|CL|IP|BP|BC|EC|EP|SP|MC|KA|KE|NO|P|K|T)$/.test(normalized)
     );
+    const japanesePointName = (
+      KANJI_PATTERN.test(normalized) ||
+      HIRAGANA_PATTERN.test(normalized) ||
+      KATAKANA_PATTERN.test(normalized)
+    );
+    const scriptAllowed = isAllowedByScript(normalized, scripts);
     return {
       value: normalized,
-      score: aliasMatch ? 3 : directSurveyName ? 2 : 0,
+      score: !scriptAllowed ? 0 : aliasMatch ? 3 : directSurveyName ? 2 : japanesePointName ? 1 : 0,
       index
     };
   });
