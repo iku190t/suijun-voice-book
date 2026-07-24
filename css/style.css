@@ -162,7 +162,7 @@ td.point-clipboard-anchor {
   padding: 4px;
   border: 2px solid #168bd1;
   border-radius: 10px;
-  background: rgba(238, 249, 255, .98);
+  background: rgba(238, 249, 255, .9);
   box-shadow: 0 5px 16px rgba(8, 70, 109, .28);
 }
 .point-clipboard-popover[hidden] { display: none; }
@@ -323,6 +323,11 @@ tr.row-selected td { box-shadow: inset 0 2px #1c91d0, inset 0 -2px #1c91d0; }
 body.voice-mode-active .voice-action > #voiceBtn {
   min-height: 136px;
   font-size: 1.22rem;
+}
+body.voice-mode-active .voice-action,
+body.voice-mode-active .point-suggestions {
+  width: 80%;
+  justify-self: center;
 }
 body.software-keyboard-open:not(.voice-mode-active) .voice-dock {
   display: none;
