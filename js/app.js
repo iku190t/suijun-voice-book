@@ -6,7 +6,7 @@ import {
   LEVELING_TOLERANCE_PRESETS,
   sumObservationDistanceMeters,
   toNumber
-} from "./calculation.js?v=46";
+} from "./calculation.js?v=47";
 import {
   chooseLevelReading,
   createVoiceController,
@@ -14,19 +14,19 @@ import {
   normalizeSpokenNumber,
   prepareSpeechSynthesis,
   speakBack
-} from "./voice.js?v=46";
-import { clearProject, loadProject, saveProject } from "./storage.js?v=46";
-import { exportSheetCsv } from "./export.js?v=46";
+} from "./voice.js?v=47";
+import { clearProject, loadProject, saveProject } from "./storage.js?v=47";
+import { exportSheetCsv } from "./export.js?v=47";
 import {
   isValidStaffReading,
   reversePointNamesWithinUsedRows
-} from "./rules.js?v=46";
+} from "./rules.js?v=47";
 import {
   getRankedPointNameCandidates,
   normalizePointName,
   pointNameToSpeech,
   recordPointNameUsage
-} from "./point-names.js?v=46";
+} from "./point-names.js?v=47";
 
 const DEFAULT_ROW_COUNT = 200;
 const POINT_SUGGESTION_LIMIT = 4;
@@ -761,16 +761,11 @@ function focusSuggestionEditInput() {
 }
 
 function keepSuggestionEditorAboveKeyboard() {
-  const normalModeSuggestionTarget = (
-    !voiceModeActive &&
-    !voiceSessionActive &&
-    !pointSuggestions.hidden &&
-    selectedInput?.isConnected &&
-    selectedInput.dataset.field === "pointName"
-  ) ? pointSuggestions : null;
-  const keyboardAvoidanceTarget = suggestionEditInput?.isConnected
-    ? suggestionEditInput
-    : normalModeSuggestionTarget;
+  const visibleSuggestionPanel = !pointSuggestions.hidden && pointSuggestions.isConnected
+    ? pointSuggestions
+    : null;
+  const keyboardAvoidanceTarget = visibleSuggestionPanel ||
+    (suggestionEditInput?.isConnected ? suggestionEditInput : null);
   if (!keyboardAvoidanceTarget) {
     voiceDock.style.removeProperty("--suggestion-keyboard-shift");
     return;
@@ -1081,8 +1076,14 @@ tbody.addEventListener("focusout", (event) => {
   endHistoryGroup();
   if (event.target.matches("input")) formatNumericInput(event.target);
   if (!event.target.matches('input[data-field="pointName"]')) return;
+  const blurredPointInput = event.target;
   setTimeout(() => {
-    if (voiceModeActive && selectedInput === event.target) return;
+    if (
+      selectedInput !== blurredPointInput &&
+      selectedInput?.isConnected &&
+      selectedInput.dataset.field === "pointName"
+    ) return;
+    if (voiceModeActive && selectedInput === blurredPointInput) return;
     if (!pointSuggestions.contains(document.activeElement)) hidePointSuggestions();
   }, 120);
 });
@@ -1440,7 +1441,10 @@ if (!voiceController.supported) {
 
 voiceButton.addEventListener("click", () => {
   if (!voiceModeActive) {
+    const target = selectedInput?.isConnected ? selectedInput : null;
     setVoiceModeActive(true);
+    target?.blur();
+    if (target?.dataset.field === "pointName") showPointNameSuggestions(target);
     return;
   }
   if (voiceSessionActive) {
