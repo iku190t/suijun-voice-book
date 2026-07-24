@@ -321,13 +321,8 @@ tr.row-selected td { box-shadow: inset 0 2px #1c91d0, inset 0 -2px #1c91d0; }
   font-size: .78rem;
 }
 body.voice-mode-active .voice-action > #voiceBtn {
-  min-height: 136px;
+  min-height: 109px;
   font-size: 1.22rem;
-}
-body.voice-mode-active .voice-action,
-body.voice-mode-active .point-suggestions {
-  width: 80%;
-  justify-self: center;
 }
 body.software-keyboard-open:not(.voice-mode-active) .voice-dock {
   display: none;
@@ -514,6 +509,26 @@ dialog .eyebrow { color: var(--brand-2); }
 .voice-dock .point-suggestion-editor button {
   height: 54px;
   min-height: 54px;
+}
+body.voice-mode-active .point-suggestions {
+  padding-block: 6px;
+}
+body.voice-mode-active .point-suggestion-buttons {
+  gap: 6px;
+}
+body.voice-mode-active .voice-dock .point-suggestion-buttons > button,
+body.voice-mode-active .voice-dock .point-suggestion-alternatives > button {
+  height: 34px;
+  min-height: 34px;
+}
+body.voice-mode-active .voice-dock .point-suggestion-buttons > .primary-point-suggestion {
+  height: 50px;
+  min-height: 50px;
+  padding-top: 14px;
+}
+body.voice-mode-active .voice-dock .point-suggestion-editor button {
+  height: 43px;
+  min-height: 43px;
 }
 
 /* 通常入力では、右上固定の縦型候補にする。 */
