@@ -265,6 +265,13 @@ dialog .eyebrow { color: var(--brand-2); }
   -webkit-user-select: none;
   user-select: none;
 }
+.point-suggestion-buttons .primary-point-suggestion {
+  grid-column: 1 / -1;
+  height: 62px;
+  min-height: 62px;
+  font-size: 1.32rem;
+  font-weight: 900;
+}
 .point-suggestion-editor {
   display: grid;
   grid-column: 1 / -1;
@@ -321,6 +328,10 @@ dialog .eyebrow { color: var(--brand-2); }
 .voice-dock .point-suggestion-buttons > button {
   height: 42px;
   min-height: 42px;
+}
+.voice-dock .point-suggestion-buttons > .primary-point-suggestion {
+  height: 62px;
+  min-height: 62px;
 }
 .voice-dock .point-suggestion-editor button {
   height: 54px;

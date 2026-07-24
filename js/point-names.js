@@ -1,4 +1,4 @@
-import { resolvePointAlias } from "./rules.js?v=41";
+import { resolvePointAlias } from "./rules.js?v=42";
 
 const BASE_PRIORITY_POINT_NAMES = [...new Set(`
 BM,KBM,TBM,仮BM,水準点,仮水準点,既知点,未知点,固定点,既設点,新設点,閉合点,確認点,チェック点,
@@ -267,6 +267,115 @@ export function getSheetPointNameCandidates(pointNamesAbove, manualAliases = [],
     })
     .filter((pointName) => isAllowedPointNameCandidate(pointName, manualAliases))
     .slice(0, Math.min(limit, names.length));
+}
+
+function createIncrementedCandidate(type, startAtOne = false) {
+  const nextNumber = String(startAtOne ? 1 : type.maxNumber + 1);
+  const paddedNumber = type.width > 1
+    ? nextNumber.padStart(type.width, "0")
+    : nextNumber;
+  return `${type.prefix}${paddedNumber}`;
+}
+
+export function getRankedPointNameCandidates(
+  pointNamesAbove,
+  manualAliases = [],
+  history = {},
+  fallbackPointNames = [],
+  limit = 4,
+  excludedPointName = ""
+) {
+  if (limit <= 0) return [];
+  const sheetTypes = new Map();
+
+  (Array.isArray(pointNamesAbove) ? pointNamesAbove : []).forEach((pointName, index) => {
+    const parsed = parseNumberedPointName(pointName, manualAliases);
+    if (!parsed) return;
+    const current = sheetTypes.get(parsed.typeKey);
+    if (!current) {
+      sheetTypes.set(parsed.typeKey, {
+        prefix: parsed.prefix,
+        maxNumber: parsed.number,
+        width: parsed.width,
+        count: 1,
+        lastSeen: index
+      });
+      return;
+    }
+    current.count += 1;
+    current.lastSeen = index;
+    current.prefix = parsed.prefix;
+    if (parsed.number >= current.maxNumber) {
+      current.maxNumber = parsed.number;
+      current.width = parsed.width;
+    }
+  });
+
+  const results = [];
+  const usedTypes = new Set();
+  const addCandidate = (typeKey, pointName) => {
+    if (
+      results.length >= limit ||
+      usedTypes.has(typeKey) ||
+      !isAllowedPointNameCandidate(pointName, manualAliases)
+    ) return;
+    usedTypes.add(typeKey);
+    results.push(pointName);
+  };
+
+  [...sheetTypes.entries()]
+    .sort((left, right) => (
+      right[1].count - left[1].count ||
+      right[1].lastSeen - left[1].lastSeen
+    ))
+    .forEach(([typeKey, type]) => {
+      addCandidate(typeKey, createIncrementedCandidate(type));
+    });
+
+  const excludedNormalized = normalizePointName(excludedPointName, manualAliases);
+  const historyTypes = new Map();
+  Object.entries(history && typeof history === "object" ? history : {}).forEach(([pointName, usage]) => {
+    const parsed = parseNumberedPointName(pointName, manualAliases);
+    if (!parsed || usedTypes.has(parsed.typeKey)) return;
+    const normalized = normalizePointName(pointName, manualAliases);
+    const excludedCount = normalized === excludedNormalized ? 1 : 0;
+    const count = Math.max(0, (Number(usage?.count) || 0) - excludedCount);
+    if (count <= 0) return;
+    const lastUsed = normalized === excludedNormalized ? 0 : Number(usage?.lastUsed) || 0;
+    const current = historyTypes.get(parsed.typeKey);
+    if (!current) {
+      historyTypes.set(parsed.typeKey, {
+        prefix: parsed.prefix,
+        width: parsed.width,
+        count,
+        lastUsed
+      });
+      return;
+    }
+    current.count += count;
+    if (lastUsed >= current.lastUsed) {
+      current.lastUsed = lastUsed;
+      current.prefix = parsed.prefix;
+      current.width = parsed.width;
+    }
+  });
+
+  [...historyTypes.entries()]
+    .sort((left, right) => (
+      right[1].count - left[1].count ||
+      right[1].lastUsed - left[1].lastUsed
+    ))
+    .forEach(([typeKey, type]) => {
+      addCandidate(typeKey, createIncrementedCandidate(type, true));
+    });
+
+  (Array.isArray(fallbackPointNames) ? fallbackPointNames : []).forEach((pointName) => {
+    const parsed = parseNumberedPointName(pointName, manualAliases);
+    if (!parsed) return;
+    addCandidate(parsed.typeKey, createIncrementedCandidate(parsed, true));
+  });
+
+  return results;
 }
 
 export function getNextPointNameCandidates(

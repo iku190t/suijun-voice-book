@@ -6,7 +6,7 @@ import {
   LEVELING_TOLERANCE_PRESETS,
   sumObservationDistanceMeters,
   toNumber
-} from "./calculation.js?v=41";
+} from "./calculation.js?v=42";
 import {
   chooseLevelReading,
   createVoiceController,
@@ -14,22 +14,22 @@ import {
   normalizeSpokenNumber,
   prepareSpeechSynthesis,
   speakBack
-} from "./voice.js?v=41";
-import { clearProject, loadProject, saveProject } from "./storage.js?v=41";
-import { exportSheetCsv } from "./export.js?v=41";
+} from "./voice.js?v=42";
+import { clearProject, loadProject, saveProject } from "./storage.js?v=42";
+import { exportSheetCsv } from "./export.js?v=42";
 import {
   isValidStaffReading,
   reversePointNamesWithinUsedRows
-} from "./rules.js?v=41";
+} from "./rules.js?v=42";
 import {
-  getSheetPointNameCandidates,
+  getRankedPointNameCandidates,
   normalizePointName,
   pointNameToSpeech,
   recordPointNameUsage
-} from "./point-names.js?v=41";
+} from "./point-names.js?v=42";
 
 const DEFAULT_ROW_COUNT = 200;
-const POINT_SUGGESTION_LIMIT = 6;
+const POINT_SUGGESTION_LIMIT = 4;
 const POINT_SUGGESTION_SEEDS = ["NO.0", "TP0", "KBM0", "T-0", "BC.0", "SP.0"];
 const NUMERIC_FIELDS = new Set(["bs", "fs", "elevation", "distance"]);
 const UNSIGNED_DECIMAL_FIELDS = new Set(["bs", "fs", "distance"]);
@@ -622,22 +622,26 @@ function showPointNameSuggestions(input) {
     return;
   }
   const rowIndex = findRowIndex(input);
-  const namesThroughCurrentRow = project.sheets[activeSheet]
-    .slice(0, Math.max(0, rowIndex + 1))
+  const namesAboveCurrentRow = project.sheets[activeSheet]
+    .slice(0, Math.max(0, rowIndex))
     .map((row) => row.pointName);
-  const candidates = getSheetPointNameCandidates(
-    [...POINT_SUGGESTION_SEEDS, ...namesThroughCurrentRow],
+  const candidates = getRankedPointNameCandidates(
+    namesAboveCurrentRow,
     project.settings.pointAliases,
-    POINT_SUGGESTION_LIMIT
+    project.settings.pointNameHistory,
+    POINT_SUGGESTION_SEEDS,
+    POINT_SUGGESTION_LIMIT,
+    input.value
   );
   if (!candidates.length) {
     hidePointSuggestions();
     return;
   }
-  const buttons = candidates.map((pointName) => {
+  const buttons = candidates.map((pointName, index) => {
     const button = document.createElement("button");
     button.type = "button";
     button.dataset.pointSuggestion = pointName;
+    if (index === 0) button.classList.add("primary-point-suggestion");
     button.textContent = pointName;
     return button;
   });
