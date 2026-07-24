@@ -6,7 +6,7 @@ import {
   LEVELING_TOLERANCE_PRESETS,
   sumObservationDistanceMeters,
   toNumber
-} from "./calculation.js?v=57";
+} from "./calculation.js?v=58";
 import {
   chooseLevelReading,
   createVoiceController,
@@ -14,20 +14,20 @@ import {
   normalizeSpokenNumber,
   prepareSpeechSynthesis,
   speakBack
-} from "./voice.js?v=57";
-import { clearProject, loadProject, saveProject } from "./storage.js?v=57";
-import { exportSheetCsv } from "./export.js?v=57";
+} from "./voice.js?v=58";
+import { clearProject, loadProject, saveProject } from "./storage.js?v=58";
+import { exportSheetCsv } from "./export.js?v=58";
 import {
   isValidStaffReading,
   reversePointNamesWithinUsedRows
-} from "./rules.js?v=57";
+} from "./rules.js?v=58";
 import {
   getRankedPointNameCandidates,
   incrementPointNameOrCopy,
   normalizePointName,
   pointNameToSpeech,
   recordPointNameUsage
-} from "./point-names.js?v=57";
+} from "./point-names.js?v=58";
 
 const DEFAULT_ROW_COUNT = 200;
 const POINT_SUGGESTION_LIMIT = 10;
@@ -1392,14 +1392,19 @@ pointPasteButton.addEventListener("click", async () => {
   recordPointName(target.value);
   markSelectedInput(target);
   hidePointSuggestions();
+  if (!voiceModeActive) {
+    target.readOnly = false;
+    target.focus({ preventScroll: false });
+    const end = target.value.length;
+    target.setSelectionRange(end, end);
+  }
   voiceStatus.textContent = `${target.value} と貼り付けました`;
   await speakBack(
     pointNameToSpeech(target.value, project.settings.pointAliases),
     project.settings.voiceRate
   );
-  await moveAfterVoiceInput(target);
-  if (!voiceModeActive && selectedInput?.isConnected) {
-    selectedInput.focus({ preventScroll: false });
+  if (voiceModeActive) {
+    await moveAfterVoiceInput(target);
   }
   updatePointClipboardButtons();
 });
