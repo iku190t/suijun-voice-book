@@ -6,7 +6,7 @@ import {
   LEVELING_TOLERANCE_PRESETS,
   sumObservationDistanceMeters,
   toNumber
-} from "./calculation.js?v=42";
+} from "./calculation.js?v=43";
 import {
   chooseLevelReading,
   createVoiceController,
@@ -14,19 +14,19 @@ import {
   normalizeSpokenNumber,
   prepareSpeechSynthesis,
   speakBack
-} from "./voice.js?v=42";
-import { clearProject, loadProject, saveProject } from "./storage.js?v=42";
-import { exportSheetCsv } from "./export.js?v=42";
+} from "./voice.js?v=43";
+import { clearProject, loadProject, saveProject } from "./storage.js?v=43";
+import { exportSheetCsv } from "./export.js?v=43";
 import {
   isValidStaffReading,
   reversePointNamesWithinUsedRows
-} from "./rules.js?v=42";
+} from "./rules.js?v=43";
 import {
   getRankedPointNameCandidates,
   normalizePointName,
   pointNameToSpeech,
   recordPointNameUsage
-} from "./point-names.js?v=42";
+} from "./point-names.js?v=43";
 
 const DEFAULT_ROW_COUNT = 200;
 const POINT_SUGGESTION_LIMIT = 4;
@@ -77,6 +77,7 @@ let suggestionLongPressStartX = 0;
 let suggestionLongPressStartY = 0;
 let suggestionLongPressTriggered = false;
 let suggestionEditInput = null;
+let suggestionEditFocusPending = false;
 const HISTORY_LIMIT = 50;
 const undoHistory = { out: [], back: [] };
 const redoHistory = { out: [], back: [] };
@@ -605,6 +606,7 @@ function hidePointSuggestions() {
   cancelSuggestionLongPress();
   suggestionLongPressTriggered = false;
   suggestionEditInput = null;
+  suggestionEditFocusPending = false;
   pointSuggestions.hidden = true;
   pointSuggestionButtons.replaceChildren();
   document.body.classList.remove("point-suggestions-visible");
@@ -710,7 +712,25 @@ function beginPointSuggestionEdit(button) {
     await applyPointSuggestion(input.value);
   };
   confirmButton.addEventListener("click", confirm);
-  cancelButton.addEventListener("click", () => showPointNameSuggestions(selectedInput));
+  let cancelHandledByPointer = false;
+  const cancelEdit = () => {
+    suggestionEditFocusPending = false;
+    showPointNameSuggestions(selectedInput);
+  };
+  cancelButton.addEventListener("pointerup", (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    cancelHandledByPointer = true;
+    cancelEdit();
+  });
+  cancelButton.addEventListener("click", (event) => {
+    event.preventDefault();
+    if (cancelHandledByPointer) {
+      cancelHandledByPointer = false;
+      return;
+    }
+    cancelEdit();
+  });
   input.addEventListener("keydown", (event) => {
     if (event.key === "Enter") {
       event.preventDefault();
@@ -723,6 +743,7 @@ function beginPointSuggestionEdit(button) {
   editor.append(input, confirmButton, cancelButton);
   button.replaceWith(editor);
   suggestionEditInput = input;
+  suggestionEditFocusPending = true;
   focusSuggestionEditInput();
 }
 
@@ -1072,7 +1093,6 @@ pointSuggestionButtons.addEventListener("pointermove", (event) => {
 
 pointSuggestionButtons.addEventListener("pointerup", () => {
   cancelSuggestionLongPress();
-  focusSuggestionEditInput();
 });
 pointSuggestionButtons.addEventListener("pointercancel", cancelSuggestionLongPress);
 pointSuggestionButtons.addEventListener("pointerleave", cancelSuggestionLongPress);
@@ -1091,6 +1111,8 @@ pointSuggestionButtons.addEventListener("click", async (event) => {
 });
 
 document.addEventListener("pointerup", () => {
+  if (!suggestionEditFocusPending) return;
+  suggestionEditFocusPending = false;
   focusSuggestionEditInput();
 });
 
