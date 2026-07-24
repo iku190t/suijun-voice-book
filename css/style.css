@@ -520,11 +520,18 @@ body.voice-mode-active .voice-dock .point-suggestion-buttons > button,
 body.voice-mode-active .voice-dock .point-suggestion-alternatives > button {
   height: 34px;
   min-height: 34px;
+  line-height: 1;
 }
 body.voice-mode-active .voice-dock .point-suggestion-buttons > .primary-point-suggestion {
   height: 50px;
   min-height: 50px;
-  padding-top: 14px;
+}
+body.voice-mode-active .point-suggestion-buttons .primary-point-suggestion,
+body.voice-mode-active .point-suggestion-buttons .current-point-suggestion {
+  display: grid;
+  padding: 2px 5px;
+  place-items: center;
+  line-height: 1;
 }
 body.voice-mode-active .voice-dock .point-suggestion-editor button {
   height: 43px;
