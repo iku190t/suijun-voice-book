@@ -131,10 +131,10 @@ table.show-distance .distance-column { display: table-cell; }
   z-index: 12;
   top: 0;
   right: 0;
-  width: 34px;
-  min-width: 34px;
-  height: 34px;
-  min-height: 34px;
+  width: 27px;
+  min-width: 27px;
+  height: 27px;
+  min-height: 27px;
   padding: 0;
   transform: translate(50%, -50%);
   border: 2px solid #bfe8ff;
