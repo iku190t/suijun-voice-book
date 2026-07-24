@@ -142,7 +142,7 @@ export function createVoiceController({ onResult, onStatus, onListeningChange, s
       const alternatives = pendingAlternatives;
       pendingTranscript = "";
       onStatus("認識結果を復唱します");
-      onResult(transcript, { alternatives });
+      onResult(transcript, { alternatives, isFinal: true });
     } else {
       onStatus("");
     }
@@ -170,7 +170,11 @@ export function createVoiceController({ onResult, onStatus, onListeningChange, s
         .map((alternative) => `${leadingTranscript}${alternative?.transcript || ""}`)
         .filter(Boolean)
       : [];
-    if (!finishRequested && shouldFinalize?.(pendingTranscript, { alternatives: pendingAlternatives })) {
+    const isFinal = Boolean(results.at(-1)?.isFinal);
+    if (!finishRequested && shouldFinalize?.(pendingTranscript, {
+      alternatives: pendingAlternatives,
+      isFinal
+    })) {
       finishRequested = true;
       resultDelivered = true;
       const transcript = pendingTranscript;
@@ -178,7 +182,7 @@ export function createVoiceController({ onResult, onStatus, onListeningChange, s
       pendingTranscript = "";
       pendingAlternatives = [];
       onStatus("認識結果を復唱します");
-      onResult(transcript, { alternatives });
+      onResult(transcript, { alternatives, isFinal });
       try {
         recognition.stop();
       } catch {

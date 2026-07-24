@@ -1,4 +1,4 @@
-import { resolvePointAlias } from "./rules.js?v=51";
+import { resolvePointAlias } from "./rules.js?v=63";
 
 const BASE_PRIORITY_POINT_NAMES = [...new Set(`
 BM,KBM,TBM,仮BM,水準点,仮水準点,既知点,未知点,固定点,既設点,新設点,閉合点,確認点,チェック点,
@@ -126,6 +126,31 @@ export function normalizePointName(inputText, manualAliases = []) {
   const builtinResult = resolvePointAlias(text, BUILTIN_POINT_ALIASES);
   if (builtinResult) text = builtinResult;
   return normalizeNumberedPointName(text).toUpperCase();
+}
+
+export function choosePointName(transcript, alternatives = [], manualAliases = []) {
+  const inputs = [...new Set([
+    String(transcript ?? "").trim(),
+    ...(Array.isArray(alternatives) ? alternatives : []).map((value) => String(value ?? "").trim())
+  ].filter(Boolean))];
+  const scored = inputs.map((input, index) => {
+    const manualMatch = resolvePointAlias(input, manualAliases);
+    const builtinMatch = resolvePointAlias(input, BUILTIN_POINT_ALIASES);
+    const aliasMatch = manualMatch || builtinMatch;
+    const normalized = normalizePointName(aliasMatch || input, manualAliases);
+    const directSurveyName = (
+      /^(?=.*\d)[A-Z0-9.+\-]+$/.test(normalized) ||
+      /^(TP|KBM|TBM|BM|CL|IP|BP|BC|EC|EP|SP|MC|KA|KE|NO|P|K|T)$/.test(normalized)
+    );
+    return {
+      value: normalized,
+      score: aliasMatch ? 3 : directSurveyName ? 2 : 0,
+      index
+    };
+  });
+  return scored
+    .filter((candidate) => candidate.value && candidate.score > 0)
+    .sort((left, right) => right.score - left.score || left.index - right.index)[0]?.value || "";
 }
 
 function dynamicNumberedCandidates(normalizedInput) {

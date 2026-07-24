@@ -6,7 +6,7 @@ import {
   LEVELING_TOLERANCE_PRESETS,
   sumObservationDistanceMeters,
   toNumber
-} from "./calculation.js?v=62";
+} from "./calculation.js?v=63";
 import {
   chooseLevelReading,
   createVoiceController,
@@ -14,20 +14,21 @@ import {
   normalizeSpokenNumber,
   prepareSpeechSynthesis,
   speakBack
-} from "./voice.js?v=62";
-import { clearProject, loadProject, saveProject } from "./storage.js?v=62";
-import { exportSheetCsv } from "./export.js?v=62";
+} from "./voice.js?v=63";
+import { clearProject, loadProject, saveProject } from "./storage.js?v=63";
+import { exportSheetCsv } from "./export.js?v=63";
 import {
   isValidStaffReading,
   reversePointNamesWithinUsedRows
-} from "./rules.js?v=62";
+} from "./rules.js?v=63";
 import {
+  choosePointName,
   getRankedPointNameCandidates,
   incrementPointNameOrCopy,
   normalizePointName,
   pointNameToSpeech,
   recordPointNameUsage
-} from "./point-names.js?v=62";
+} from "./point-names.js?v=63";
 
 const DEFAULT_ROW_COUNT = 200;
 const POINT_SUGGESTION_LIMIT = 10;
@@ -1686,8 +1687,12 @@ const voiceController = createVoiceController({
       } else if (NUMERIC_FIELDS.has(field)) {
         value = normalizeSpokenNumber(transcript);
       } else if (field === "pointName") {
-        value = normalizePointName(transcript, project.settings.pointAliases);
-        if (!isAllowedPointNameCandidate(value, project.settings.pointAliases)) {
+        value = choosePointName(
+          transcript,
+          recognitionDetails.alternatives,
+          project.settings.pointAliases
+        );
+        if (!value) {
           showNotice("点名として確定できません。登録済みの点名でもう一度入力してください。", "error");
           navigator.vibrate?.([80, 60, 80]);
           voiceStatus.textContent = "点名を認識できませんでした";
@@ -1718,7 +1723,14 @@ const voiceController = createVoiceController({
   },
   shouldFinalize: (transcript, recognitionDetails = {}) => {
     if (!voiceTarget) return false;
-    if (voiceTarget.dataset.field === "pointName") return false;
+    if (voiceTarget.dataset.field === "pointName") {
+      if (!recognitionDetails.isFinal) return false;
+      return Boolean(choosePointName(
+        transcript,
+        recognitionDetails.alternatives,
+        project.settings.pointAliases
+      ));
+    }
     if (!NUMERIC_FIELDS.has(voiceTarget.dataset.field)) return false;
     if (voiceTarget.dataset.field === "bs" || voiceTarget.dataset.field === "fs") {
       return Boolean(chooseLevelReading(transcript, recognitionDetails.alternatives));
