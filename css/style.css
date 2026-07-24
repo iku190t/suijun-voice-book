@@ -337,3 +337,62 @@ dialog .eyebrow { color: var(--brand-2); }
   height: 54px;
   min-height: 54px;
 }
+
+/* 通常入力では、キーボード上の右半分だけを使うコンパクト表示にする。 */
+body.point-suggestions-visible:not(.voice-mode-active) {
+  padding-bottom: 144px;
+}
+body.point-suggestions-visible:not(.voice-mode-active) .voice-dock {
+  right: 7px;
+  bottom: 0;
+  left: auto;
+  display: block;
+  width: min(50vw, 290px);
+  min-width: 210px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+}
+body.point-suggestions-visible:not(.voice-mode-active) .voice-dock > #voiceBtn,
+body.point-suggestions-visible:not(.voice-mode-active) .voice-dock > .keyboard-mode-button {
+  display: none;
+}
+body.point-suggestions-visible:not(.voice-mode-active) .point-suggestions {
+  padding: 5px;
+  border-radius: 9px;
+  box-shadow: 0 4px 14px rgba(10, 70, 110, .24);
+}
+body.point-suggestions-visible:not(.voice-mode-active) .point-suggestions-heading {
+  display: none;
+}
+body.point-suggestions-visible:not(.voice-mode-active) .point-suggestion-buttons {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 4px;
+}
+body.point-suggestions-visible:not(.voice-mode-active) .point-suggestion-buttons > button,
+body.point-suggestions-visible:not(.voice-mode-active) .point-suggestion-buttons > .primary-point-suggestion {
+  grid-column: auto;
+  height: 40px;
+  min-height: 40px;
+  padding: 2px 4px;
+  font-size: .88rem;
+}
+body.point-suggestions-visible:not(.voice-mode-active) .point-suggestion-buttons > .primary-point-suggestion {
+  border-color: #087ec0;
+  color: #063e62;
+  background: #bfe9ff;
+  font-weight: 900;
+}
+body.point-suggestions-visible:not(.voice-mode-active) .point-suggestion-editor {
+  grid-template-columns: 1fr 1fr;
+  gap: 4px;
+}
+body.point-suggestions-visible:not(.voice-mode-active) .point-suggestion-editor input {
+  grid-column: 1 / -1;
+  min-height: 42px;
+}
+body.point-suggestions-visible:not(.voice-mode-active) .point-suggestion-editor button {
+  height: 40px;
+  min-height: 40px;
+}

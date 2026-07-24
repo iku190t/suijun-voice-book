@@ -6,7 +6,7 @@ import {
   LEVELING_TOLERANCE_PRESETS,
   sumObservationDistanceMeters,
   toNumber
-} from "./calculation.js?v=45";
+} from "./calculation.js?v=46";
 import {
   chooseLevelReading,
   createVoiceController,
@@ -14,19 +14,19 @@ import {
   normalizeSpokenNumber,
   prepareSpeechSynthesis,
   speakBack
-} from "./voice.js?v=45";
-import { clearProject, loadProject, saveProject } from "./storage.js?v=45";
-import { exportSheetCsv } from "./export.js?v=45";
+} from "./voice.js?v=46";
+import { clearProject, loadProject, saveProject } from "./storage.js?v=46";
+import { exportSheetCsv } from "./export.js?v=46";
 import {
   isValidStaffReading,
   reversePointNamesWithinUsedRows
-} from "./rules.js?v=45";
+} from "./rules.js?v=46";
 import {
   getRankedPointNameCandidates,
   normalizePointName,
   pointNameToSpeech,
   recordPointNameUsage
-} from "./point-names.js?v=45";
+} from "./point-names.js?v=46";
 
 const DEFAULT_ROW_COUNT = 200;
 const POINT_SUGGESTION_LIMIT = 4;
@@ -658,6 +658,11 @@ function keepSelectedPointAboveSuggestions(input) {
     if (!input?.isConnected || pointSuggestions.hidden) return;
     const inputRect = input.getBoundingClientRect();
     const suggestionsRect = pointSuggestions.getBoundingClientRect();
+    const overlapsHorizontally = (
+      inputRect.right > suggestionsRect.left &&
+      inputRect.left < suggestionsRect.right
+    );
+    if (!voiceModeActive && !overlapsHorizontally) return;
     const overlap = inputRect.bottom - suggestionsRect.top + 12;
     if (overlap > 0) {
       window.scrollBy({ top: overlap, behavior: "smooth" });
