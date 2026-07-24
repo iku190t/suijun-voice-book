@@ -366,6 +366,31 @@ dialog .eyebrow { color: var(--brand-2); }
 .point-suggestion-alternatives > .point-suggestion-editor {
   flex: 0 0 100%;
 }
+.point-suggestion-alternatives.editing {
+  display: block;
+  overflow: visible;
+  -webkit-mask-image: none;
+  mask-image: none;
+}
+.point-suggestion-alternatives.editing > .point-suggestion-editor {
+  width: 100%;
+}
+.point-suggestion-buttons .current-point-suggestion {
+  position: relative;
+  padding-top: 13px;
+  border-color: #168bd1;
+  background: #e4f6ff;
+}
+.point-suggestion-buttons .current-point-suggestion::before {
+  position: absolute;
+  top: 2px;
+  left: 5px;
+  content: "現在値";
+  color: #4f758c;
+  font-size: .55rem;
+  font-weight: 700;
+  line-height: 1;
+}
 .point-suggestion-editor {
   display: grid;
   grid-column: 1 / -1;

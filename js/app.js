@@ -6,7 +6,7 @@ import {
   LEVELING_TOLERANCE_PRESETS,
   sumObservationDistanceMeters,
   toNumber
-} from "./calculation.js?v=61";
+} from "./calculation.js?v=62";
 import {
   chooseLevelReading,
   createVoiceController,
@@ -14,20 +14,20 @@ import {
   normalizeSpokenNumber,
   prepareSpeechSynthesis,
   speakBack
-} from "./voice.js?v=61";
-import { clearProject, loadProject, saveProject } from "./storage.js?v=61";
-import { exportSheetCsv } from "./export.js?v=61";
+} from "./voice.js?v=62";
+import { clearProject, loadProject, saveProject } from "./storage.js?v=62";
+import { exportSheetCsv } from "./export.js?v=62";
 import {
   isValidStaffReading,
   reversePointNamesWithinUsedRows
-} from "./rules.js?v=61";
+} from "./rules.js?v=62";
 import {
   getRankedPointNameCandidates,
   incrementPointNameOrCopy,
   normalizePointName,
   pointNameToSpeech,
   recordPointNameUsage
-} from "./point-names.js?v=61";
+} from "./point-names.js?v=62";
 
 const DEFAULT_ROW_COUNT = 200;
 const POINT_SUGGESTION_LIMIT = 10;
@@ -718,7 +718,7 @@ function showPointNameSuggestions(input) {
   const namesAboveCurrentRow = project.sheets[activeSheet]
     .slice(0, Math.max(0, rowIndex))
     .map((row) => row.pointName);
-  const candidates = getRankedPointNameCandidates(
+  let candidates = getRankedPointNameCandidates(
     namesAboveCurrentRow,
     project.settings.pointAliases,
     project.settings.pointNameHistory,
@@ -726,6 +726,17 @@ function showPointNameSuggestions(input) {
     POINT_SUGGESTION_LIMIT,
     input.value
   );
+  const currentPointName = normalizePointName(
+    input.value,
+    project.settings.pointAliases
+  );
+  if (currentPointName && candidates[0] !== currentPointName) {
+    candidates = [
+      candidates[0],
+      currentPointName,
+      ...candidates.slice(1).filter((pointName) => pointName !== currentPointName)
+    ].filter(Boolean).slice(0, POINT_SUGGESTION_LIMIT);
+  }
   if (!candidates.length) {
     hidePointSuggestions();
     return;
@@ -735,6 +746,10 @@ function showPointNameSuggestions(input) {
     button.type = "button";
     button.dataset.pointSuggestion = pointName;
     if (index === 0) button.classList.add("primary-point-suggestion");
+    if (pointName === currentPointName) {
+      button.classList.add("current-point-suggestion");
+      button.setAttribute("aria-label", `現在値 ${pointName}`);
+    }
     button.textContent = pointName;
     return button;
   });
@@ -858,7 +873,13 @@ function beginPointSuggestionEdit(button) {
   });
 
   editor.append(input, confirmButton, cancelButton);
-  button.replaceWith(editor);
+  const editContainer = button.parentElement;
+  if (editContainer?.classList.contains("point-suggestion-alternatives")) {
+    editContainer.classList.add("editing");
+    editContainer.replaceChildren(editor);
+  } else {
+    button.replaceWith(editor);
+  }
   suggestionEditInput = input;
   suggestionEditFocusPending = true;
   suggestionPositionCorrectionPending = true;
