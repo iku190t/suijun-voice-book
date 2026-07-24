@@ -1,4 +1,4 @@
-import { resolvePointAlias } from "./rules.js?v=48";
+import { resolvePointAlias } from "./rules.js?v=49";
 
 const BASE_PRIORITY_POINT_NAMES = [...new Set(`
 BM,KBM,TBM,仮BM,水準点,仮水準点,既知点,未知点,固定点,既設点,新設点,閉合点,確認点,チェック点,
@@ -327,14 +327,16 @@ export function getRankedPointNameCandidates(
 
   const results = [];
   const usedTypes = new Set();
+  const excludedNormalized = normalizePointName(excludedPointName, manualAliases);
   const addCandidate = (typeKey, pointName) => {
     const numberOnlyCandidate = typeKey === "__NUMBER_ONLY__" && /^\d+$/.test(pointName);
     if (
       results.length >= limit ||
-      usedTypes.has(typeKey) ||
-      (!numberOnlyCandidate && !isAllowedPointNameCandidate(pointName, manualAliases))
+      usedTypes.has(typeKey)
     ) return;
     usedTypes.add(typeKey);
+    if (normalizePointName(pointName, manualAliases) === excludedNormalized) return;
+    if (!numberOnlyCandidate && !isAllowedPointNameCandidate(pointName, manualAliases)) return;
     results.push(pointName);
   };
 
@@ -347,7 +349,6 @@ export function getRankedPointNameCandidates(
       addCandidate(typeKey, createIncrementedCandidate(type));
     });
 
-  const excludedNormalized = normalizePointName(excludedPointName, manualAliases);
   const historyTypes = new Map();
   Object.entries(history && typeof history === "object" ? history : {}).forEach(([pointName, usage]) => {
     const parsed = parseRankedPointName(pointName, manualAliases);

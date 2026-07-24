@@ -6,7 +6,7 @@ import {
   LEVELING_TOLERANCE_PRESETS,
   sumObservationDistanceMeters,
   toNumber
-} from "./calculation.js?v=48";
+} from "./calculation.js?v=49";
 import {
   chooseLevelReading,
   createVoiceController,
@@ -14,19 +14,19 @@ import {
   normalizeSpokenNumber,
   prepareSpeechSynthesis,
   speakBack
-} from "./voice.js?v=48";
-import { clearProject, loadProject, saveProject } from "./storage.js?v=48";
-import { exportSheetCsv } from "./export.js?v=48";
+} from "./voice.js?v=49";
+import { clearProject, loadProject, saveProject } from "./storage.js?v=49";
+import { exportSheetCsv } from "./export.js?v=49";
 import {
   isValidStaffReading,
   reversePointNamesWithinUsedRows
-} from "./rules.js?v=48";
+} from "./rules.js?v=49";
 import {
   getRankedPointNameCandidates,
   normalizePointName,
   pointNameToSpeech,
   recordPointNameUsage
-} from "./point-names.js?v=48";
+} from "./point-names.js?v=49";
 
 const DEFAULT_ROW_COUNT = 200;
 const POINT_SUGGESTION_LIMIT = 4;
@@ -698,6 +698,15 @@ async function applyPointSuggestion(pointName) {
 
 function beginPointSuggestionEdit(button) {
   if (!button?.isConnected || voiceSessionActive) return;
+  if (suggestionEditInput?.isConnected) {
+    const nextPointName = button.dataset.pointSuggestion || "";
+    suggestionEditInput = null;
+    suggestionEditFocusPending = false;
+    showPointNameSuggestions(selectedInput);
+    button = Array.from(pointSuggestionButtons.querySelectorAll("[data-point-suggestion]"))
+      .find((candidate) => candidate.dataset.pointSuggestion === nextPointName);
+    if (!button) return;
+  }
   suggestionLongPressTriggered = true;
   navigator.vibrate?.(25);
 
@@ -773,10 +782,20 @@ function keepSuggestionEditorAboveKeyboard() {
     const viewport = window.visualViewport;
     const visibleTop = viewport ? viewport.offsetTop : 0;
     const visibleHeight = viewport ? viewport.height : window.innerHeight;
-    voiceDock.style.setProperty("--normal-suggestion-top", `${visibleTop + 8}px`);
+    const maxPanelHeight = Math.max(120, visibleHeight - 16);
     voiceDock.style.setProperty(
       "--normal-suggestion-max-height",
-      `${Math.max(120, visibleHeight - 16)}px`
+      `${maxPanelHeight}px`
+    );
+    const panelHeight = Math.min(voiceDock.scrollHeight, maxPanelHeight);
+    const normalTop = visibleTop + 8;
+    const editingTop = Math.max(
+      normalTop,
+      visibleTop + visibleHeight - panelHeight - 8
+    );
+    voiceDock.style.setProperty(
+      "--normal-suggestion-top",
+      `${suggestionEditInput?.isConnected ? editingTop : normalTop}px`
     );
     return;
   }
