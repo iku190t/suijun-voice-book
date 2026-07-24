@@ -6,7 +6,7 @@ import {
   LEVELING_TOLERANCE_PRESETS,
   sumObservationDistanceMeters,
   toNumber
-} from "./calculation.js?v=39";
+} from "./calculation.js?v=40";
 import {
   chooseLevelReading,
   createVoiceController,
@@ -14,19 +14,19 @@ import {
   normalizeSpokenNumber,
   prepareSpeechSynthesis,
   speakBack
-} from "./voice.js?v=39";
-import { clearProject, loadProject, saveProject } from "./storage.js?v=39";
-import { exportSheetCsv } from "./export.js?v=39";
+} from "./voice.js?v=40";
+import { clearProject, loadProject, saveProject } from "./storage.js?v=40";
+import { exportSheetCsv } from "./export.js?v=40";
 import {
   isValidStaffReading,
   reversePointNamesWithinUsedRows
-} from "./rules.js?v=39";
+} from "./rules.js?v=40";
 import {
   getSheetPointNameCandidates,
   normalizePointName,
   pointNameToSpeech,
   recordPointNameUsage
-} from "./point-names.js?v=39";
+} from "./point-names.js?v=40";
 
 const DEFAULT_ROW_COUNT = 200;
 const POINT_SUGGESTION_LIMIT = 6;
@@ -610,7 +610,12 @@ function hidePointSuggestions() {
 }
 
 function showPointNameSuggestions(input) {
-  if (!input?.isConnected || input.dataset.field !== "pointName") {
+  if (
+    !voiceModeActive ||
+    voiceSessionActive ||
+    !input?.isConnected ||
+    input.dataset.field !== "pointName"
+  ) {
     hidePointSuggestions();
     return;
   }
@@ -764,7 +769,7 @@ function selectMovedInput(target, focusTarget = false) {
   } else {
     target.scrollIntoView({ block: "nearest", inline: "nearest" });
   }
-  if (!voiceSessionActive && target.dataset.field === "pointName") {
+  if (voiceModeActive && !voiceSessionActive && target.dataset.field === "pointName") {
     showPointNameSuggestions(target);
   } else {
     hidePointSuggestions();
@@ -872,7 +877,7 @@ tbody.addEventListener("focusin", (event) => {
     return;
   }
   markSelectedInput(event.target);
-  if (event.target.dataset.field === "pointName") showPointNameSuggestions(event.target);
+  if (event.target.dataset.field === "pointName") hidePointSuggestions();
 });
 
 tbody.addEventListener("pointerdown", (event) => {
@@ -919,7 +924,7 @@ function finishPointerGesture(event, cancelled = false) {
     } else {
       markSelectedInput(input);
       input.focus({ preventScroll: true });
-      if (input.dataset.field === "pointName") showPointNameSuggestions(input);
+      if (input.dataset.field === "pointName") hidePointSuggestions();
     }
   } else if (input && document.activeElement === input) {
     input.blur();
@@ -982,7 +987,15 @@ tbody.addEventListener("input", (event) => {
     if (event.target.value !== sanitized) event.target.value = sanitized;
   }
   handleFieldChange(event.target);
-  if (event.target.dataset.field === "pointName") showPointNameSuggestions(event.target);
+  if (
+    voiceModeActive &&
+    !voiceSessionActive &&
+    event.target.dataset.field === "pointName"
+  ) {
+    showPointNameSuggestions(event.target);
+  } else if (event.target.dataset.field === "pointName") {
+    hidePointSuggestions();
+  }
 });
 
 tbody.addEventListener("change", (event) => {

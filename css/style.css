@@ -315,3 +315,13 @@ dialog .eyebrow { color: var(--brand-2); }
   .history-buttons svg { width: 36px; }
   .sheet-toggle-button { min-width: 76px; margin-left: 0; padding-inline: 9px; }
 }
+
+/* 音声ボタン用の高さ指定を、候補ボタンには引き継がせない。 */
+.voice-dock .point-suggestion-buttons > button {
+  height: 28px;
+  min-height: 28px;
+}
+.voice-dock .point-suggestion-editor button {
+  height: 54px;
+  min-height: 54px;
+}
