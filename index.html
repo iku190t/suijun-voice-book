@@ -15,7 +15,7 @@
   <link rel="manifest" href="./manifest.json">
   <link rel="icon" href="./icons/icon-192.png">
   <link rel="apple-touch-icon" href="./icons/icon-192.png">
-  <link rel="stylesheet" href="./css/style.css?v=66">
+  <link rel="stylesheet" href="./css/style.css?v=67">
 </head>
 <body>
   <header class="app-header">
@@ -103,9 +103,10 @@
     </div>
   </main>
 
-  <div id="pointClipboardPopover" class="point-clipboard-popover" aria-label="選択した点名のコピーと貼り付け" hidden>
+  <div id="pointClipboardPopover" class="point-clipboard-popover" aria-label="選択した点名のコピー、貼り付け、クリア" hidden>
     <button id="pointCopyBtn" type="button" disabled>コピー</button>
     <button id="pointPasteBtn" type="button" aria-label="コピーした点名を貼り付け" hidden></button>
+    <button id="pointClearBtn" type="button" disabled>クリア</button>
   </div>
 
   <div class="voice-dock">
@@ -116,17 +117,19 @@
       </div>
       <div id="pointSuggestionButtons" class="point-suggestion-buttons"></div>
     </section>
-    <div id="pointScriptControls" class="point-script-controls" role="group" aria-label="点名で認識する文字">
-      <div class="point-script-title">文字認識</div>
-      <label><span>漢字</span><input type="checkbox" data-point-script="kanji" checked></label>
-      <label><span>ひらがな</span><input type="checkbox" data-point-script="hiragana"></label>
-      <label><span>カタカナ</span><input type="checkbox" data-point-script="katakana"></label>
+    <div class="voice-action">
+      <button id="voiceBtn" type="button">🎤 音声モード</button>
+      <button id="pointScriptSettingsBtn" class="point-script-settings-button" type="button" aria-expanded="false" hidden>⚙ 設定</button>
+      <div id="pointScriptControls" class="point-script-controls" role="group" aria-label="点名で認識する文字" hidden>
+        <div class="point-script-title">文字認識</div>
+        <label><span>漢字</span><input type="checkbox" data-point-script="kanji" checked></label>
+        <label><span>ひらがな</span><input type="checkbox" data-point-script="hiragana"></label>
+        <label><span>カタカナ</span><input type="checkbox" data-point-script="katakana"></label>
+      </div>
     </div>
-    <button id="voiceBtn" type="button">🎤 音声モード</button>
     <button id="keyboardModeBtn" class="keyboard-mode-button" type="button" hidden>⌨️ キーボードへ戻る</button>
     <div id="voiceStatus" class="sr-only" aria-live="polite"></div>
   </div>
-  <button id="cellDeleteBtn" class="cell-delete-popover" type="button" hidden>削除</button>
 
   <dialog id="settingsDialog" aria-labelledby="settingsDialogTitle">
     <form method="dialog">
@@ -190,6 +193,6 @@
   </dialog>
 
   <noscript>このアプリの利用にはJavaScriptを有効にしてください。</noscript>
-  <script type="module" src="./js/app.js?v=66"></script>
+  <script type="module" src="./js/app.js?v=67"></script>
 </body>
 </html>
