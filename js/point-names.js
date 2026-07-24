@@ -203,6 +203,19 @@ export function incrementPointName(pointName, manualAliases = []) {
   return `${match[1]}${paddedNumber}`;
 }
 
+export function incrementPointNameOrCopy(pointName, manualAliases = []) {
+  const normalized = normalizePointName(pointName, manualAliases);
+  if (!normalized) return "";
+  const match = normalized.match(/^(.*?)(\d+)$/);
+  if (!match) return normalized;
+  const numberText = match[2];
+  const nextNumber = String(Number(numberText) + 1);
+  const paddedNumber = numberText.length > 1 && numberText.startsWith("0")
+    ? nextNumber.padStart(numberText.length, "0")
+    : nextNumber;
+  return `${match[1]}${paddedNumber}`;
+}
+
 export function isAllowedPointNameCandidate(pointName, manualAliases = []) {
   const normalized = normalizePointName(pointName, manualAliases);
   if (!normalized || /[ぁ-ゖゝゞ]/.test(normalized)) return false;

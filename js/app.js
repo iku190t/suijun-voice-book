@@ -6,7 +6,7 @@ import {
   LEVELING_TOLERANCE_PRESETS,
   sumObservationDistanceMeters,
   toNumber
-} from "./calculation.js?v=56";
+} from "./calculation.js?v=57";
 import {
   chooseLevelReading,
   createVoiceController,
@@ -14,19 +14,20 @@ import {
   normalizeSpokenNumber,
   prepareSpeechSynthesis,
   speakBack
-} from "./voice.js?v=56";
-import { clearProject, loadProject, saveProject } from "./storage.js?v=56";
-import { exportSheetCsv } from "./export.js?v=56";
+} from "./voice.js?v=57";
+import { clearProject, loadProject, saveProject } from "./storage.js?v=57";
+import { exportSheetCsv } from "./export.js?v=57";
 import {
   isValidStaffReading,
   reversePointNamesWithinUsedRows
-} from "./rules.js?v=56";
+} from "./rules.js?v=57";
 import {
   getRankedPointNameCandidates,
+  incrementPointNameOrCopy,
   normalizePointName,
   pointNameToSpeech,
   recordPointNameUsage
-} from "./point-names.js?v=56";
+} from "./point-names.js?v=57";
 
 const DEFAULT_ROW_COUNT = 200;
 const POINT_SUGGESTION_LIMIT = 10;
@@ -800,7 +801,7 @@ async function applyPointSuggestion(pointName) {
     pointNameToSpeech(target.value, project.settings.pointAliases),
     project.settings.voiceRate
   );
-  moveAfterVoiceInput(target);
+  await moveAfterVoiceInput(target);
   updateVoiceModeUi();
 }
 
@@ -1056,14 +1057,38 @@ function hasDistanceInPreviousRow(rowIndex) {
   return previousRow?.distance !== null && previousRow?.distance !== undefined;
 }
 
-function moveAfterVoiceInput(current) {
+async function moveAfterVoiceInput(current) {
   const field = current.dataset.field;
   const rowIndex = findRowIndex(current);
   if (!field || rowIndex < 0) return;
 
   if (field === "fs") {
     ensureFollowingRow(rowIndex);
-    selectMovedInput(tbody.rows[rowIndex + 1]?.querySelector('[data-field="pointName"]'));
+    const nextPointInput = tbody.rows[rowIndex + 1]?.querySelector('[data-field="pointName"]');
+    let automaticPointName = "";
+    if (nextPointInput && !nextPointInput.value.trim()) {
+      const pointNameAbove = project.sheets[activeSheet][rowIndex]?.pointName || "";
+      automaticPointName = incrementPointNameOrCopy(
+        pointNameAbove,
+        project.settings.pointAliases
+      );
+      if (automaticPointName) {
+        nextPointInput.value = automaticPointName;
+        if (!handleFieldChange(nextPointInput, { forceHistory: true })) {
+          automaticPointName = "";
+        } else {
+          recordPointName(automaticPointName);
+        }
+      }
+    }
+    selectMovedInput(nextPointInput);
+    if (automaticPointName) {
+      voiceStatus.textContent = `${automaticPointName} を自動入力しました`;
+      await speakBack(
+        pointNameToSpeech(automaticPointName, project.settings.pointAliases),
+        project.settings.voiceRate
+      );
+    }
     return;
   }
 
@@ -1372,7 +1397,7 @@ pointPasteButton.addEventListener("click", async () => {
     pointNameToSpeech(target.value, project.settings.pointAliases),
     project.settings.voiceRate
   );
-  moveAfterVoiceInput(target);
+  await moveAfterVoiceInput(target);
   if (!voiceModeActive && selectedInput?.isConnected) {
     selectedInput.focus({ preventScroll: false });
   }
@@ -1644,7 +1669,7 @@ const voiceController = createVoiceController({
           : value;
       await speakBack(repeatText, project.settings.voiceRate);
       if (!voiceSessionActive || resultSessionToken !== voiceSessionToken) return;
-      moveAfterVoiceInput(target);
+      await moveAfterVoiceInput(target);
     } finally {
       if (resultSessionToken === voiceSessionToken) finishVoiceSession();
     }
