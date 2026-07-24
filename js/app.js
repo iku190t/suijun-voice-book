@@ -6,7 +6,7 @@ import {
   LEVELING_TOLERANCE_PRESETS,
   sumObservationDistanceMeters,
   toNumber
-} from "./calculation.js?v=49";
+} from "./calculation.js?v=50";
 import {
   chooseLevelReading,
   createVoiceController,
@@ -14,19 +14,19 @@ import {
   normalizeSpokenNumber,
   prepareSpeechSynthesis,
   speakBack
-} from "./voice.js?v=49";
-import { clearProject, loadProject, saveProject } from "./storage.js?v=49";
-import { exportSheetCsv } from "./export.js?v=49";
+} from "./voice.js?v=50";
+import { clearProject, loadProject, saveProject } from "./storage.js?v=50";
+import { exportSheetCsv } from "./export.js?v=50";
 import {
   isValidStaffReading,
   reversePointNamesWithinUsedRows
-} from "./rules.js?v=49";
+} from "./rules.js?v=50";
 import {
   getRankedPointNameCandidates,
   normalizePointName,
   pointNameToSpeech,
   recordPointNameUsage
-} from "./point-names.js?v=49";
+} from "./point-names.js?v=50";
 
 const DEFAULT_ROW_COUNT = 200;
 const POINT_SUGGESTION_LIMIT = 4;
@@ -78,6 +78,12 @@ let suggestionLongPressStartY = 0;
 let suggestionLongPressTriggered = false;
 let suggestionEditInput = null;
 let suggestionEditFocusPending = false;
+let suggestionPositionFrame = null;
+let cachedSuggestionPanelHeight = 0;
+let cachedSuggestionEditing = null;
+let lastNormalSuggestionY = Number.NaN;
+let lastNormalSuggestionMaxHeight = Number.NaN;
+let lastVoiceSuggestionShift = Number.NaN;
 const HISTORY_LIMIT = 50;
 const undoHistory = { out: [], back: [] };
 const redoHistory = { out: [], back: [] };
@@ -610,8 +616,15 @@ function hidePointSuggestions() {
   pointSuggestions.hidden = true;
   pointSuggestionButtons.replaceChildren();
   document.body.classList.remove("point-suggestions-visible");
+  if (suggestionPositionFrame !== null) cancelAnimationFrame(suggestionPositionFrame);
+  suggestionPositionFrame = null;
+  cachedSuggestionPanelHeight = 0;
+  cachedSuggestionEditing = null;
+  lastNormalSuggestionY = Number.NaN;
+  lastNormalSuggestionMaxHeight = Number.NaN;
+  lastVoiceSuggestionShift = Number.NaN;
   voiceDock.style.removeProperty("--suggestion-keyboard-shift");
-  voiceDock.style.removeProperty("--normal-suggestion-top");
+  voiceDock.style.removeProperty("--normal-suggestion-y");
   voiceDock.style.removeProperty("--normal-suggestion-max-height");
 }
 
@@ -771,7 +784,15 @@ function focusSuggestionEditInput() {
   keepSuggestionEditorAboveKeyboard();
 }
 
-function keepSuggestionEditorAboveKeyboard() {
+function setDockPixelProperty(propertyName, value, previousValue) {
+  if (Number.isFinite(previousValue) && Math.abs(value - previousValue) < 2) {
+    return previousValue;
+  }
+  voiceDock.style.setProperty(propertyName, `${Math.round(value)}px`);
+  return value;
+}
+
+function updateSuggestionPosition() {
   const normalSuggestionVisible = (
     !voiceModeActive &&
     !voiceSessionActive &&
@@ -783,24 +804,35 @@ function keepSuggestionEditorAboveKeyboard() {
     const visibleTop = viewport ? viewport.offsetTop : 0;
     const visibleHeight = viewport ? viewport.height : window.innerHeight;
     const maxPanelHeight = Math.max(120, visibleHeight - 16);
-    voiceDock.style.setProperty(
+    lastNormalSuggestionMaxHeight = setDockPixelProperty(
       "--normal-suggestion-max-height",
-      `${maxPanelHeight}px`
+      maxPanelHeight,
+      lastNormalSuggestionMaxHeight
     );
-    const panelHeight = Math.min(voiceDock.scrollHeight, maxPanelHeight);
+    const editing = Boolean(suggestionEditInput?.isConnected);
+    if (cachedSuggestionEditing !== editing || cachedSuggestionPanelHeight <= 0) {
+      cachedSuggestionEditing = editing;
+      cachedSuggestionPanelHeight = voiceDock.scrollHeight;
+    }
+    const panelHeight = Math.min(cachedSuggestionPanelHeight, maxPanelHeight);
     const normalTop = visibleTop + 8;
     const editingTop = Math.max(
       normalTop,
       visibleTop + visibleHeight - panelHeight - 8
     );
-    voiceDock.style.setProperty(
-      "--normal-suggestion-top",
-      `${suggestionEditInput?.isConnected ? editingTop : normalTop}px`
+    lastNormalSuggestionY = setDockPixelProperty(
+      "--normal-suggestion-y",
+      editing ? editingTop : normalTop,
+      lastNormalSuggestionY
     );
     return;
   }
-  voiceDock.style.removeProperty("--normal-suggestion-top");
+  voiceDock.style.removeProperty("--normal-suggestion-y");
   voiceDock.style.removeProperty("--normal-suggestion-max-height");
+  lastNormalSuggestionY = Number.NaN;
+  lastNormalSuggestionMaxHeight = Number.NaN;
+  cachedSuggestionPanelHeight = 0;
+  cachedSuggestionEditing = null;
   const visibleSuggestionPanel = !pointSuggestions.hidden && pointSuggestions.isConnected
     ? pointSuggestions
     : null;
@@ -808,20 +840,28 @@ function keepSuggestionEditorAboveKeyboard() {
     (suggestionEditInput?.isConnected ? suggestionEditInput : null);
   if (!keyboardAvoidanceTarget) {
     voiceDock.style.removeProperty("--suggestion-keyboard-shift");
+    lastVoiceSuggestionShift = Number.NaN;
     return;
   }
-  voiceDock.style.removeProperty("--suggestion-keyboard-shift");
-  requestAnimationFrame(() => {
-    if (!keyboardAvoidanceTarget?.isConnected) return;
-    const viewport = window.visualViewport;
-    const visibleBottom = viewport
-      ? viewport.offsetTop + viewport.height
-      : window.innerHeight;
-    const targetBottom = keyboardAvoidanceTarget.getBoundingClientRect().bottom;
-    const overlap = Math.max(0, targetBottom + 12 - visibleBottom);
-    if (overlap > 0) {
-      voiceDock.style.setProperty("--suggestion-keyboard-shift", `${overlap}px`);
-    }
+  if (!keyboardAvoidanceTarget?.isConnected) return;
+  const viewport = window.visualViewport;
+  const visibleBottom = viewport
+    ? viewport.offsetTop + viewport.height
+    : window.innerHeight;
+  const targetBottom = keyboardAvoidanceTarget.getBoundingClientRect().bottom;
+  const overlap = Math.max(0, targetBottom + 12 - visibleBottom);
+  lastVoiceSuggestionShift = setDockPixelProperty(
+    "--suggestion-keyboard-shift",
+    overlap,
+    lastVoiceSuggestionShift
+  );
+}
+
+function keepSuggestionEditorAboveKeyboard() {
+  if (suggestionPositionFrame !== null) return;
+  suggestionPositionFrame = requestAnimationFrame(() => {
+    suggestionPositionFrame = null;
+    updateSuggestionPosition();
   });
 }
 

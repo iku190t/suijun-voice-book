@@ -343,7 +343,7 @@ body.point-suggestions-visible:not(.voice-mode-active) {
   padding-bottom: 144px;
 }
 body.point-suggestions-visible:not(.voice-mode-active) .voice-dock {
-  top: var(--normal-suggestion-top, 8px);
+  top: 0;
   right: max(7px, env(safe-area-inset-right));
   bottom: auto;
   left: auto;
@@ -359,7 +359,8 @@ body.point-suggestions-visible:not(.voice-mode-active) .voice-dock {
   border-radius: 11px;
   background: rgba(13, 101, 157, .97);
   box-shadow: 0 5px 18px rgba(0,0,0,.23);
-  transform: none;
+  transform: translate3d(0, var(--normal-suggestion-y, 8px), 0);
+  will-change: transform;
 }
 body.point-suggestions-visible:not(.voice-mode-active) .voice-dock > .keyboard-mode-button {
   display: none;
