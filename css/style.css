@@ -403,15 +403,6 @@ dialog .eyebrow { color: var(--brand-2); }
   font-weight: 700;
   line-height: 1;
 }
-.point-suggestion-scroll-hint {
-  height: 12px;
-  color: #52778d;
-  font-size: .6rem;
-  font-weight: 700;
-  line-height: 12px;
-  text-align: center;
-}
-.point-suggestion-scroll-hint::before { content: "← 左右にスライド →"; }
 .point-suggestion-alternatives {
   display: flex;
   gap: 7px;
@@ -614,9 +605,6 @@ body.point-suggestions-visible:not(.voice-mode-active) .point-suggestion-buttons
   color: #063e62;
   background: #bfe9ff;
   font-weight: 900;
-}
-body.point-suggestions-visible:not(.voice-mode-active) .point-suggestion-scroll-hint::before {
-  content: "↕ 上下に回す";
 }
 body.point-suggestions-visible:not(.voice-mode-active) .point-suggestion-alternatives {
   display: grid;

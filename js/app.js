@@ -6,7 +6,7 @@ import {
   LEVELING_TOLERANCE_PRESETS,
   sumObservationDistanceMeters,
   toNumber
-} from "./calculation.js?v=72";
+} from "./calculation.js?v=73";
 import {
   chooseLevelReading,
   createVoiceController,
@@ -14,13 +14,13 @@ import {
   normalizeSpokenNumber,
   prepareSpeechSynthesis,
   speakBack
-} from "./voice.js?v=72";
-import { clearProject, loadProject, saveProject } from "./storage.js?v=72";
-import { exportSheetCsv } from "./export.js?v=72";
+} from "./voice.js?v=73";
+import { clearProject, loadProject, saveProject } from "./storage.js?v=73";
+import { exportSheetCsv } from "./export.js?v=73";
 import {
   isValidStaffReading,
   reversePointNamesWithinUsedRows
-} from "./rules.js?v=72";
+} from "./rules.js?v=73";
 import {
   choosePointName,
   getRankedPointNameCandidates,
@@ -28,7 +28,7 @@ import {
   normalizePointName,
   pointNameToSpeech,
   recordPointNameUsage
-} from "./point-names.js?v=72";
+} from "./point-names.js?v=73";
 
 const DEFAULT_ROW_COUNT = 200;
 const POINT_SUGGESTION_LIMIT = 10;
@@ -758,15 +758,11 @@ function showPointNameSuggestions(input) {
     return button;
   });
   const primaryButton = buttons[0];
-  const scrollHint = document.createElement("div");
-  scrollHint.className = "point-suggestion-scroll-hint";
-  scrollHint.setAttribute("aria-hidden", "true");
   const alternatives = document.createElement("div");
   alternatives.className = "point-suggestion-alternatives";
   alternatives.append(...buttons.slice(1));
   pointSuggestionButtons.replaceChildren(
     ...(primaryButton ? [primaryButton] : []),
-    ...(alternatives.childElementCount ? [scrollHint] : []),
     ...(alternatives.childElementCount ? [alternatives] : [])
   );
   pointSuggestions.hidden = false;
