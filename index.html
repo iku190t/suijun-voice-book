@@ -15,7 +15,7 @@
   <link rel="manifest" href="./manifest.json">
   <link rel="icon" href="./icons/icon-192.png">
   <link rel="apple-touch-icon" href="./icons/icon-192.png">
-  <link rel="stylesheet" href="./css/style.css?v=64">
+  <link rel="stylesheet" href="./css/style.css?v=65">
 </head>
 <body>
   <header class="app-header">
@@ -116,12 +116,12 @@
       </div>
       <div id="pointSuggestionButtons" class="point-suggestion-buttons"></div>
     </section>
-    <fieldset id="pointScriptControls" class="point-script-controls" aria-label="点名で認識する文字">
-      <legend>文字認識</legend>
+    <div id="pointScriptControls" class="point-script-controls" role="group" aria-label="点名で認識する文字">
+      <div class="point-script-title">文字認識</div>
       <label><span>漢字</span><input type="checkbox" data-point-script="kanji" checked></label>
       <label><span>ひらがな</span><input type="checkbox" data-point-script="hiragana"></label>
       <label><span>カタカナ</span><input type="checkbox" data-point-script="katakana"></label>
-    </fieldset>
+    </div>
     <button id="voiceBtn" type="button">🎤 音声モード</button>
     <button id="keyboardModeBtn" class="keyboard-mode-button" type="button" hidden>⌨️ キーボードへ戻る</button>
     <div id="voiceStatus" class="sr-only" aria-live="polite"></div>
@@ -190,6 +190,6 @@
   </dialog>
 
   <noscript>このアプリの利用にはJavaScriptを有効にしてください。</noscript>
-  <script type="module" src="./js/app.js?v=64"></script>
+  <script type="module" src="./js/app.js?v=65"></script>
 </body>
 </html>

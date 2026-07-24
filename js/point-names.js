@@ -1,4 +1,4 @@
-import { resolvePointAlias } from "./rules.js?v=64";
+import { normalizeAliasKey, resolvePointAlias } from "./rules.js?v=65";
 
 const BASE_PRIORITY_POINT_NAMES = [...new Set(`
 BM,KBM,TBM,仮BM,水準点,仮水準点,既知点,未知点,固定点,既設点,新設点,閉合点,確認点,チェック点,
@@ -44,6 +44,7 @@ const BUILTIN_POINT_ALIASES = [
 const KANJI_DIGITS = { "〇": 0, "零": 0, "一": 1, "二": 2, "三": 3, "四": 4, "五": 5, "六": 6, "七": 7, "八": 8, "九": 9 };
 const NUMBERED_PREFIXES = ["TP", "BM", "KBM", "TBM", "NO.", "P", "K", "T", "IP.", "BP.", "BC.", "EC.", "EP.", "SP.", "MC.", "KA.", "KE."];
 const DOTTED_PREFIXES = new Set(["NO", "IP", "BP", "BC", "EC", "EP", "SP", "MC", "KA", "KE"]);
+const CONNECTOR_PREFIXES = new Set(["TP", "KBM", "TBM", "BM", "CL", "IP", "BP", "BC", "EC", "EP", "SP", "MC", "KA", "KE", "NO"]);
 const SPOKEN_NUMBER_WORDS = [
   ["きゅう", "9"], ["しち", "7"], ["いち", "1"], ["はち", "8"],
   ["ろく", "6"], ["なな", "7"], ["よん", "4"], ["さん", "3"],
@@ -51,13 +52,136 @@ const SPOKEN_NUMBER_WORDS = [
   ["ご", "5"], ["し", "4"], ["く", "9"]
 ];
 const DIGIT_READINGS = ["ゼロ", "イチ", "ニ", "サン", "ヨン", "ゴ", "ロク", "ナナ", "ハチ", "キュウ"];
+const SPOKEN_LETTERS = [
+  ["A", "エー", "エイ"],
+  ["B", "ビー"],
+  ["C", "シー"],
+  ["D", "ディー", "ディ"],
+  ["E", "イー"],
+  ["F", "エフ"],
+  ["G", "ジー"],
+  ["H", "エイチ", "エッチ"],
+  ["I", "アイ"],
+  ["J", "ジェー", "ジェイ"],
+  ["K", "ケー"],
+  ["L", "エル"],
+  ["M", "エム"],
+  ["N", "エヌ"],
+  ["O", "オー"],
+  ["P", "ピー"],
+  ["Q", "キュー"],
+  ["R", "アール"],
+  ["S", "エス"],
+  ["T", "ティー", "ティ"],
+  ["U", "ユー"],
+  ["V", "ブイ", "ヴィー"],
+  ["W", "ダブリュー", "ダブル"],
+  ["X", "エックス"],
+  ["Y", "ワイ"],
+  ["Z", "ゼット", "ズィー"]
+].flatMap(([letter, ...readings]) => readings.map((reading) => ({
+  letter,
+  reading: normalizeAliasKey(reading)
+}))).sort((left, right) => right.reading.length - left.reading.length);
+const SPOKEN_SEPARATORS = [
+  ["ハイフン", "-"], ["マイナス", "-"], ["ドット", "."],
+  ["点", "."], ["の", "-"], ["-", "-"], [".", "."]
+].map(([reading, value]) => ({
+  reading: normalizeAliasKey(reading),
+  value
+})).sort((left, right) => right.reading.length - left.reading.length);
+const SPOKEN_DIGIT_TOKENS = SPOKEN_NUMBER_WORDS
+  .map(([reading, value]) => ({ reading, value }))
+  .sort((left, right) => right.reading.length - left.reading.length);
+const SPOKEN_NUMBER_UNITS = [
+  { reading: "せん", value: 1000 },
+  { reading: "ひゃく", value: 100 },
+  { reading: "じゅう", value: 10 }
+];
+const LETTER_SPEECH_READINGS = {
+  A: "エー", B: "ビー", C: "シー", D: "ディー", E: "イー", F: "エフ",
+  G: "ジー", H: "エイチ", I: "アイ", J: "ジェー", K: "ケー", L: "エル",
+  M: "エム", N: "エヌ", O: "オー", P: "ピー", Q: "キュー", R: "アール",
+  S: "エス", T: "ティー", U: "ユー", V: "ブイ", W: "ダブリュー",
+  X: "エックス", Y: "ワイ", Z: "ゼット"
+};
 const DEFAULT_POINT_READINGS = {
+  ...LETTER_SPEECH_READINGS,
   "KBM": "ケービーエム", "TBM": "ティービーエム", "BM": "ビーエム", "TP": "ティーピー",
   "NO": "ナンバー", "IP": "アイピー", "BP": "ビーピー", "BC": "ビーシー",
   "EC": "イーシー", "EP": "イーピー", "SP": "エスピー", "MC": "エムシー",
   "KA": "ケーエー", "KE": "ケーイー", "CL": "シーエル", "P": "ピー", "K": "ケー", "T": "ティー",
   ".": "テン", "-": "ハイフン"
 };
+
+function spokenNumberToArabic(input) {
+  input = input.replace(/[〇零一二三四五六七八九十百千]+/g, kanjiNumberToArabic);
+  if (/^\d+$/.test(input)) return String(Number(input));
+  const hasUnit = SPOKEN_NUMBER_UNITS.some((unit) => input.includes(unit.reading));
+  if (!hasUnit) {
+    let remaining = input;
+    let digits = "";
+    while (remaining) {
+      const match = SPOKEN_DIGIT_TOKENS.find((token) => remaining.startsWith(token.reading));
+      if (!match) return "";
+      digits += match.value;
+      remaining = remaining.slice(match.reading.length);
+    }
+    return digits;
+  }
+
+  let remaining = input;
+  let total = 0;
+  let pendingDigit = null;
+  while (remaining) {
+    const digit = SPOKEN_DIGIT_TOKENS.find((token) => remaining.startsWith(token.reading));
+    if (digit) {
+      if (pendingDigit !== null) return "";
+      pendingDigit = Number(digit.value);
+      remaining = remaining.slice(digit.reading.length);
+      continue;
+    }
+    const unit = SPOKEN_NUMBER_UNITS.find((candidate) => remaining.startsWith(candidate.reading));
+    if (!unit) return "";
+    total += (pendingDigit ?? 1) * unit.value;
+    pendingDigit = null;
+    remaining = remaining.slice(unit.reading.length);
+  }
+  return String(total + (pendingDigit ?? 0));
+}
+
+function normalizeSpokenPointCode(input) {
+  const key = normalizeAliasKey(input);
+  if (!key) return "";
+  let index = 0;
+  let letters = "";
+  while (index < key.length) {
+    const asciiLetter = key[index]?.match(/[a-z]/)?.[0];
+    if (asciiLetter) {
+      letters += asciiLetter.toUpperCase();
+      index += 1;
+      continue;
+    }
+    const match = SPOKEN_LETTERS.find((candidate) => key.startsWith(candidate.reading, index));
+    if (!match) break;
+    letters += match.letter;
+    index += match.reading.length;
+  }
+  if (!letters || letters.length > 6) return "";
+  if (index === key.length) return letters;
+
+  let separator = "";
+  const separatorMatch = SPOKEN_SEPARATORS.find((candidate) => key.startsWith(candidate.reading, index));
+  if (separatorMatch) {
+    separator = separatorMatch.reading === "の" && CONNECTOR_PREFIXES.has(letters)
+      ? ""
+      : separatorMatch.value;
+    index += separatorMatch.reading.length;
+  }
+  const number = spokenNumberToArabic(key.slice(index));
+  if (!number) return "";
+  return `${letters}${separator}${number}`;
+}
 
 function kanjiNumberToArabic(text) {
   if (/^[〇零一二三四五六七八九]+$/.test(text)) {
@@ -125,6 +249,8 @@ export function normalizePointName(inputText, manualAliases = []) {
   if (manualResult) text = manualResult;
   const builtinResult = resolvePointAlias(text, BUILTIN_POINT_ALIASES);
   if (builtinResult) text = builtinResult;
+  const spokenCode = normalizeSpokenPointCode(text);
+  if (spokenCode) text = spokenCode;
   return normalizeNumberedPointName(text).toUpperCase();
 }
 
@@ -160,6 +286,7 @@ export function choosePointName(transcript, alternatives = [], manualAliases = [
     const normalized = normalizePointName(aliasMatch || input, manualAliases);
     const directSurveyName = (
       /^(?=.*\d)[A-Z0-9.+\-]+$/.test(normalized) ||
+      /^[A-Z]{1,6}$/.test(normalized) ||
       /^(TP|KBM|TBM|BM|CL|IP|BP|BC|EC|EP|SP|MC|KA|KE|NO|P|K|T)$/.test(normalized)
     );
     const japanesePointName = (
