@@ -15,7 +15,7 @@
   <link rel="manifest" href="./manifest.json">
   <link rel="icon" href="./icons/icon-192.png">
   <link rel="apple-touch-icon" href="./icons/icon-192.png">
-  <link rel="stylesheet" href="./css/style.css?v=38">
+  <link rel="stylesheet" href="./css/style.css?v=39">
 </head>
 <body>
   <header class="app-header">
@@ -105,7 +105,10 @@
 
   <div class="voice-dock">
     <section id="pointSuggestions" class="point-suggestions" aria-label="測点名の優先候補" hidden>
-      <strong>点名候補</strong>
+      <div class="point-suggestions-heading">
+        <strong>点名候補</strong>
+        <span>長押しで編集</span>
+      </div>
       <div id="pointSuggestionButtons" class="point-suggestion-buttons"></div>
     </section>
     <button id="voiceBtn" type="button">🎤 音声モード</button>
@@ -176,6 +179,6 @@
   </dialog>
 
   <noscript>このアプリの利用にはJavaScriptを有効にしてください。</noscript>
-  <script type="module" src="./js/app.js?v=38"></script>
+  <script type="module" src="./js/app.js?v=39"></script>
 </body>
 </html>

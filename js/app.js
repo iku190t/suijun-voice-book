@@ -6,7 +6,7 @@ import {
   LEVELING_TOLERANCE_PRESETS,
   sumObservationDistanceMeters,
   toNumber
-} from "./calculation.js?v=38";
+} from "./calculation.js?v=39";
 import {
   chooseLevelReading,
   createVoiceController,
@@ -14,19 +14,19 @@ import {
   normalizeSpokenNumber,
   prepareSpeechSynthesis,
   speakBack
-} from "./voice.js?v=38";
-import { clearProject, loadProject, saveProject } from "./storage.js?v=38";
-import { exportSheetCsv } from "./export.js?v=38";
+} from "./voice.js?v=39";
+import { clearProject, loadProject, saveProject } from "./storage.js?v=39";
+import { exportSheetCsv } from "./export.js?v=39";
 import {
   isValidStaffReading,
   reversePointNamesWithinUsedRows
-} from "./rules.js?v=38";
+} from "./rules.js?v=39";
 import {
   getSheetPointNameCandidates,
   normalizePointName,
   pointNameToSpeech,
   recordPointNameUsage
-} from "./point-names.js?v=38";
+} from "./point-names.js?v=39";
 
 const DEFAULT_ROW_COUNT = 200;
 const POINT_SUGGESTION_LIMIT = 6;
@@ -75,6 +75,7 @@ let suggestionLongPressTimer = null;
 let suggestionLongPressStartX = 0;
 let suggestionLongPressStartY = 0;
 let suggestionLongPressTriggered = false;
+let suggestionEditInput = null;
 const HISTORY_LIMIT = 50;
 const undoHistory = { out: [], back: [] };
 const redoHistory = { out: [], back: [] };
@@ -602,6 +603,7 @@ function selectVoiceTargetWithoutKeyboard(input) {
 function hidePointSuggestions() {
   cancelSuggestionLongPress();
   suggestionLongPressTriggered = false;
+  suggestionEditInput = null;
   pointSuggestions.hidden = true;
   pointSuggestionButtons.replaceChildren();
   document.body.classList.remove("point-suggestions-visible");
@@ -635,6 +637,19 @@ function showPointNameSuggestions(input) {
   pointSuggestionButtons.replaceChildren(...buttons);
   pointSuggestions.hidden = false;
   document.body.classList.add("point-suggestions-visible");
+  keepSelectedPointAboveSuggestions(input);
+}
+
+function keepSelectedPointAboveSuggestions(input) {
+  requestAnimationFrame(() => {
+    if (!input?.isConnected || pointSuggestions.hidden) return;
+    const inputRect = input.getBoundingClientRect();
+    const suggestionsRect = pointSuggestions.getBoundingClientRect();
+    const overlap = inputRect.bottom - suggestionsRect.top + 12;
+    if (overlap > 0) {
+      window.scrollBy({ top: overlap, behavior: "smooth" });
+    }
+  });
 }
 
 function cancelSuggestionLongPress() {
@@ -696,8 +711,15 @@ function beginPointSuggestionEdit(button) {
 
   editor.append(input, confirmButton, cancelButton);
   button.replaceWith(editor);
-  input.focus({ preventScroll: true });
-  input.select();
+  suggestionEditInput = input;
+  focusSuggestionEditInput();
+}
+
+function focusSuggestionEditInput() {
+  if (!suggestionEditInput?.isConnected) return;
+  suggestionEditInput.focus({ preventScroll: true });
+  const end = suggestionEditInput.value.length;
+  suggestionEditInput.setSelectionRange(end, end);
 }
 
 function recordPointName(pointName) {
@@ -1005,7 +1027,10 @@ pointSuggestionButtons.addEventListener("pointermove", (event) => {
   }
 });
 
-pointSuggestionButtons.addEventListener("pointerup", cancelSuggestionLongPress);
+pointSuggestionButtons.addEventListener("pointerup", () => {
+  cancelSuggestionLongPress();
+  focusSuggestionEditInput();
+});
 pointSuggestionButtons.addEventListener("pointercancel", cancelSuggestionLongPress);
 pointSuggestionButtons.addEventListener("pointerleave", cancelSuggestionLongPress);
 pointSuggestionButtons.addEventListener("contextmenu", (event) => {
@@ -1020,6 +1045,10 @@ pointSuggestionButtons.addEventListener("click", async (event) => {
     return;
   }
   await applyPointSuggestion(button.dataset.pointSuggestion);
+});
+
+document.addEventListener("pointerup", () => {
+  focusSuggestionEditInput();
 });
 
 tbody.addEventListener("click", (event) => {

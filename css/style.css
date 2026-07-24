@@ -209,7 +209,7 @@ tr.row-selected td { box-shadow: inset 0 2px #1c91d0, inset 0 -2px #1c91d0; }
 .voice-dock .keyboard-mode-button { min-height: 40px; border-color: #d9f4ff; color: #0d527b; background: #fff; font-size: .82rem; }
 .voice-dock button[hidden] { display: none; }
 body.voice-mode-active { padding-bottom: calc(190px + env(safe-area-inset-bottom)); }
-body.point-suggestions-visible { padding-bottom: calc(350px + env(safe-area-inset-bottom)); }
+body.point-suggestions-visible { padding-bottom: calc(300px + env(safe-area-inset-bottom)); }
 @keyframes pulse { 50% { box-shadow: 0 0 0 7px rgba(255,105,97,.2); } }
 .sr-only { position: absolute !important; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0; }
 
@@ -247,12 +247,15 @@ dialog .eyebrow { color: var(--brand-2); }
   background: rgba(240, 250, 255, .98);
   box-shadow: 0 5px 22px rgba(10, 70, 110, .25);
 }
-.point-suggestions > strong { display: block; margin-bottom: 6px; color: #174f73; font-size: .75rem; }
+.point-suggestions-heading { display: flex; align-items: center; gap: 10px; margin-bottom: 6px; }
+.point-suggestions-heading strong { color: #174f73; font-size: .75rem; }
+.point-suggestions-heading span { color: #55798f; font-size: .68rem; }
 .point-suggestion-buttons { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 7px; }
 .point-suggestion-buttons button {
   min-width: 0;
-  min-height: 54px;
-  padding: 7px 5px;
+  height: 28px;
+  min-height: 28px;
+  padding: 2px 5px;
   overflow-wrap: anywhere;
   color: #0f527c;
   background: #fff;
@@ -278,7 +281,7 @@ dialog .eyebrow { color: var(--brand-2); }
   -webkit-user-select: text;
   user-select: text;
 }
-.point-suggestion-editor button { min-height: 54px; }
+.point-suggestion-editor button { height: 54px; min-height: 54px; }
 .point-suggestion-editor .suggestion-edit-cancel { color: #714040; background: #fff4f4; }
 .cell-delete-popover {
   position: fixed;

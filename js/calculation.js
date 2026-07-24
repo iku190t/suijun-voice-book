@@ -97,8 +97,10 @@ function calculateNotebookUpward(sourceRows, toleranceMm, options) {
         }
         pendingFsRowIndexes.forEach((fsRowIndex) => {
           const fsRow = rows[fsRowIndex];
-          fsRow._difference = bs - fsRow.fs;
-          fsRow._complete = true;
+          const displayRowIndex = fsRowIndex - 1;
+          if (displayRowIndex < 0) return;
+          rows[displayRowIndex]._difference = bs - fsRow.fs;
+          rows[displayRowIndex]._complete = true;
           validSightCount += 1;
         });
         reconstructedStartElevation = resolvedElevation;
@@ -292,10 +294,9 @@ export function applyRoundTripDifferences(outRows, backRows) {
   if (lastUsedIndex < 0) return;
 
   const usedRowCount = lastUsedIndex + 1;
-  // 高低差は到達した行に記録される。復路は逆向きなので、
-  // 往路の行Nに対応するのは「使用行数-N」の復路行になる。
+  // 復路高低差はFS行の一つ上へ表示するため、往路との対応も一行上へずらす。
   for (let outIndex = 1; outIndex < usedRowCount; outIndex += 1) {
-    const backIndex = usedRowCount - outIndex;
+    const backIndex = usedRowCount - 1 - outIndex;
     const outDifference = outRows[outIndex]?._difference;
     const backDifference = backRows[backIndex]?._difference;
     if (!Number.isFinite(outDifference) || !Number.isFinite(backDifference)) continue;
