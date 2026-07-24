@@ -15,7 +15,7 @@
   <link rel="manifest" href="./manifest.json">
   <link rel="icon" href="./icons/icon-192.png">
   <link rel="apple-touch-icon" href="./icons/icon-192.png">
-  <link rel="stylesheet" href="./css/style.css?v=67">
+  <link rel="stylesheet" href="./css/style.css?v=68">
 </head>
 <body>
   <header class="app-header">
@@ -119,17 +119,27 @@
     </section>
     <div class="voice-action">
       <button id="voiceBtn" type="button">🎤 音声モード</button>
-      <button id="pointScriptSettingsBtn" class="point-script-settings-button" type="button" aria-expanded="false" hidden>⚙ 設定</button>
-      <div id="pointScriptControls" class="point-script-controls" role="group" aria-label="点名で認識する文字" hidden>
-        <div class="point-script-title">文字認識</div>
-        <label><span>漢字</span><input type="checkbox" data-point-script="kanji" checked></label>
-        <label><span>ひらがな</span><input type="checkbox" data-point-script="hiragana"></label>
-        <label><span>カタカナ</span><input type="checkbox" data-point-script="katakana"></label>
-      </div>
+      <button id="pointScriptSettingsBtn" class="point-script-settings-button" type="button" aria-controls="pointScriptDialog" aria-expanded="false" hidden>⚙ 設定</button>
     </div>
     <button id="keyboardModeBtn" class="keyboard-mode-button" type="button" hidden>⌨️ キーボードへ戻る</button>
     <div id="voiceStatus" class="sr-only" aria-live="polite"></div>
   </div>
+
+  <dialog id="pointScriptDialog" class="point-script-dialog" aria-labelledby="pointScriptDialogTitle">
+    <form method="dialog">
+      <button class="dialog-close" value="cancel" aria-label="閉じる">×</button>
+      <h2 id="pointScriptDialogTitle">文字認識設定</h2>
+      <p class="point-script-description">点名として認識する文字の種類を選択してください。</p>
+      <div id="pointScriptControls" class="point-script-controls" role="group" aria-label="点名で認識する文字">
+        <label><span>漢字</span><input type="checkbox" data-point-script="kanji" checked></label>
+        <label><span>ひらがな</span><input type="checkbox" data-point-script="hiragana"></label>
+        <label><span>カタカナ</span><input type="checkbox" data-point-script="katakana"></label>
+      </div>
+      <div class="dialog-actions">
+        <button value="close">閉じる</button>
+      </div>
+    </form>
+  </dialog>
 
   <dialog id="settingsDialog" aria-labelledby="settingsDialogTitle">
     <form method="dialog">
@@ -193,6 +203,6 @@
   </dialog>
 
   <noscript>このアプリの利用にはJavaScriptを有効にしてください。</noscript>
-  <script type="module" src="./js/app.js?v=67"></script>
+  <script type="module" src="./js/app.js?v=68"></script>
 </body>
 </html>

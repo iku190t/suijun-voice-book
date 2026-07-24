@@ -6,7 +6,7 @@ import {
   LEVELING_TOLERANCE_PRESETS,
   sumObservationDistanceMeters,
   toNumber
-} from "./calculation.js?v=67";
+} from "./calculation.js?v=68";
 import {
   chooseLevelReading,
   createVoiceController,
@@ -14,13 +14,13 @@ import {
   normalizeSpokenNumber,
   prepareSpeechSynthesis,
   speakBack
-} from "./voice.js?v=67";
-import { clearProject, loadProject, saveProject } from "./storage.js?v=67";
-import { exportSheetCsv } from "./export.js?v=67";
+} from "./voice.js?v=68";
+import { clearProject, loadProject, saveProject } from "./storage.js?v=68";
+import { exportSheetCsv } from "./export.js?v=68";
 import {
   isValidStaffReading,
   reversePointNamesWithinUsedRows
-} from "./rules.js?v=67";
+} from "./rules.js?v=68";
 import {
   choosePointName,
   getRankedPointNameCandidates,
@@ -28,7 +28,7 @@ import {
   normalizePointName,
   pointNameToSpeech,
   recordPointNameUsage
-} from "./point-names.js?v=67";
+} from "./point-names.js?v=68";
 
 const DEFAULT_ROW_COUNT = 200;
 const POINT_SUGGESTION_LIMIT = 10;
@@ -46,6 +46,7 @@ const keyboardModeButton = document.querySelector("#keyboardModeBtn");
 const voiceStatus = document.querySelector("#voiceStatus");
 const voiceDock = document.querySelector(".voice-dock");
 const pointScriptControls = document.querySelector("#pointScriptControls");
+const pointScriptDialog = document.querySelector("#pointScriptDialog");
 const pointScriptSettingsButton = document.querySelector("#pointScriptSettingsBtn");
 const pointSuggestions = document.querySelector("#pointSuggestions");
 const pointSuggestionButtons = document.querySelector("#pointSuggestionButtons");
@@ -613,16 +614,7 @@ function positionPointClipboardPopover() {
     !selectedInput?.isConnected ||
     selectedInput.dataset.field !== "pointName"
   ) return;
-  const targetRect = selectedInput.getBoundingClientRect();
-  const popoverRect = pointClipboardPopover.getBoundingClientRect();
-  const tableRect = tableWrap.getBoundingClientRect();
-  const viewport = window.visualViewport;
-  const visibleLeft = viewport ? viewport.offsetLeft : 0;
-  const visibleRight = visibleLeft + (viewport ? viewport.width : window.innerWidth);
-  const gap = 4;
-  const rightBoundary = Math.min(visibleRight, tableRect.right);
-  const placeLeft = targetRect.right + gap + popoverRect.width > rightBoundary;
-  pointClipboardPopover.classList.toggle("place-left", placeLeft);
+  pointClipboardPopover.classList.remove("place-left");
 }
 
 function schedulePointClipboardPosition() {
@@ -647,8 +639,8 @@ function updateVoiceModeUi() {
   keyboardModeButton.hidden = !voiceModeActive;
   keyboardModeButton.disabled = voiceSessionActive;
   pointScriptSettingsButton.hidden = !voiceModeActive;
-  if (!voiceModeActive) {
-    pointScriptControls.hidden = true;
+  if (!voiceModeActive && pointScriptDialog.open) {
+    pointScriptDialog.close();
     pointScriptSettingsButton.setAttribute("aria-expanded", "false");
   }
   if (!voiceSessionActive) {
@@ -1528,15 +1520,14 @@ pointScriptInputs.forEach((input) => {
 });
 pointScriptSettingsButton.addEventListener("click", (event) => {
   event.stopPropagation();
-  const open = pointScriptControls.hidden;
-  pointScriptControls.hidden = !open;
-  pointScriptSettingsButton.setAttribute("aria-expanded", String(open));
+  if (!pointScriptDialog.open) {
+    pointScriptDialog.showModal();
+    pointScriptSettingsButton.setAttribute("aria-expanded", "true");
+  }
 });
-document.addEventListener("pointerdown", (event) => {
-  if (pointScriptControls.hidden || event.target.closest(".voice-action")) return;
-  pointScriptControls.hidden = true;
+pointScriptDialog.addEventListener("close", () => {
   pointScriptSettingsButton.setAttribute("aria-expanded", "false");
-}, { capture: true });
+});
 document.querySelector("#settingsOpenBtn").addEventListener("click", () => {
   renderPointAliasEditors();
   settingsDialog.showModal();
