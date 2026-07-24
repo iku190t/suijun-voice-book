@@ -6,7 +6,7 @@ import {
   LEVELING_TOLERANCE_PRESETS,
   sumObservationDistanceMeters,
   toNumber
-} from "./calculation.js?v=54";
+} from "./calculation.js?v=55";
 import {
   chooseLevelReading,
   createVoiceController,
@@ -14,19 +14,19 @@ import {
   normalizeSpokenNumber,
   prepareSpeechSynthesis,
   speakBack
-} from "./voice.js?v=54";
-import { clearProject, loadProject, saveProject } from "./storage.js?v=54";
-import { exportSheetCsv } from "./export.js?v=54";
+} from "./voice.js?v=55";
+import { clearProject, loadProject, saveProject } from "./storage.js?v=55";
+import { exportSheetCsv } from "./export.js?v=55";
 import {
   isValidStaffReading,
   reversePointNamesWithinUsedRows
-} from "./rules.js?v=54";
+} from "./rules.js?v=55";
 import {
   getRankedPointNameCandidates,
   normalizePointName,
   pointNameToSpeech,
   recordPointNameUsage
-} from "./point-names.js?v=54";
+} from "./point-names.js?v=55";
 
 const DEFAULT_ROW_COUNT = 200;
 const POINT_SUGGESTION_LIMIT = 10;
@@ -315,6 +315,10 @@ function renderSheet() {
   selectedInput = null;
   voiceTarget = null;
   selectedRowIndex = null;
+  document.body.append(pointClipboardPopover);
+  tbody.querySelectorAll(".point-clipboard-anchor").forEach((cell) => {
+    cell.classList.remove("point-clipboard-anchor");
+  });
   hidePointSuggestions();
   hideCellDeleteButton();
   const fragment = document.createDocumentFragment();
@@ -571,8 +575,18 @@ function updatePointClipboardButtons() {
   pointCopyButton.disabled = !pointSelected || !selectedInput.value.trim();
   pointPasteButton.disabled = !pointSelected || !pointNameClipboard;
   if (pointSelected) {
+    const targetCell = selectedInput.closest("td");
+    tbody.querySelectorAll(".point-clipboard-anchor").forEach((cell) => {
+      if (cell !== targetCell) cell.classList.remove("point-clipboard-anchor");
+    });
+    targetCell.classList.add("point-clipboard-anchor");
+    if (pointClipboardPopover.parentElement !== targetCell) {
+      targetCell.append(pointClipboardPopover);
+    }
     pointClipboardPopover.style.visibility = "hidden";
     schedulePointClipboardPosition();
+  } else {
+    pointClipboardPopover.parentElement?.classList.remove("point-clipboard-anchor");
   }
 }
 
@@ -584,6 +598,7 @@ function positionPointClipboardPopover() {
   ) return;
   const targetRect = selectedInput.getBoundingClientRect();
   const popoverRect = pointClipboardPopover.getBoundingClientRect();
+  const tableRect = tableWrap.getBoundingClientRect();
   const viewport = window.visualViewport;
   const visibleLeft = viewport ? viewport.offsetLeft : 0;
   const visibleTop = viewport ? viewport.offsetTop : 0;
@@ -599,20 +614,10 @@ function positionPointClipboardPopover() {
     pointClipboardPopover.style.visibility = "hidden";
     return;
   }
-  const gap = 6;
-  let left = targetRect.right + gap;
-  if (left + popoverRect.width > visibleRight - gap) {
-    left = targetRect.left - popoverRect.width - gap;
-  }
-  left = clamp(left, visibleLeft + gap, visibleRight - popoverRect.width - gap);
-  const centeredTop = targetRect.top + (targetRect.height - popoverRect.height) / 2;
-  const top = clamp(
-    centeredTop,
-    visibleTop + gap,
-    visibleBottom - popoverRect.height - gap
-  );
-  pointClipboardPopover.style.left = `${Math.round(left)}px`;
-  pointClipboardPopover.style.top = `${Math.round(top)}px`;
+  const gap = 4;
+  const rightBoundary = Math.min(visibleRight, tableRect.right);
+  const placeLeft = targetRect.right + gap + popoverRect.width > rightBoundary;
+  pointClipboardPopover.classList.toggle("place-left", placeLeft);
   pointClipboardPopover.style.visibility = "visible";
 }
 

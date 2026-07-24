@@ -146,9 +146,15 @@ table.show-distance .distance-column { display: table-cell; }
   line-height: 1;
 }
 .distance-inline-toggle:active { transform: translate(50%, calc(-50% + 1px)); }
+td.point-clipboard-anchor {
+  position: relative;
+  overflow: visible;
+}
 .point-clipboard-popover {
-  position: fixed;
+  position: absolute;
   z-index: 45;
+  top: 50%;
+  left: calc(100% + 4px);
   display: grid;
   width: 68px;
   gap: 4px;
@@ -157,6 +163,11 @@ table.show-distance .distance-column { display: table-cell; }
   border-radius: 10px;
   background: rgba(238, 249, 255, .98);
   box-shadow: 0 5px 16px rgba(8, 70, 109, .28);
+  transform: translateY(-50%);
+}
+.point-clipboard-popover.place-left {
+  right: calc(100% + 4px);
+  left: auto;
 }
 .point-clipboard-popover[hidden] { display: none; }
 .point-clipboard-popover button {
