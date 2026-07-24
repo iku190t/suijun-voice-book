@@ -6,7 +6,7 @@ import {
   LEVELING_TOLERANCE_PRESETS,
   sumObservationDistanceMeters,
   toNumber
-} from "./calculation.js?v=40";
+} from "./calculation.js?v=41";
 import {
   chooseLevelReading,
   createVoiceController,
@@ -14,19 +14,19 @@ import {
   normalizeSpokenNumber,
   prepareSpeechSynthesis,
   speakBack
-} from "./voice.js?v=40";
-import { clearProject, loadProject, saveProject } from "./storage.js?v=40";
-import { exportSheetCsv } from "./export.js?v=40";
+} from "./voice.js?v=41";
+import { clearProject, loadProject, saveProject } from "./storage.js?v=41";
+import { exportSheetCsv } from "./export.js?v=41";
 import {
   isValidStaffReading,
   reversePointNamesWithinUsedRows
-} from "./rules.js?v=40";
+} from "./rules.js?v=41";
 import {
   getSheetPointNameCandidates,
   normalizePointName,
   pointNameToSpeech,
   recordPointNameUsage
-} from "./point-names.js?v=40";
+} from "./point-names.js?v=41";
 
 const DEFAULT_ROW_COUNT = 200;
 const POINT_SUGGESTION_LIMIT = 6;
@@ -42,6 +42,7 @@ const tolerancePresetSelect = document.querySelector("#tolerancePreset");
 const voiceButton = document.querySelector("#voiceBtn");
 const keyboardModeButton = document.querySelector("#keyboardModeBtn");
 const voiceStatus = document.querySelector("#voiceStatus");
+const voiceDock = document.querySelector(".voice-dock");
 const pointSuggestions = document.querySelector("#pointSuggestions");
 const pointSuggestionButtons = document.querySelector("#pointSuggestionButtons");
 const cellDeleteButton = document.querySelector("#cellDeleteBtn");
@@ -607,6 +608,7 @@ function hidePointSuggestions() {
   pointSuggestions.hidden = true;
   pointSuggestionButtons.replaceChildren();
   document.body.classList.remove("point-suggestions-visible");
+  voiceDock.style.removeProperty("--suggestion-keyboard-shift");
 }
 
 function showPointNameSuggestions(input) {
@@ -725,7 +727,31 @@ function focusSuggestionEditInput() {
   suggestionEditInput.focus({ preventScroll: true });
   const end = suggestionEditInput.value.length;
   suggestionEditInput.setSelectionRange(end, end);
+  keepSuggestionEditorAboveKeyboard();
 }
+
+function keepSuggestionEditorAboveKeyboard() {
+  if (!suggestionEditInput?.isConnected) {
+    voiceDock.style.removeProperty("--suggestion-keyboard-shift");
+    return;
+  }
+  voiceDock.style.removeProperty("--suggestion-keyboard-shift");
+  requestAnimationFrame(() => {
+    if (!suggestionEditInput?.isConnected) return;
+    const viewport = window.visualViewport;
+    const visibleBottom = viewport
+      ? viewport.offsetTop + viewport.height
+      : window.innerHeight;
+    const editorBottom = suggestionEditInput.getBoundingClientRect().bottom;
+    const overlap = Math.max(0, editorBottom + 12 - visibleBottom);
+    if (overlap > 0) {
+      voiceDock.style.setProperty("--suggestion-keyboard-shift", `${overlap}px`);
+    }
+  });
+}
+
+window.visualViewport?.addEventListener("resize", keepSuggestionEditorAboveKeyboard);
+window.visualViewport?.addEventListener("scroll", keepSuggestionEditorAboveKeyboard);
 
 function recordPointName(pointName) {
   const normalized = normalizePointName(pointName, project.settings.pointAliases);
