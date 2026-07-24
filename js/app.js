@@ -6,7 +6,7 @@ import {
   LEVELING_TOLERANCE_PRESETS,
   sumObservationDistanceMeters,
   toNumber
-} from "./calculation.js?v=44";
+} from "./calculation.js?v=45";
 import {
   chooseLevelReading,
   createVoiceController,
@@ -14,19 +14,19 @@ import {
   normalizeSpokenNumber,
   prepareSpeechSynthesis,
   speakBack
-} from "./voice.js?v=44";
-import { clearProject, loadProject, saveProject } from "./storage.js?v=44";
-import { exportSheetCsv } from "./export.js?v=44";
+} from "./voice.js?v=45";
+import { clearProject, loadProject, saveProject } from "./storage.js?v=45";
+import { exportSheetCsv } from "./export.js?v=45";
 import {
   isValidStaffReading,
   reversePointNamesWithinUsedRows
-} from "./rules.js?v=44";
+} from "./rules.js?v=45";
 import {
   getRankedPointNameCandidates,
   normalizePointName,
   pointNameToSpeech,
   recordPointNameUsage
-} from "./point-names.js?v=44";
+} from "./point-names.js?v=45";
 
 const DEFAULT_ROW_COUNT = 200;
 const POINT_SUGGESTION_LIMIT = 4;
@@ -615,7 +615,6 @@ function hidePointSuggestions() {
 
 function showPointNameSuggestions(input) {
   if (
-    !voiceModeActive ||
     voiceSessionActive ||
     !input?.isConnected ||
     input.dataset.field !== "pointName"
@@ -651,6 +650,7 @@ function showPointNameSuggestions(input) {
   pointSuggestions.hidden = false;
   document.body.classList.add("point-suggestions-visible");
   keepSelectedPointAboveSuggestions(input);
+  keepSuggestionEditorAboveKeyboard();
 }
 
 function keepSelectedPointAboveSuggestions(input) {
@@ -756,19 +756,29 @@ function focusSuggestionEditInput() {
 }
 
 function keepSuggestionEditorAboveKeyboard() {
-  if (!suggestionEditInput?.isConnected) {
+  const normalModeSuggestionTarget = (
+    !voiceModeActive &&
+    !voiceSessionActive &&
+    !pointSuggestions.hidden &&
+    selectedInput?.isConnected &&
+    selectedInput.dataset.field === "pointName"
+  ) ? pointSuggestions : null;
+  const keyboardAvoidanceTarget = suggestionEditInput?.isConnected
+    ? suggestionEditInput
+    : normalModeSuggestionTarget;
+  if (!keyboardAvoidanceTarget) {
     voiceDock.style.removeProperty("--suggestion-keyboard-shift");
     return;
   }
   voiceDock.style.removeProperty("--suggestion-keyboard-shift");
   requestAnimationFrame(() => {
-    if (!suggestionEditInput?.isConnected) return;
+    if (!keyboardAvoidanceTarget?.isConnected) return;
     const viewport = window.visualViewport;
     const visibleBottom = viewport
       ? viewport.offsetTop + viewport.height
       : window.innerHeight;
-    const editorBottom = suggestionEditInput.getBoundingClientRect().bottom;
-    const overlap = Math.max(0, editorBottom + 12 - visibleBottom);
+    const targetBottom = keyboardAvoidanceTarget.getBoundingClientRect().bottom;
+    const overlap = Math.max(0, targetBottom + 12 - visibleBottom);
     if (overlap > 0) {
       voiceDock.style.setProperty("--suggestion-keyboard-shift", `${overlap}px`);
     }
@@ -928,7 +938,11 @@ tbody.addEventListener("focusin", (event) => {
     return;
   }
   markSelectedInput(event.target);
-  if (event.target.dataset.field === "pointName") hidePointSuggestions();
+  if (event.target.dataset.field === "pointName") {
+    showPointNameSuggestions(event.target);
+  } else {
+    hidePointSuggestions();
+  }
 });
 
 tbody.addEventListener("pointerdown", (event) => {
@@ -975,7 +989,11 @@ function finishPointerGesture(event, cancelled = false) {
     } else {
       markSelectedInput(input);
       input.focus({ preventScroll: true });
-      if (input.dataset.field === "pointName") hidePointSuggestions();
+      if (input.dataset.field === "pointName") {
+        showPointNameSuggestions(input);
+      } else {
+        hidePointSuggestions();
+      }
     }
   } else if (input && document.activeElement === input) {
     input.blur();
@@ -1038,11 +1056,7 @@ tbody.addEventListener("input", (event) => {
     if (event.target.value !== sanitized) event.target.value = sanitized;
   }
   handleFieldChange(event.target);
-  if (
-    voiceModeActive &&
-    !voiceSessionActive &&
-    event.target.dataset.field === "pointName"
-  ) {
+  if (!voiceSessionActive && event.target.dataset.field === "pointName") {
     showPointNameSuggestions(event.target);
   } else if (event.target.dataset.field === "pointName") {
     hidePointSuggestions();
