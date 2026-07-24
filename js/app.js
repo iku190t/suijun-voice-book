@@ -6,7 +6,7 @@ import {
   LEVELING_TOLERANCE_PRESETS,
   sumObservationDistanceMeters,
   toNumber
-} from "./calculation.js?v=60";
+} from "./calculation.js?v=61";
 import {
   chooseLevelReading,
   createVoiceController,
@@ -14,20 +14,20 @@ import {
   normalizeSpokenNumber,
   prepareSpeechSynthesis,
   speakBack
-} from "./voice.js?v=60";
-import { clearProject, loadProject, saveProject } from "./storage.js?v=60";
-import { exportSheetCsv } from "./export.js?v=60";
+} from "./voice.js?v=61";
+import { clearProject, loadProject, saveProject } from "./storage.js?v=61";
+import { exportSheetCsv } from "./export.js?v=61";
 import {
   isValidStaffReading,
   reversePointNamesWithinUsedRows
-} from "./rules.js?v=60";
+} from "./rules.js?v=61";
 import {
   getRankedPointNameCandidates,
   incrementPointNameOrCopy,
   normalizePointName,
   pointNameToSpeech,
   recordPointNameUsage
-} from "./point-names.js?v=60";
+} from "./point-names.js?v=61";
 
 const DEFAULT_ROW_COUNT = 200;
 const POINT_SUGGESTION_LIMIT = 10;
@@ -591,7 +591,7 @@ function updatePointClipboardButtons() {
     if (pointClipboardPopover.parentElement !== targetCell) {
       targetCell.append(pointClipboardPopover);
     }
-    pointClipboardPopover.style.visibility = "hidden";
+    pointClipboardPopover.style.visibility = "visible";
     schedulePointClipboardPosition();
   } else {
     pointClipboardPopover.parentElement?.classList.remove("point-clipboard-anchor");
@@ -609,24 +609,11 @@ function positionPointClipboardPopover() {
   const tableRect = tableWrap.getBoundingClientRect();
   const viewport = window.visualViewport;
   const visibleLeft = viewport ? viewport.offsetLeft : 0;
-  const visibleTop = viewport ? viewport.offsetTop : 0;
   const visibleRight = visibleLeft + (viewport ? viewport.width : window.innerWidth);
-  const visibleBottom = visibleTop + (viewport ? viewport.height : window.innerHeight);
-  const targetVisible = (
-    targetRect.bottom > visibleTop &&
-    targetRect.top < visibleBottom &&
-    targetRect.right > visibleLeft &&
-    targetRect.left < visibleRight
-  );
-  if (!targetVisible) {
-    pointClipboardPopover.style.visibility = "hidden";
-    return;
-  }
   const gap = 4;
   const rightBoundary = Math.min(visibleRight, tableRect.right);
   const placeLeft = targetRect.right + gap + popoverRect.width > rightBoundary;
   pointClipboardPopover.classList.toggle("place-left", placeLeft);
-  pointClipboardPopover.style.visibility = "visible";
 }
 
 function schedulePointClipboardPosition() {
