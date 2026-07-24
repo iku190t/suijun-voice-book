@@ -6,7 +6,7 @@ import {
   LEVELING_TOLERANCE_PRESETS,
   sumObservationDistanceMeters,
   toNumber
-} from "./calculation.js?v=55";
+} from "./calculation.js?v=56";
 import {
   chooseLevelReading,
   createVoiceController,
@@ -14,19 +14,19 @@ import {
   normalizeSpokenNumber,
   prepareSpeechSynthesis,
   speakBack
-} from "./voice.js?v=55";
-import { clearProject, loadProject, saveProject } from "./storage.js?v=55";
-import { exportSheetCsv } from "./export.js?v=55";
+} from "./voice.js?v=56";
+import { clearProject, loadProject, saveProject } from "./storage.js?v=56";
+import { exportSheetCsv } from "./export.js?v=56";
 import {
   isValidStaffReading,
   reversePointNamesWithinUsedRows
-} from "./rules.js?v=55";
+} from "./rules.js?v=56";
 import {
   getRankedPointNameCandidates,
   normalizePointName,
   pointNameToSpeech,
   recordPointNameUsage
-} from "./point-names.js?v=55";
+} from "./point-names.js?v=56";
 
 const DEFAULT_ROW_COUNT = 200;
 const POINT_SUGGESTION_LIMIT = 10;
@@ -574,6 +574,8 @@ function updatePointClipboardButtons() {
   pointClipboardPopover.hidden = !pointSelected;
   pointCopyButton.disabled = !pointSelected || !selectedInput.value.trim();
   pointPasteButton.disabled = !pointSelected || !pointNameClipboard;
+  pointPasteButton.hidden = !pointNameClipboard;
+  pointPasteButton.textContent = pointNameClipboard;
   if (pointSelected) {
     const targetCell = selectedInput.closest("td");
     tbody.querySelectorAll(".point-clipboard-anchor").forEach((cell) => {
