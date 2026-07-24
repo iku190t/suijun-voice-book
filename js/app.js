@@ -6,7 +6,7 @@ import {
   LEVELING_TOLERANCE_PRESETS,
   sumObservationDistanceMeters,
   toNumber
-} from "./calculation.js?v=52";
+} from "./calculation.js?v=53";
 import {
   chooseLevelReading,
   createVoiceController,
@@ -14,19 +14,19 @@ import {
   normalizeSpokenNumber,
   prepareSpeechSynthesis,
   speakBack
-} from "./voice.js?v=52";
-import { clearProject, loadProject, saveProject } from "./storage.js?v=52";
-import { exportSheetCsv } from "./export.js?v=52";
+} from "./voice.js?v=53";
+import { clearProject, loadProject, saveProject } from "./storage.js?v=53";
+import { exportSheetCsv } from "./export.js?v=53";
 import {
   isValidStaffReading,
   reversePointNamesWithinUsedRows
-} from "./rules.js?v=52";
+} from "./rules.js?v=53";
 import {
   getRankedPointNameCandidates,
   normalizePointName,
   pointNameToSpeech,
   recordPointNameUsage
-} from "./point-names.js?v=52";
+} from "./point-names.js?v=53";
 
 const DEFAULT_ROW_COUNT = 200;
 const POINT_SUGGESTION_LIMIT = 10;
@@ -45,6 +45,8 @@ const voiceStatus = document.querySelector("#voiceStatus");
 const voiceDock = document.querySelector(".voice-dock");
 const pointSuggestions = document.querySelector("#pointSuggestions");
 const pointSuggestionButtons = document.querySelector("#pointSuggestionButtons");
+const pointCopyButton = document.querySelector("#pointCopyBtn");
+const pointPasteButton = document.querySelector("#pointPasteBtn");
 const cellDeleteButton = document.querySelector("#cellDeleteBtn");
 const undoButton = document.querySelector("#undoBtn");
 const redoButton = document.querySelector("#redoBtn");
@@ -86,6 +88,7 @@ let lastNormalSuggestionY = Number.NaN;
 let lastNormalSuggestionMaxHeight = Number.NaN;
 let lastVoiceSuggestionShift = Number.NaN;
 let suggestionPositionCorrectionPending = false;
+let pointNameClipboard = "";
 const HISTORY_LIMIT = 50;
 const undoHistory = { out: [], back: [] };
 const redoHistory = { out: [], back: [] };
@@ -323,6 +326,7 @@ function renderSheet() {
   applyTableScale(project.settings.tableScale);
   recalculateAndRender();
   updateHistoryButtons();
+  updatePointClipboardButtons();
 }
 
 function applyDistanceVisibility() {
@@ -551,6 +555,16 @@ function markSelectedInput(input) {
   tbody.querySelectorAll(".voice-selected").forEach((element) => element.classList.remove("voice-selected"));
   selectedInput = input;
   input?.classList.add("voice-selected");
+  updatePointClipboardButtons();
+}
+
+function updatePointClipboardButtons() {
+  const pointSelected = Boolean(
+    selectedInput?.isConnected &&
+    selectedInput.dataset.field === "pointName"
+  );
+  pointCopyButton.disabled = !pointSelected || !selectedInput.value.trim();
+  pointPasteButton.disabled = !pointSelected || !pointNameClipboard;
 }
 
 function syncVoiceInputLocks() {
@@ -633,6 +647,7 @@ function hidePointSuggestions() {
 
 function showPointNameSuggestions(input) {
   if (
+    !voiceModeActive ||
     voiceSessionActive ||
     !input?.isConnected ||
     input.dataset.field !== "pointName"
@@ -1172,6 +1187,7 @@ tbody.addEventListener("input", (event) => {
     if (event.target.value !== sanitized) event.target.value = sanitized;
   }
   handleFieldChange(event.target);
+  updatePointClipboardButtons();
   if (!voiceSessionActive && event.target.dataset.field === "pointName") {
     showPointNameSuggestions(event.target);
   } else if (event.target.dataset.field === "pointName") {
@@ -1250,6 +1266,45 @@ pointSuggestionButtons.addEventListener("click", async (event) => {
     return;
   }
   await applyPointSuggestion(button.dataset.pointSuggestion);
+});
+
+pointCopyButton.addEventListener("click", () => {
+  if (
+    !selectedInput?.isConnected ||
+    selectedInput.dataset.field !== "pointName"
+  ) return;
+  const value = normalizePointName(
+    selectedInput.value,
+    project.settings.pointAliases
+  );
+  if (!value) return;
+  pointNameClipboard = value;
+  updatePointClipboardButtons();
+  showNotice(`「${value}」をコピーしました。`, "success");
+});
+
+pointPasteButton.addEventListener("click", async () => {
+  if (
+    !pointNameClipboard ||
+    !selectedInput?.isConnected ||
+    selectedInput.dataset.field !== "pointName"
+  ) return;
+  const target = selectedInput;
+  target.value = pointNameClipboard;
+  if (!handleFieldChange(target, { forceHistory: true })) return;
+  recordPointName(target.value);
+  markSelectedInput(target);
+  hidePointSuggestions();
+  voiceStatus.textContent = `${target.value} と貼り付けました`;
+  await speakBack(
+    pointNameToSpeech(target.value, project.settings.pointAliases),
+    project.settings.voiceRate
+  );
+  moveAfterVoiceInput(target);
+  if (!voiceModeActive && selectedInput?.isConnected) {
+    selectedInput.focus({ preventScroll: false });
+  }
+  updatePointClipboardButtons();
 });
 
 document.addEventListener("pointerup", () => {

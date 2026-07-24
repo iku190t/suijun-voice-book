@@ -126,6 +126,33 @@ th:nth-child(9), td:nth-child(9) { width: var(--note-width, 180px); }
 .distance-column { display: none; }
 table.show-distance .distance-column { display: table-cell; }
 .point-heading { position: relative; z-index: 4; overflow: visible; }
+.point-heading-tools {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+}
+.point-clipboard-button {
+  width: auto;
+  min-width: 34px;
+  min-height: 30px;
+  padding: 2px 4px;
+  border: 1px solid #c8ebff;
+  border-radius: 6px;
+  color: #0b527b;
+  background: #fff;
+  font-size: 10px;
+  line-height: 1;
+}
+.point-clipboard-button:disabled {
+  opacity: .42;
+  color: #31596e;
+  background: #d8e8f0;
+}
+.voice-mode-active .point-clipboard-button,
+.voice-session-active .point-clipboard-button {
+  display: none;
+}
 .distance-inline-toggle {
   position: absolute;
   z-index: 12;

@@ -15,7 +15,7 @@
   <link rel="manifest" href="./manifest.json">
   <link rel="icon" href="./icons/icon-192.png">
   <link rel="apple-touch-icon" href="./icons/icon-192.png">
-  <link rel="stylesheet" href="./css/style.css?v=52">
+  <link rel="stylesheet" href="./css/style.css?v=53">
 </head>
 <body>
   <header class="app-header">
@@ -88,7 +88,14 @@
         <thead>
           <tr>
             <th>No.</th>
-            <th class="point-heading">点名<button id="distanceToggleBtn" class="distance-inline-toggle" type="button" aria-label="距離列を表示">＋</button></th>
+            <th class="point-heading">
+              <span class="point-heading-tools">
+                <span>点名</span>
+                <button id="pointCopyBtn" class="point-clipboard-button" type="button" disabled>コピー</button>
+                <button id="pointPasteBtn" class="point-clipboard-button" type="button" disabled>貼付</button>
+              </span>
+              <button id="distanceToggleBtn" class="distance-inline-toggle" type="button" aria-label="距離列を表示">＋</button>
+            </th>
             <th class="distance-column">距離 m</th>
             <th>後視 BS</th>
             <th>前視 FS</th>
@@ -179,6 +186,6 @@
   </dialog>
 
   <noscript>このアプリの利用にはJavaScriptを有効にしてください。</noscript>
-  <script type="module" src="./js/app.js?v=52"></script>
+  <script type="module" src="./js/app.js?v=53"></script>
 </body>
 </html>
