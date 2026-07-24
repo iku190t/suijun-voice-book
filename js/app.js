@@ -6,7 +6,7 @@ import {
   LEVELING_TOLERANCE_PRESETS,
   sumObservationDistanceMeters,
   toNumber
-} from "./calculation.js?v=59";
+} from "./calculation.js?v=60";
 import {
   chooseLevelReading,
   createVoiceController,
@@ -14,20 +14,20 @@ import {
   normalizeSpokenNumber,
   prepareSpeechSynthesis,
   speakBack
-} from "./voice.js?v=59";
-import { clearProject, loadProject, saveProject } from "./storage.js?v=59";
-import { exportSheetCsv } from "./export.js?v=59";
+} from "./voice.js?v=60";
+import { clearProject, loadProject, saveProject } from "./storage.js?v=60";
+import { exportSheetCsv } from "./export.js?v=60";
 import {
   isValidStaffReading,
   reversePointNamesWithinUsedRows
-} from "./rules.js?v=59";
+} from "./rules.js?v=60";
 import {
   getRankedPointNameCandidates,
   incrementPointNameOrCopy,
   normalizePointName,
   pointNameToSpeech,
   recordPointNameUsage
-} from "./point-names.js?v=59";
+} from "./point-names.js?v=60";
 
 const DEFAULT_ROW_COUNT = 200;
 const POINT_SUGGESTION_LIMIT = 10;
@@ -92,6 +92,7 @@ let lastVoiceSuggestionShift = Number.NaN;
 let suggestionPositionCorrectionPending = false;
 let pointNameClipboard = "";
 let pointClipboardPositionFrame = null;
+let pointClipboardDismissedFor = null;
 let keyboardViewportBaseline = window.visualViewport?.height || window.innerHeight;
 const HISTORY_LIMIT = 50;
 const undoHistory = { out: [], back: [] };
@@ -315,6 +316,7 @@ function rowTemplate(row, index) {
 
 function renderSheet() {
   selectedInput = null;
+  pointClipboardDismissedFor = null;
   voiceTarget = null;
   selectedRowIndex = null;
   document.body.append(pointClipboardPopover);
@@ -561,6 +563,7 @@ function handleFieldChange(input, { recordHistory = true, forceHistory = false }
 
 function markSelectedInput(input) {
   tbody.querySelectorAll(".voice-selected").forEach((element) => element.classList.remove("voice-selected"));
+  if (input !== pointClipboardDismissedFor) pointClipboardDismissedFor = null;
   selectedInput = input;
   input?.classList.add("voice-selected");
   updatePointClipboardButtons();
@@ -573,12 +576,13 @@ function updatePointClipboardButtons() {
     selectedInput?.isConnected &&
     selectedInput.dataset.field === "pointName"
   );
-  pointClipboardPopover.hidden = !pointSelected;
+  const popoverAllowed = pointSelected && selectedInput !== pointClipboardDismissedFor;
+  pointClipboardPopover.hidden = !popoverAllowed;
   pointCopyButton.disabled = !pointSelected || !selectedInput.value.trim();
   pointPasteButton.disabled = !pointSelected || !pointNameClipboard;
   pointPasteButton.hidden = !pointNameClipboard;
   pointPasteButton.textContent = pointNameClipboard;
-  if (pointSelected) {
+  if (popoverAllowed) {
     const targetCell = selectedInput.closest("td");
     tbody.querySelectorAll(".point-clipboard-anchor").forEach((cell) => {
       if (cell !== targetCell) cell.classList.remove("point-clipboard-anchor");
@@ -1421,6 +1425,8 @@ pointPasteButton.addEventListener("click", async () => {
     const end = target.value.length;
     target.setSelectionRange(end, end);
   }
+  pointClipboardDismissedFor = target;
+  pointClipboardPopover.hidden = true;
   voiceStatus.textContent = `${target.value} と貼り付けました`;
   await speakBack(
     pointNameToSpeech(target.value, project.settings.pointAliases),
