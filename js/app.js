@@ -6,7 +6,7 @@ import {
   LEVELING_TOLERANCE_PRESETS,
   sumObservationDistanceMeters,
   toNumber
-} from "./calculation.js?v=58";
+} from "./calculation.js?v=59";
 import {
   chooseLevelReading,
   createVoiceController,
@@ -14,20 +14,20 @@ import {
   normalizeSpokenNumber,
   prepareSpeechSynthesis,
   speakBack
-} from "./voice.js?v=58";
-import { clearProject, loadProject, saveProject } from "./storage.js?v=58";
-import { exportSheetCsv } from "./export.js?v=58";
+} from "./voice.js?v=59";
+import { clearProject, loadProject, saveProject } from "./storage.js?v=59";
+import { exportSheetCsv } from "./export.js?v=59";
 import {
   isValidStaffReading,
   reversePointNamesWithinUsedRows
-} from "./rules.js?v=58";
+} from "./rules.js?v=59";
 import {
   getRankedPointNameCandidates,
   incrementPointNameOrCopy,
   normalizePointName,
   pointNameToSpeech,
   recordPointNameUsage
-} from "./point-names.js?v=58";
+} from "./point-names.js?v=59";
 
 const DEFAULT_ROW_COUNT = 200;
 const POINT_SUGGESTION_LIMIT = 10;
@@ -92,6 +92,7 @@ let lastVoiceSuggestionShift = Number.NaN;
 let suggestionPositionCorrectionPending = false;
 let pointNameClipboard = "";
 let pointClipboardPositionFrame = null;
+let keyboardViewportBaseline = window.visualViewport?.height || window.innerHeight;
 const HISTORY_LIMIT = 50;
 const undoHistory = { out: [], back: [] };
 const redoHistory = { out: [], back: [] };
@@ -986,6 +987,26 @@ function keepSuggestionEditorAboveKeyboard() {
 window.visualViewport?.addEventListener("resize", keepSuggestionEditorAboveKeyboard);
 window.visualViewport?.addEventListener("scroll", keepSuggestionEditorAboveKeyboard);
 
+function updateSoftwareKeyboardState() {
+  const viewportHeight = window.visualViewport?.height || window.innerHeight;
+  if (!document.activeElement?.matches?.("#notebookBody input")) {
+    keyboardViewportBaseline = Math.max(
+      keyboardViewportBaseline,
+      viewportHeight
+    );
+  }
+  const keyboardOpen = Boolean(
+    !voiceModeActive &&
+    document.activeElement?.matches?.("#notebookBody input") &&
+    keyboardViewportBaseline - viewportHeight > 120
+  );
+  document.body.classList.toggle("software-keyboard-open", keyboardOpen);
+}
+
+window.visualViewport?.addEventListener("resize", updateSoftwareKeyboardState);
+window.visualViewport?.addEventListener("scroll", updateSoftwareKeyboardState);
+window.addEventListener("resize", updateSoftwareKeyboardState);
+
 function recordPointName(pointName) {
   const normalized = normalizePointName(pointName, project.settings.pointAliases);
   if (!normalized) return "";
@@ -1165,6 +1186,7 @@ tbody.addEventListener("focusin", (event) => {
   } else {
     hidePointSuggestions();
   }
+  requestAnimationFrame(updateSoftwareKeyboardState);
 });
 
 tbody.addEventListener("pointerdown", (event) => {
@@ -1302,6 +1324,7 @@ tbody.addEventListener("change", (event) => {
 });
 
 tbody.addEventListener("focusout", (event) => {
+  requestAnimationFrame(updateSoftwareKeyboardState);
   endHistoryGroup();
   if (event.target.matches("input")) formatNumericInput(event.target);
   if (!event.target.matches('input[data-field="pointName"]')) return;

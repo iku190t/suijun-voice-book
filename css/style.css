@@ -259,6 +259,9 @@ tr.row-selected td { box-shadow: inset 0 2px #1c91d0, inset 0 -2px #1c91d0; }
 .voice-dock button.listening { color: #fff; background: #981f1a; animation: pulse 1s infinite; }
 .voice-dock .keyboard-mode-button { min-height: 40px; border-color: #d9f4ff; color: #0d527b; background: #fff; font-size: .82rem; }
 .voice-dock button[hidden] { display: none; }
+body.software-keyboard-open:not(.voice-mode-active) .voice-dock {
+  display: none;
+}
 body.voice-mode-active { padding-bottom: calc(190px + env(safe-area-inset-bottom)); }
 body.point-suggestions-visible { padding-bottom: calc(300px + env(safe-area-inset-bottom)); }
 @keyframes pulse { 50% { box-shadow: 0 0 0 7px rgba(255,105,97,.2); } }
