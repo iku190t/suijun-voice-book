@@ -6,7 +6,7 @@ import {
   LEVELING_TOLERANCE_PRESETS,
   sumObservationDistanceMeters,
   toNumber
-} from "./calculation.js?v=79";
+} from "./calculation.js?v=80";
 import {
   chooseLevelReading,
   createVoiceController,
@@ -14,13 +14,13 @@ import {
   normalizeSpokenNumber,
   prepareSpeechSynthesis,
   speakBack
-} from "./voice.js?v=79";
-import { clearProject, loadProject, saveProject } from "./storage.js?v=79";
-import { exportSheetCsv } from "./export.js?v=79";
+} from "./voice.js?v=80";
+import { clearProject, loadProject, saveProject } from "./storage.js?v=80";
+import { exportSheetCsv } from "./export.js?v=80";
 import {
   isValidStaffReading,
   reversePointNamesWithinUsedRows
-} from "./rules.js?v=79";
+} from "./rules.js?v=80";
 import {
   choosePointName,
   getRankedPointNameCandidates,
@@ -28,7 +28,7 @@ import {
   normalizePointName,
   pointNameToSpeech,
   recordPointNameUsage
-} from "./point-names.js?v=79";
+} from "./point-names.js?v=80";
 
 const DEFAULT_ROW_COUNT = 200;
 const POINT_SUGGESTION_LIMIT = 10;
@@ -53,6 +53,7 @@ const pointSuggestionButtons = document.querySelector("#pointSuggestionButtons")
 const pointClipboardPopover = document.querySelector("#pointClipboardPopover");
 const pointCopyButton = document.querySelector("#pointCopyBtn");
 const pointPasteButton = document.querySelector("#pointPasteBtn");
+const pointIncrementPasteButton = document.querySelector("#pointIncrementPasteBtn");
 const pointClearButton = document.querySelector("#pointClearBtn");
 const undoButton = document.querySelector("#undoBtn");
 const redoButton = document.querySelector("#redoBtn");
@@ -89,6 +90,7 @@ let lastNormalSuggestionMaxHeight = Number.NaN;
 let lastVoiceSuggestionShift = Number.NaN;
 let suggestionPositionCorrectionPending = false;
 let pointNameClipboard = "";
+let pointNameIncrementClipboard = "";
 let pointClipboardPositionFrame = null;
 let pointClipboardDismissedFor = null;
 let keyboardViewportBaseline = window.visualViewport?.height || window.innerHeight;
@@ -579,6 +581,12 @@ function markSelectedInput(input) {
   updatePointClipboardButtons();
 }
 
+function incrementClipboardPointName(value) {
+  const normalized = normalizePointName(value, project.settings.pointAliases);
+  if (!normalized || !/\d+$/.test(normalized)) return "";
+  return incrementPointNameOrCopy(normalized, project.settings.pointAliases);
+}
+
 function updatePointClipboardButtons() {
   const pointSelected = Boolean(
     !voiceSessionActive &&
@@ -590,7 +598,12 @@ function updatePointClipboardButtons() {
   pointCopyButton.disabled = !pointSelected || !selectedInput.value.trim();
   pointPasteButton.disabled = !pointSelected || !pointNameClipboard;
   pointPasteButton.hidden = !pointNameClipboard;
-  pointPasteButton.textContent = pointNameClipboard;
+  pointPasteButton.textContent = pointNameClipboard ? `${pointNameClipboard}を貼付` : "";
+  pointIncrementPasteButton.disabled = !pointSelected || !pointNameIncrementClipboard;
+  pointIncrementPasteButton.hidden = !pointNameIncrementClipboard;
+  pointIncrementPasteButton.textContent = pointNameIncrementClipboard
+    ? `${pointNameIncrementClipboard}を増番貼付`
+    : "";
   pointClearButton.disabled = !pointSelected || !selectedInput.value.trim();
   if (popoverAllowed) {
     const targetCell = selectedInput.closest("td");
@@ -1332,6 +1345,7 @@ pointCopyButton.addEventListener("click", () => {
   );
   if (!value) return;
   pointNameClipboard = value;
+  pointNameIncrementClipboard = incrementClipboardPointName(value);
   updatePointClipboardButtons();
   showNotice(`「${value}」をコピーしました。`, "success");
 });
@@ -1373,6 +1387,37 @@ pointPasteButton.addEventListener("click", async () => {
   pointClipboardDismissedFor = target;
   pointClipboardPopover.hidden = true;
   voiceStatus.textContent = `${target.value} と貼り付けました`;
+  await speakBack(
+    pointNameToSpeech(target.value, project.settings.pointAliases),
+    project.settings.voiceRate
+  );
+  if (voiceModeActive) {
+    await moveAfterVoiceInput(target);
+  }
+  updatePointClipboardButtons();
+});
+
+pointIncrementPasteButton.addEventListener("click", async () => {
+  if (
+    !pointNameIncrementClipboard ||
+    !selectedInput?.isConnected ||
+    selectedInput.dataset.field !== "pointName"
+  ) return;
+  const target = selectedInput;
+  const pastedValue = pointNameIncrementClipboard;
+  target.value = pastedValue;
+  if (!handleFieldChange(target, { forceHistory: true })) return;
+  recordPointName(target.value);
+  pointNameIncrementClipboard = incrementClipboardPointName(pastedValue);
+  markSelectedInput(target);
+  hidePointSuggestions();
+  if (!voiceModeActive) {
+    target.readOnly = false;
+    target.focus({ preventScroll: false });
+    const end = target.value.length;
+    target.setSelectionRange(end, end);
+  }
+  voiceStatus.textContent = `${target.value} と増番して貼り付けました`;
   await speakBack(
     pointNameToSpeech(target.value, project.settings.pointAliases),
     project.settings.voiceRate

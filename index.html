@@ -15,7 +15,7 @@
   <link rel="manifest" href="./manifest.json">
   <link rel="icon" href="./icons/icon-192.png">
   <link rel="apple-touch-icon" href="./icons/icon-192.png">
-  <link rel="stylesheet" href="./css/style.css?v=79">
+  <link rel="stylesheet" href="./css/style.css?v=80">
 </head>
 <body>
   <header class="app-header">
@@ -105,7 +105,10 @@
 
   <div id="pointClipboardPopover" class="point-clipboard-popover" aria-label="選択した点名のコピー、貼り付け、クリア" hidden>
     <button id="pointCopyBtn" type="button" disabled>コピー</button>
-    <button id="pointPasteBtn" type="button" aria-label="コピーした点名を貼り付け" hidden></button>
+    <div class="point-paste-stack">
+      <button id="pointPasteBtn" type="button" aria-label="コピーした点名を貼り付け" hidden></button>
+      <button id="pointIncrementPasteBtn" type="button" aria-label="増番した点名を貼り付け" hidden></button>
+    </div>
     <button id="pointClearBtn" type="button" disabled>クリア</button>
   </div>
 
@@ -203,6 +206,6 @@
   </dialog>
 
   <noscript>このアプリの利用にはJavaScriptを有効にしてください。</noscript>
-  <script type="module" src="./js/app.js?v=79"></script>
+  <script type="module" src="./js/app.js?v=80"></script>
 </body>
 </html>

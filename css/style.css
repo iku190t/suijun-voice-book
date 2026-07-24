@@ -179,12 +179,23 @@ td.point-clipboard-anchor {
   line-height: 1;
 }
 .point-clipboard-popover button[hidden] { display: none; }
-#pointPasteBtn {
+.point-paste-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+#pointPasteBtn,
+#pointIncrementPasteBtn {
   max-width: 104px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
   font-weight: 800;
+}
+#pointIncrementPasteBtn {
+  border-color: #4ca9d9;
+  color: #074f79;
+  background: #dff4ff;
 }
 #pointClearBtn {
   border-color: #dc8c8c;
