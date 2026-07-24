@@ -338,40 +338,43 @@ dialog .eyebrow { color: var(--brand-2); }
   min-height: 54px;
 }
 
-/* 通常入力では、左30%を音声モード、右70%を候補にする。 */
+/* 通常入力では、右上固定の縦型候補にする。 */
 body.point-suggestions-visible:not(.voice-mode-active) {
   padding-bottom: 144px;
 }
 body.point-suggestions-visible:not(.voice-mode-active) .voice-dock {
-  right: 0;
-  bottom: 0;
-  left: 0;
-  display: grid;
-  grid-template-columns: minmax(94px, 30%) minmax(0, 70%);
-  gap: 6px;
-  width: 100%;
-  min-width: 0;
-  padding: 6px max(7px, env(safe-area-inset-right)) calc(6px + env(safe-area-inset-bottom)) max(7px, env(safe-area-inset-left));
-  border-top: 1px solid #7eb9dc;
+  top: var(--normal-suggestion-top, 8px);
+  right: max(7px, env(safe-area-inset-right));
+  bottom: auto;
+  left: auto;
+  display: flex;
+  width: min(42vw, 220px);
+  min-width: 166px;
+  max-height: var(--normal-suggestion-max-height, calc(100dvh - 16px));
+  flex-direction: column;
+  gap: 5px;
+  padding: 5px;
+  overflow-y: auto;
+  border: 1px solid #7eb9dc;
+  border-radius: 11px;
   background: rgba(13, 101, 157, .97);
-  box-shadow: 0 -3px 12px rgba(0,0,0,.18);
+  box-shadow: 0 5px 18px rgba(0,0,0,.23);
+  transform: none;
 }
 body.point-suggestions-visible:not(.voice-mode-active) .voice-dock > .keyboard-mode-button {
   display: none;
 }
 body.point-suggestions-visible:not(.voice-mode-active) .voice-dock > #voiceBtn {
-  grid-column: 1;
-  grid-row: 1;
-  height: 100%;
-  min-height: 98px;
-  padding: 5px;
+  order: 2;
+  height: 46px;
+  min-height: 46px;
+  padding: 4px;
   border-width: 1px;
-  font-size: .9rem;
+  font-size: .82rem;
   line-height: 1.25;
 }
 body.point-suggestions-visible:not(.voice-mode-active) .point-suggestions {
-  grid-column: 2;
-  grid-row: 1;
+  order: 1;
   width: 100%;
   max-width: none;
   padding: 4px;
@@ -392,7 +395,7 @@ body.point-suggestions-visible:not(.voice-mode-active) .point-suggestions-headin
   line-height: 1.1;
 }
 body.point-suggestions-visible:not(.voice-mode-active) .point-suggestion-buttons {
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: 1fr;
   gap: 4px;
 }
 body.point-suggestions-visible:not(.voice-mode-active) .point-suggestion-buttons > button,

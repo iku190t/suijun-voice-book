@@ -6,7 +6,7 @@ import {
   LEVELING_TOLERANCE_PRESETS,
   sumObservationDistanceMeters,
   toNumber
-} from "./calculation.js?v=47";
+} from "./calculation.js?v=48";
 import {
   chooseLevelReading,
   createVoiceController,
@@ -14,19 +14,19 @@ import {
   normalizeSpokenNumber,
   prepareSpeechSynthesis,
   speakBack
-} from "./voice.js?v=47";
-import { clearProject, loadProject, saveProject } from "./storage.js?v=47";
-import { exportSheetCsv } from "./export.js?v=47";
+} from "./voice.js?v=48";
+import { clearProject, loadProject, saveProject } from "./storage.js?v=48";
+import { exportSheetCsv } from "./export.js?v=48";
 import {
   isValidStaffReading,
   reversePointNamesWithinUsedRows
-} from "./rules.js?v=47";
+} from "./rules.js?v=48";
 import {
   getRankedPointNameCandidates,
   normalizePointName,
   pointNameToSpeech,
   recordPointNameUsage
-} from "./point-names.js?v=47";
+} from "./point-names.js?v=48";
 
 const DEFAULT_ROW_COUNT = 200;
 const POINT_SUGGESTION_LIMIT = 4;
@@ -611,6 +611,8 @@ function hidePointSuggestions() {
   pointSuggestionButtons.replaceChildren();
   document.body.classList.remove("point-suggestions-visible");
   voiceDock.style.removeProperty("--suggestion-keyboard-shift");
+  voiceDock.style.removeProperty("--normal-suggestion-top");
+  voiceDock.style.removeProperty("--normal-suggestion-max-height");
 }
 
 function showPointNameSuggestions(input) {
@@ -761,6 +763,25 @@ function focusSuggestionEditInput() {
 }
 
 function keepSuggestionEditorAboveKeyboard() {
+  const normalSuggestionVisible = (
+    !voiceModeActive &&
+    !voiceSessionActive &&
+    !pointSuggestions.hidden
+  );
+  if (normalSuggestionVisible) {
+    voiceDock.style.removeProperty("--suggestion-keyboard-shift");
+    const viewport = window.visualViewport;
+    const visibleTop = viewport ? viewport.offsetTop : 0;
+    const visibleHeight = viewport ? viewport.height : window.innerHeight;
+    voiceDock.style.setProperty("--normal-suggestion-top", `${visibleTop + 8}px`);
+    voiceDock.style.setProperty(
+      "--normal-suggestion-max-height",
+      `${Math.max(120, visibleHeight - 16)}px`
+    );
+    return;
+  }
+  voiceDock.style.removeProperty("--normal-suggestion-top");
+  voiceDock.style.removeProperty("--normal-suggestion-max-height");
   const visibleSuggestionPanel = !pointSuggestions.hidden && pointSuggestions.isConnected
     ? pointSuggestions
     : null;
