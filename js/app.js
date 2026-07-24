@@ -6,7 +6,7 @@ import {
   LEVELING_TOLERANCE_PRESETS,
   sumObservationDistanceMeters,
   toNumber
-} from "./calculation.js?v=51";
+} from "./calculation.js?v=52";
 import {
   chooseLevelReading,
   createVoiceController,
@@ -14,19 +14,19 @@ import {
   normalizeSpokenNumber,
   prepareSpeechSynthesis,
   speakBack
-} from "./voice.js?v=51";
-import { clearProject, loadProject, saveProject } from "./storage.js?v=51";
-import { exportSheetCsv } from "./export.js?v=51";
+} from "./voice.js?v=52";
+import { clearProject, loadProject, saveProject } from "./storage.js?v=52";
+import { exportSheetCsv } from "./export.js?v=52";
 import {
   isValidStaffReading,
   reversePointNamesWithinUsedRows
-} from "./rules.js?v=51";
+} from "./rules.js?v=52";
 import {
   getRankedPointNameCandidates,
   normalizePointName,
   pointNameToSpeech,
   recordPointNameUsage
-} from "./point-names.js?v=51";
+} from "./point-names.js?v=52";
 
 const DEFAULT_ROW_COUNT = 200;
 const POINT_SUGGESTION_LIMIT = 10;
@@ -85,6 +85,7 @@ let cachedSuggestionEditing = null;
 let lastNormalSuggestionY = Number.NaN;
 let lastNormalSuggestionMaxHeight = Number.NaN;
 let lastVoiceSuggestionShift = Number.NaN;
+let suggestionPositionCorrectionPending = false;
 const HISTORY_LIMIT = 50;
 const undoHistory = { out: [], back: [] };
 const redoHistory = { out: [], back: [] };
@@ -621,6 +622,7 @@ function hidePointSuggestions() {
   suggestionPositionFrame = null;
   cachedSuggestionPanelHeight = 0;
   cachedSuggestionEditing = null;
+  suggestionPositionCorrectionPending = false;
   lastNormalSuggestionY = Number.NaN;
   lastNormalSuggestionMaxHeight = Number.NaN;
   lastVoiceSuggestionShift = Number.NaN;
@@ -663,11 +665,15 @@ function showPointNameSuggestions(input) {
     return button;
   });
   const primaryButton = buttons[0];
+  const scrollHint = document.createElement("div");
+  scrollHint.className = "point-suggestion-scroll-hint";
+  scrollHint.setAttribute("aria-hidden", "true");
   const alternatives = document.createElement("div");
   alternatives.className = "point-suggestion-alternatives";
   alternatives.append(...buttons.slice(1));
   pointSuggestionButtons.replaceChildren(
     ...(primaryButton ? [primaryButton] : []),
+    ...(alternatives.childElementCount ? [scrollHint] : []),
     ...(alternatives.childElementCount ? [alternatives] : [])
   );
   pointSuggestions.hidden = false;
@@ -781,6 +787,7 @@ function beginPointSuggestionEdit(button) {
   button.replaceWith(editor);
   suggestionEditInput = input;
   suggestionEditFocusPending = true;
+  suggestionPositionCorrectionPending = true;
   focusSuggestionEditInput();
 }
 
@@ -793,11 +800,21 @@ function focusSuggestionEditInput() {
 }
 
 function setDockPixelProperty(propertyName, value, previousValue) {
-  if (Number.isFinite(previousValue) && Math.abs(value - previousValue) < 2) {
+  if (Number.isFinite(previousValue) && Math.abs(value - previousValue) < 6) {
     return previousValue;
   }
   voiceDock.style.setProperty(propertyName, `${Math.round(value)}px`);
   return value;
+}
+
+function getRenderedTranslateY(element) {
+  const transform = window.getComputedStyle(element).transform;
+  if (!transform || transform === "none") return 0;
+  const transformValues = transform.slice(transform.indexOf("(") + 1, transform.lastIndexOf(")"));
+  const values = transformValues.split(",").map((value) => Number(value.trim()));
+  if (transform.startsWith("matrix3d")) return values[13] || 0;
+  if (transform.startsWith("matrix")) return values[5] || 0;
+  return 0;
 }
 
 function updateSuggestionPosition() {
@@ -818,21 +835,26 @@ function updateSuggestionPosition() {
       lastNormalSuggestionMaxHeight
     );
     const editing = Boolean(suggestionEditInput?.isConnected);
-    if (cachedSuggestionEditing !== editing || cachedSuggestionPanelHeight <= 0) {
-      cachedSuggestionEditing = editing;
-      cachedSuggestionPanelHeight = voiceDock.scrollHeight;
-    }
-    const panelHeight = Math.min(cachedSuggestionPanelHeight, maxPanelHeight);
+    cachedSuggestionEditing = editing;
+    cachedSuggestionPanelHeight = voiceDock.getBoundingClientRect().height;
+    const panelRect = voiceDock.getBoundingClientRect();
+    const panelHeight = Math.min(panelRect.height, maxPanelHeight);
     const normalTop = visibleTop + 8;
-    const editingTop = Math.max(
+    const desiredTop = editing ? Math.max(
       normalTop,
       visibleTop + visibleHeight - panelHeight - 8
-    );
+    ) : normalTop;
+    const layoutTop = panelRect.top - getRenderedTranslateY(voiceDock);
+    const correctedY = desiredTop - layoutTop;
     lastNormalSuggestionY = setDockPixelProperty(
       "--normal-suggestion-y",
-      editing ? editingTop : normalTop,
+      correctedY,
       lastNormalSuggestionY
     );
+    if (editing && suggestionPositionCorrectionPending) {
+      suggestionPositionCorrectionPending = false;
+      requestAnimationFrame(keepSuggestionEditorAboveKeyboard);
+    }
     return;
   }
   voiceDock.style.removeProperty("--normal-suggestion-y");
@@ -857,12 +879,18 @@ function updateSuggestionPosition() {
     ? viewport.offsetTop + viewport.height
     : window.innerHeight;
   const targetBottom = keyboardAvoidanceTarget.getBoundingClientRect().bottom;
-  const overlap = Math.max(0, targetBottom + 12 - visibleBottom);
+  const renderedShift = Math.max(0, -getRenderedTranslateY(voiceDock));
+  const unshiftedTargetBottom = targetBottom + renderedShift;
+  const overlap = Math.max(0, unshiftedTargetBottom + 12 - visibleBottom);
   lastVoiceSuggestionShift = setDockPixelProperty(
     "--suggestion-keyboard-shift",
     overlap,
     lastVoiceSuggestionShift
   );
+  if (suggestionEditInput?.isConnected && suggestionPositionCorrectionPending) {
+    suggestionPositionCorrectionPending = false;
+    requestAnimationFrame(keepSuggestionEditorAboveKeyboard);
+  }
 }
 
 function keepSuggestionEditorAboveKeyboard() {

@@ -266,11 +266,34 @@ dialog .eyebrow { color: var(--brand-2); }
   user-select: none;
 }
 .point-suggestion-buttons .primary-point-suggestion {
+  position: relative;
   height: 62px;
   min-height: 62px;
+  padding-top: 17px;
+  border: 3px solid #087ec0;
+  background: #c8edff;
   font-size: 1.32rem;
   font-weight: 900;
 }
+.point-suggestion-buttons .primary-point-suggestion::before {
+  position: absolute;
+  top: 2px;
+  left: 7px;
+  content: "最有力・固定";
+  color: #46768f;
+  font-size: .56rem;
+  font-weight: 700;
+  line-height: 1;
+}
+.point-suggestion-scroll-hint {
+  height: 12px;
+  color: #52778d;
+  font-size: .6rem;
+  font-weight: 700;
+  line-height: 12px;
+  text-align: center;
+}
+.point-suggestion-scroll-hint::before { content: "← 左右にスライド →"; }
 .point-suggestion-alternatives {
   display: flex;
   gap: 7px;
@@ -351,6 +374,10 @@ dialog .eyebrow { color: var(--brand-2); }
   height: 62px;
   min-height: 62px;
 }
+.voice-dock .point-suggestion-alternatives > button {
+  height: 42px;
+  min-height: 42px;
+}
 .voice-dock .point-suggestion-editor button {
   height: 54px;
   min-height: 54px;
@@ -378,6 +405,7 @@ body.point-suggestions-visible:not(.voice-mode-active) .voice-dock {
   background: rgba(13, 101, 157, .97);
   box-shadow: 0 5px 18px rgba(0,0,0,.23);
   transform: translate3d(0, var(--normal-suggestion-y, 8px), 0);
+  transition: transform 110ms ease-out;
   will-change: transform;
 }
 body.point-suggestions-visible:not(.voice-mode-active) .voice-dock > .keyboard-mode-button {
@@ -429,6 +457,9 @@ body.point-suggestions-visible:not(.voice-mode-active) .point-suggestion-buttons
   color: #063e62;
   background: #bfe9ff;
   font-weight: 900;
+}
+body.point-suggestions-visible:not(.voice-mode-active) .point-suggestion-scroll-hint::before {
+  content: "↕ 上下に回す";
 }
 body.point-suggestions-visible:not(.voice-mode-active) .point-suggestion-alternatives {
   display: grid;
