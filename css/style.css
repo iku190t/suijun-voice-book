@@ -159,12 +159,11 @@ td.point-clipboard-anchor {
   align-items: flex-start;
   width: max-content;
   max-width: min(252px, calc(100vw - 16px));
-  gap: 4px;
-  padding: 4px;
-  border: 2px solid #168bd1;
-  border-radius: 10px;
-  background: rgba(238, 249, 255, .9);
-  box-shadow: 0 5px 16px rgba(8, 70, 109, .28);
+  gap: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  filter: drop-shadow(0 5px 8px rgba(8, 70, 109, .28));
 }
 .point-clipboard-popover[hidden] { display: none; }
 .point-clipboard-popover button {
@@ -172,10 +171,10 @@ td.point-clipboard-anchor {
   min-width: 0;
   min-height: 44px;
   padding: 3px 9px;
-  border: 1px solid #8ac8e9;
-  border-radius: 7px;
+  border: 2px solid #168bd1;
+  border-radius: 0;
   color: #0b527b;
-  background: #fff;
+  background: rgba(255, 255, 255, .9);
   font-size: 12px;
   line-height: 1;
 }
@@ -183,7 +182,10 @@ td.point-clipboard-anchor {
 .point-paste-stack {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 0;
+}
+#pointCopyBtn {
+  border-radius: 10px 0 0 10px;
 }
 #pointPasteBtn,
 #pointIncrementPasteBtn {
@@ -193,15 +195,22 @@ td.point-clipboard-anchor {
   white-space: nowrap;
   font-weight: 800;
 }
+#pointPasteBtn {
+  border-left-width: 0;
+}
 #pointIncrementPasteBtn {
+  border-top-width: 0;
+  border-radius: 0 0 10px 10px;
   border-color: #4ca9d9;
   color: #074f79;
-  background: #dff4ff;
+  background: rgba(223, 244, 255, .9);
 }
 #pointClearBtn {
+  border-left-width: 0;
+  border-radius: 0 10px 10px 0;
   border-color: #dc8c8c;
   color: #9b2020;
-  background: #fff1f1;
+  background: rgba(255, 241, 241, .9);
   font-weight: 850;
 }
 .point-clipboard-popover button:disabled {
