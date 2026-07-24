@@ -154,7 +154,7 @@ td.point-clipboard-anchor {
   position: absolute;
   z-index: 45;
   top: calc(100% + 4px);
-  left: 0;
+  left: calc(100% + 4px);
   display: flex;
   width: max-content;
   max-width: min(252px, calc(100vw - 16px));
