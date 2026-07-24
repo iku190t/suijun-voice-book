@@ -6,7 +6,7 @@ import {
   LEVELING_TOLERANCE_PRESETS,
   sumObservationDistanceMeters,
   toNumber
-} from "./calculation.js?v=53";
+} from "./calculation.js?v=54";
 import {
   chooseLevelReading,
   createVoiceController,
@@ -14,19 +14,19 @@ import {
   normalizeSpokenNumber,
   prepareSpeechSynthesis,
   speakBack
-} from "./voice.js?v=53";
-import { clearProject, loadProject, saveProject } from "./storage.js?v=53";
-import { exportSheetCsv } from "./export.js?v=53";
+} from "./voice.js?v=54";
+import { clearProject, loadProject, saveProject } from "./storage.js?v=54";
+import { exportSheetCsv } from "./export.js?v=54";
 import {
   isValidStaffReading,
   reversePointNamesWithinUsedRows
-} from "./rules.js?v=53";
+} from "./rules.js?v=54";
 import {
   getRankedPointNameCandidates,
   normalizePointName,
   pointNameToSpeech,
   recordPointNameUsage
-} from "./point-names.js?v=53";
+} from "./point-names.js?v=54";
 
 const DEFAULT_ROW_COUNT = 200;
 const POINT_SUGGESTION_LIMIT = 10;
@@ -45,6 +45,7 @@ const voiceStatus = document.querySelector("#voiceStatus");
 const voiceDock = document.querySelector(".voice-dock");
 const pointSuggestions = document.querySelector("#pointSuggestions");
 const pointSuggestionButtons = document.querySelector("#pointSuggestionButtons");
+const pointClipboardPopover = document.querySelector("#pointClipboardPopover");
 const pointCopyButton = document.querySelector("#pointCopyBtn");
 const pointPasteButton = document.querySelector("#pointPasteBtn");
 const cellDeleteButton = document.querySelector("#cellDeleteBtn");
@@ -89,6 +90,7 @@ let lastNormalSuggestionMaxHeight = Number.NaN;
 let lastVoiceSuggestionShift = Number.NaN;
 let suggestionPositionCorrectionPending = false;
 let pointNameClipboard = "";
+let pointClipboardPositionFrame = null;
 const HISTORY_LIMIT = 50;
 const undoHistory = { out: [], back: [] };
 const redoHistory = { out: [], back: [] };
@@ -560,11 +562,66 @@ function markSelectedInput(input) {
 
 function updatePointClipboardButtons() {
   const pointSelected = Boolean(
+    !voiceModeActive &&
+    !voiceSessionActive &&
     selectedInput?.isConnected &&
     selectedInput.dataset.field === "pointName"
   );
+  pointClipboardPopover.hidden = !pointSelected;
   pointCopyButton.disabled = !pointSelected || !selectedInput.value.trim();
   pointPasteButton.disabled = !pointSelected || !pointNameClipboard;
+  if (pointSelected) {
+    pointClipboardPopover.style.visibility = "hidden";
+    schedulePointClipboardPosition();
+  }
+}
+
+function positionPointClipboardPopover() {
+  if (
+    pointClipboardPopover.hidden ||
+    !selectedInput?.isConnected ||
+    selectedInput.dataset.field !== "pointName"
+  ) return;
+  const targetRect = selectedInput.getBoundingClientRect();
+  const popoverRect = pointClipboardPopover.getBoundingClientRect();
+  const viewport = window.visualViewport;
+  const visibleLeft = viewport ? viewport.offsetLeft : 0;
+  const visibleTop = viewport ? viewport.offsetTop : 0;
+  const visibleRight = visibleLeft + (viewport ? viewport.width : window.innerWidth);
+  const visibleBottom = visibleTop + (viewport ? viewport.height : window.innerHeight);
+  const targetVisible = (
+    targetRect.bottom > visibleTop &&
+    targetRect.top < visibleBottom &&
+    targetRect.right > visibleLeft &&
+    targetRect.left < visibleRight
+  );
+  if (!targetVisible) {
+    pointClipboardPopover.style.visibility = "hidden";
+    return;
+  }
+  const gap = 6;
+  let left = targetRect.right + gap;
+  if (left + popoverRect.width > visibleRight - gap) {
+    left = targetRect.left - popoverRect.width - gap;
+  }
+  left = clamp(left, visibleLeft + gap, visibleRight - popoverRect.width - gap);
+  const centeredTop = targetRect.top + (targetRect.height - popoverRect.height) / 2;
+  const top = clamp(
+    centeredTop,
+    visibleTop + gap,
+    visibleBottom - popoverRect.height - gap
+  );
+  pointClipboardPopover.style.left = `${Math.round(left)}px`;
+  pointClipboardPopover.style.top = `${Math.round(top)}px`;
+  pointClipboardPopover.style.visibility = "visible";
+}
+
+function schedulePointClipboardPosition() {
+  if (pointClipboardPositionFrame !== null) return;
+  pointClipboardPositionFrame = requestAnimationFrame(() => {
+    pointClipboardPositionFrame = null;
+    positionPointClipboardPopover();
+  });
 }
 
 function syncVoiceInputLocks() {
@@ -592,6 +649,7 @@ function setVoiceModeActive(active) {
   if (!voiceModeActive) hideCellDeleteButton();
   syncVoiceInputLocks();
   updateVoiceModeUi();
+  updatePointClipboardButtons();
   hidePointSuggestions();
 }
 
@@ -601,6 +659,7 @@ function setVoiceSessionActive(active) {
   document.body.classList.toggle("voice-session-active", voiceSessionActive);
   syncVoiceInputLocks();
   updateVoiceModeUi();
+  updatePointClipboardButtons();
 }
 
 function finishVoiceSession() {
@@ -1147,7 +1206,13 @@ tbody.addEventListener("contextmenu", (event) => {
 tableWrap.addEventListener("scroll", () => {
   cancelLongPress();
   hideCellDeleteButton();
+  schedulePointClipboardPosition();
 }, { passive: true });
+
+window.addEventListener("scroll", schedulePointClipboardPosition, { passive: true });
+window.addEventListener("resize", schedulePointClipboardPosition, { passive: true });
+window.visualViewport?.addEventListener("resize", schedulePointClipboardPosition);
+window.visualViewport?.addEventListener("scroll", schedulePointClipboardPosition);
 
 document.addEventListener("pointerdown", (event) => {
   if (event.target === cellDeleteButton || cellDeleteButton.hidden) return;
