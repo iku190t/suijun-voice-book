@@ -6,7 +6,7 @@ import {
   LEVELING_TOLERANCE_PRESETS,
   sumObservationDistanceMeters,
   toNumber
-} from "./calculation.js?v=76";
+} from "./calculation.js?v=77";
 import {
   chooseLevelReading,
   createVoiceController,
@@ -14,13 +14,13 @@ import {
   normalizeSpokenNumber,
   prepareSpeechSynthesis,
   speakBack
-} from "./voice.js?v=76";
-import { clearProject, loadProject, saveProject } from "./storage.js?v=76";
-import { exportSheetCsv } from "./export.js?v=76";
+} from "./voice.js?v=77";
+import { clearProject, loadProject, saveProject } from "./storage.js?v=77";
+import { exportSheetCsv } from "./export.js?v=77";
 import {
   isValidStaffReading,
   reversePointNamesWithinUsedRows
-} from "./rules.js?v=76";
+} from "./rules.js?v=77";
 import {
   choosePointName,
   getRankedPointNameCandidates,
@@ -28,7 +28,7 @@ import {
   normalizePointName,
   pointNameToSpeech,
   recordPointNameUsage
-} from "./point-names.js?v=76";
+} from "./point-names.js?v=77";
 
 const DEFAULT_ROW_COUNT = 200;
 const POINT_SUGGESTION_LIMIT = 10;
@@ -1766,19 +1766,8 @@ sheetToggleButton.addEventListener("click", () => {
 
 keyboardModeButton.addEventListener("click", () => {
   if (voiceSessionActive) return;
-  const target = selectedInput?.isConnected ? selectedInput : null;
   setVoiceModeActive(false);
-  if (!target) {
-    showNotice("キーボードを出すセルを先に選択してください。", "error");
-    return;
-  }
-  target.readOnly = false;
-  target.focus({ preventScroll: false });
-  target.click();
-  if (typeof target.setSelectionRange === "function") {
-    const end = target.value.length;
-    target.setSelectionRange(end, end);
-  }
+  showNotice("手動入力に切り替えました。セルを押して入力してください。", "success");
 });
 
 if ("serviceWorker" in navigator) {
