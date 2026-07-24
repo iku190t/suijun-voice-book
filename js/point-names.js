@@ -1,4 +1,4 @@
-import { resolvePointAlias } from "./rules.js?v=43";
+import { resolvePointAlias } from "./rules.js?v=44";
 
 const BASE_PRIORITY_POINT_NAMES = [...new Set(`
 BM,KBM,TBM,仮BM,水準点,仮水準点,既知点,未知点,固定点,既設点,新設点,閉合点,確認点,チェック点,
@@ -277,6 +277,20 @@ function createIncrementedCandidate(type, startAtOne = false) {
   return `${type.prefix}${paddedNumber}`;
 }
 
+function parseRankedPointName(pointName, manualAliases = []) {
+  const normalized = normalizePointName(pointName, manualAliases);
+  if (/^\d+$/.test(normalized)) {
+    return {
+      normalized,
+      prefix: "",
+      typeKey: "__NUMBER_ONLY__",
+      number: Number(normalized),
+      width: normalized.length
+    };
+  }
+  return parseNumberedPointName(pointName, manualAliases);
+}
+
 export function getRankedPointNameCandidates(
   pointNamesAbove,
   manualAliases = [],
@@ -289,7 +303,7 @@ export function getRankedPointNameCandidates(
   const sheetTypes = new Map();
 
   (Array.isArray(pointNamesAbove) ? pointNamesAbove : []).forEach((pointName, index) => {
-    const parsed = parseNumberedPointName(pointName, manualAliases);
+    const parsed = parseRankedPointName(pointName, manualAliases);
     if (!parsed) return;
     const current = sheetTypes.get(parsed.typeKey);
     if (!current) {
@@ -314,10 +328,11 @@ export function getRankedPointNameCandidates(
   const results = [];
   const usedTypes = new Set();
   const addCandidate = (typeKey, pointName) => {
+    const numberOnlyCandidate = typeKey === "__NUMBER_ONLY__" && /^\d+$/.test(pointName);
     if (
       results.length >= limit ||
       usedTypes.has(typeKey) ||
-      !isAllowedPointNameCandidate(pointName, manualAliases)
+      (!numberOnlyCandidate && !isAllowedPointNameCandidate(pointName, manualAliases))
     ) return;
     usedTypes.add(typeKey);
     results.push(pointName);
@@ -335,7 +350,7 @@ export function getRankedPointNameCandidates(
   const excludedNormalized = normalizePointName(excludedPointName, manualAliases);
   const historyTypes = new Map();
   Object.entries(history && typeof history === "object" ? history : {}).forEach(([pointName, usage]) => {
-    const parsed = parseNumberedPointName(pointName, manualAliases);
+    const parsed = parseRankedPointName(pointName, manualAliases);
     if (!parsed || usedTypes.has(parsed.typeKey)) return;
     const normalized = normalizePointName(pointName, manualAliases);
     const excludedCount = normalized === excludedNormalized ? 1 : 0;
@@ -370,7 +385,7 @@ export function getRankedPointNameCandidates(
     });
 
   (Array.isArray(fallbackPointNames) ? fallbackPointNames : []).forEach((pointName) => {
-    const parsed = parseNumberedPointName(pointName, manualAliases);
+    const parsed = parseRankedPointName(pointName, manualAliases);
     if (!parsed) return;
     addCandidate(parsed.typeKey, createIncrementedCandidate(parsed, true));
   });
