@@ -15,7 +15,7 @@
   <link rel="manifest" href="./manifest.json">
   <link rel="icon" href="./icons/icon-192.png">
   <link rel="apple-touch-icon" href="./icons/icon-192.png">
-  <link rel="stylesheet" href="./css/style.css?v=87">
+  <link rel="stylesheet" href="./css/style.css?v=88">
 </head>
 <body>
   <header class="app-header">
@@ -60,7 +60,6 @@
     <div class="toolbar" aria-label="操作">
       <button id="saveBtn" type="button">上書き保存</button>
       <button id="csvBtn" type="button">CSV出力</button>
-      <button id="settingsOpenBtn" type="button">⚙ 設定</button>
       <button id="clearBtn" class="danger-outline" type="button">消去</button>
     </div>
   </header>
@@ -137,38 +136,31 @@
         <span id="voiceButtonLabel">🎤 音声モード</span>
         <span id="lastVoiceValue" class="last-voice-value" aria-label="直前に音声入力した数値" aria-live="polite" hidden></span>
       </button>
-      <button id="pointScriptSettingsBtn" class="point-script-settings-button" type="button" aria-controls="pointScriptDialog" aria-expanded="false" hidden>⚙ 設定</button>
+      <button id="pointScriptSettingsBtn" class="point-script-settings-button" type="button" aria-controls="settingsDialog" aria-expanded="false" hidden>⚙ 設定</button>
     </div>
     <button id="keyboardModeBtn" class="keyboard-mode-button" type="button" hidden>手動入力</button>
     <div id="voiceStatus" class="sr-only" aria-live="polite"></div>
   </div>
 
-  <dialog id="pointScriptDialog" class="point-script-dialog" aria-labelledby="pointScriptDialogTitle">
-    <form method="dialog">
-      <button class="dialog-close" value="cancel" aria-label="閉じる">×</button>
-      <h2 id="pointScriptDialogTitle">文字認識設定</h2>
-      <p class="point-script-description">点名として認識する文字の種類を選択してください。</p>
-      <div id="pointScriptControls" class="point-script-controls" role="group" aria-label="点名で認識する文字">
-        <label><span>漢字</span><input type="checkbox" data-point-script="kanji" checked></label>
-        <label><span>ひらがな</span><input type="checkbox" data-point-script="hiragana"></label>
-        <label><span>カタカナ</span><input type="checkbox" data-point-script="katakana"></label>
-      </div>
-      <div class="dialog-actions">
-        <button value="close">閉じる</button>
-      </div>
-    </form>
-  </dialog>
-
-  <dialog id="settingsDialog" aria-labelledby="settingsDialogTitle">
+  <dialog id="settingsDialog" class="voice-settings-dialog" aria-labelledby="settingsDialogTitle">
     <form method="dialog">
       <button class="dialog-close" value="cancel" aria-label="閉じる">×</button>
       <h2 id="settingsDialogTitle">音声設定</h2>
       <label class="setting-field" for="voiceRate">
         <span>復唱速度</span>
-        <output id="voiceRateValue" for="voiceRate">0.9倍</output>
+        <output id="voiceRateValue" for="voiceRate">1.2倍</output>
       </label>
-      <input id="voiceRate" class="rate-slider" type="range" min="0.5" max="1.5" step="0.1" value="0.9">
+      <input id="voiceRate" class="rate-slider" type="range" min="0.5" max="1.5" step="0.1" value="1.2">
       <div class="rate-labels" aria-hidden="true"><span>ゆっくり</span><span>速い</span></div>
+      <section class="script-settings" aria-labelledby="pointScriptTitle">
+        <h3 id="pointScriptTitle">文字認識</h3>
+        <p class="point-script-description">点名として認識する文字の種類を選択してください。</p>
+        <div id="pointScriptControls" class="point-script-controls" role="group" aria-label="点名で認識する文字">
+          <label><span>漢字</span><input type="checkbox" data-point-script="kanji"></label>
+          <label><span>ひらがな</span><input type="checkbox" data-point-script="hiragana"></label>
+          <label><span>カタカナ</span><input type="checkbox" data-point-script="katakana"></label>
+        </div>
+      </section>
       <section class="alias-settings" aria-labelledby="pointAliasTitle">
         <h3 id="pointAliasTitle">よく使う点名</h3>
         <p>読みは組み合わせて変換できます。例：「NO」＝「なんばー」、「.」＝「てん」なら「ナンバーテンサン」→「NO.3」</p>
@@ -209,6 +201,6 @@
   </dialog>
 
   <noscript>このアプリの利用にはJavaScriptを有効にしてください。</noscript>
-  <script type="module" src="./js/app.js?v=87"></script>
+  <script type="module" src="./js/app.js?v=88"></script>
 </body>
 </html>

@@ -104,9 +104,10 @@ main { max-width: 1540px; margin: 0 auto; padding: 9px 8px 28px; }
 .table-wrap {
   max-height: max(280px, calc(100dvh - 116px));
   overflow: auto;
-  padding-top: 17px;
+  padding-top: 0;
   touch-action: pan-x pan-y;
-  overscroll-behavior: contain;
+  overscroll-behavior-x: contain;
+  overscroll-behavior-y: auto;
   -webkit-overflow-scrolling: touch;
   border: 1px solid #9fc9e2;
   border-radius: 9px;
@@ -137,7 +138,7 @@ table.show-distance .distance-column { display: table-cell; }
 .distance-inline-toggle {
   position: absolute;
   z-index: 12;
-  top: 0;
+  top: 50%;
   right: 0;
   width: 27px;
   min-width: 27px;
@@ -425,14 +426,18 @@ tr.row-delete-pending td input {
   margin: 0;
   accent-color: #1587c7;
 }
-.point-script-dialog {
-  width: min(360px, calc(100vw - 24px));
+.voice-settings-dialog {
+  width: min(500px, calc(100vw - 24px));
 }
 .point-script-description {
   margin: 0;
   color: #547188;
   font-size: .86rem;
   line-height: 1.5;
+}
+.script-settings,
+.alias-settings {
+  margin-top: 18px;
 }
 .voice-action .point-script-settings-button {
   position: absolute;

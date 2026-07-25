@@ -6,7 +6,7 @@ import {
   LEVELING_TOLERANCE_PRESETS,
   sumObservationDistanceMeters,
   toNumber
-} from "./calculation.js?v=87";
+} from "./calculation.js?v=88";
 import {
   chooseLevelReading,
   createVoiceController,
@@ -14,13 +14,13 @@ import {
   normalizeSpokenNumber,
   prepareSpeechSynthesis,
   speakBack
-} from "./voice.js?v=87";
-import { clearProject, loadProject, saveProject } from "./storage.js?v=87";
-import { exportSheetCsv } from "./export.js?v=87";
+} from "./voice.js?v=88";
+import { clearProject, loadProject, saveProject } from "./storage.js?v=88";
+import { exportSheetCsv } from "./export.js?v=88";
 import {
   isValidStaffReading,
   reversePointNamesWithinUsedRows
-} from "./rules.js?v=87";
+} from "./rules.js?v=88";
 import {
   choosePointName,
   getRankedPointNameCandidates,
@@ -28,7 +28,7 @@ import {
   normalizePointName,
   pointNameToSpeech,
   recordPointNameUsage
-} from "./point-names.js?v=87";
+} from "./point-names.js?v=88";
 
 const DEFAULT_ROW_COUNT = 200;
 const POINT_SUGGESTION_LIMIT = 10;
@@ -48,7 +48,7 @@ const voiceStatus = document.querySelector("#voiceStatus");
 const lastVoiceValue = document.querySelector("#lastVoiceValue");
 const voiceDock = document.querySelector(".voice-dock");
 const pointScriptControls = document.querySelector("#pointScriptControls");
-const pointScriptDialog = document.querySelector("#pointScriptDialog");
+const settingsDialog = document.querySelector("#settingsDialog");
 const pointScriptSettingsButton = document.querySelector("#pointScriptSettingsBtn");
 const pointSuggestions = document.querySelector("#pointSuggestions");
 const pointSuggestionButtons = document.querySelector("#pointSuggestionButtons");
@@ -145,7 +145,7 @@ function recordUndoSnapshot(sheet = activeSheet, groupKey = "", force = false) {
 
 function restoreProjectSnapshot(snapshot) {
   project = normalizeLoadedProject(JSON.parse(snapshot));
-  project.settings.voiceRate = clamp(Number(project.settings.voiceRate) || 0.9, 0.5, 1.5);
+  project.settings.voiceRate = clamp(Number(project.settings.voiceRate) || 1.2, 0.5, 1.5);
   project.settings.tableScale = clamp(Number(project.settings.tableScale) || 1, 0.5, 1.8);
   endHistoryGroup();
   renderSheet();
@@ -200,11 +200,12 @@ function createBlankProject() {
     settings: {
       tolerancePreset: "grade3",
       showDistance: false,
-      voiceRate: 0.9,
+      voiceRate: 1.2,
+      voiceSettingsVersion: 2,
       tableScale: 1,
       pointAliases: [],
       pointNameScripts: {
-        kanji: true,
+        kanji: false,
         hiragana: false,
         katakana: false
       },
@@ -269,17 +270,22 @@ function normalizeLoadedProject(loaded) {
   const loadedScripts = loaded.settings?.pointNameScripts && typeof loaded.settings.pointNameScripts === "object"
     ? loaded.settings.pointNameScripts
     : {};
+  const hasCurrentVoiceDefaults = Number(loaded.settings?.voiceSettingsVersion) >= 2;
 
   return {
     version: 5,
     settings: {
       ...blank.settings,
       ...(loaded.settings || {}),
+      voiceRate: hasCurrentVoiceDefaults
+        ? clamp(Number(loaded.settings?.voiceRate) || 1.2, 0.5, 1.5)
+        : 1.2,
+      voiceSettingsVersion: 2,
       pointAliases: loadedAliases,
       pointNameScripts: {
-        kanji: loadedScripts.kanji !== false,
-        hiragana: loadedScripts.hiragana === true,
-        katakana: loadedScripts.katakana === true
+        kanji: hasCurrentVoiceDefaults && loadedScripts.kanji === true,
+        hiragana: hasCurrentVoiceDefaults && loadedScripts.hiragana === true,
+        katakana: hasCurrentVoiceDefaults && loadedScripts.katakana === true
       },
       pointNameHistory: loadedHistory
     },
@@ -289,7 +295,7 @@ function normalizeLoadedProject(loaded) {
 }
 
 let project = normalizeLoadedProject(loadProject());
-project.settings.voiceRate = clamp(Number(project.settings.voiceRate) || 0.9, 0.5, 1.5);
+project.settings.voiceRate = clamp(Number(project.settings.voiceRate) || 1.2, 0.5, 1.5);
 project.settings.tableScale = clamp(Number(project.settings.tableScale) || 1, 0.5, 1.8);
 if (!LEVELING_TOLERANCE_PRESETS[project.settings.tolerancePreset]) {
   project.settings.tolerancePreset = "grade3";
@@ -739,8 +745,8 @@ function updateVoiceModeUi() {
   keyboardModeButton.hidden = !voiceModeActive;
   keyboardModeButton.disabled = voiceSessionActive;
   pointScriptSettingsButton.hidden = !voiceModeActive;
-  if (!voiceModeActive && pointScriptDialog.open) {
-    pointScriptDialog.close();
+  if (!voiceModeActive && settingsDialog.open) {
+    settingsDialog.close();
     pointScriptSettingsButton.setAttribute("aria-expanded", "false");
   }
   if (!voiceSessionActive) {
@@ -1652,7 +1658,6 @@ clearDialog.querySelectorAll("[data-clear-target]").forEach((button) => {
 const supportDialog = document.querySelector("#supportDialog");
 document.querySelector("#supportOpenBtn").addEventListener("click", () => supportDialog.showModal());
 
-const settingsDialog = document.querySelector("#settingsDialog");
 const voiceRateInput = document.querySelector("#voiceRate");
 const voiceRateValue = document.querySelector("#voiceRateValue");
 const pointAliasList = document.querySelector("#pointAliasList");
@@ -1664,20 +1669,17 @@ pointScriptInputs.forEach((input) => {
 });
 pointScriptSettingsButton.addEventListener("click", (event) => {
   event.stopPropagation();
-  if (!pointScriptDialog.open) {
-    pointScriptDialog.showModal();
+  if (!settingsDialog.open) {
+    renderPointAliasEditors();
+    settingsDialog.showModal();
     pointScriptSettingsButton.setAttribute("aria-expanded", "true");
   }
 });
-pointScriptDialog.addEventListener("close", () => {
+settingsDialog.addEventListener("close", () => {
   pointScriptSettingsButton.setAttribute("aria-expanded", "false");
 });
-document.querySelector("#settingsOpenBtn").addEventListener("click", () => {
-  renderPointAliasEditors();
-  settingsDialog.showModal();
-});
 voiceRateInput.addEventListener("input", () => {
-  project.settings.voiceRate = clamp(Number(voiceRateInput.value) || 0.9, 0.5, 1.5);
+  project.settings.voiceRate = clamp(Number(voiceRateInput.value) || 1.2, 0.5, 1.5);
   voiceRateValue.textContent = `${project.settings.voiceRate.toFixed(1)}倍`;
   scheduleAutosave();
 });
