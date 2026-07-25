@@ -6,7 +6,7 @@ import {
   LEVELING_TOLERANCE_PRESETS,
   sumObservationDistanceMeters,
   toNumber
-} from "./calculation.js?v=85";
+} from "./calculation.js?v=86";
 import {
   chooseLevelReading,
   createVoiceController,
@@ -14,13 +14,13 @@ import {
   normalizeSpokenNumber,
   prepareSpeechSynthesis,
   speakBack
-} from "./voice.js?v=85";
-import { clearProject, loadProject, saveProject } from "./storage.js?v=85";
-import { exportSheetCsv } from "./export.js?v=85";
+} from "./voice.js?v=86";
+import { clearProject, loadProject, saveProject } from "./storage.js?v=86";
+import { exportSheetCsv } from "./export.js?v=86";
 import {
   isValidStaffReading,
   reversePointNamesWithinUsedRows
-} from "./rules.js?v=85";
+} from "./rules.js?v=86";
 import {
   choosePointName,
   getRankedPointNameCandidates,
@@ -28,7 +28,7 @@ import {
   normalizePointName,
   pointNameToSpeech,
   recordPointNameUsage
-} from "./point-names.js?v=85";
+} from "./point-names.js?v=86";
 
 const DEFAULT_ROW_COUNT = 200;
 const POINT_SUGGESTION_LIMIT = 10;
@@ -42,6 +42,7 @@ const tableWrap = document.querySelector(".table-wrap");
 const distanceToggleButton = document.querySelector("#distanceToggleBtn");
 const tolerancePresetSelect = document.querySelector("#tolerancePreset");
 const voiceButton = document.querySelector("#voiceBtn");
+const voiceButtonLabel = document.querySelector("#voiceButtonLabel");
 const keyboardModeButton = document.querySelector("#keyboardModeBtn");
 const voiceStatus = document.querySelector("#voiceStatus");
 const lastVoiceValue = document.querySelector("#lastVoiceValue");
@@ -599,7 +600,9 @@ function updateRowSelectorIndicators(activeIndex = null) {
   Array.from(tbody.rows).forEach((row, index) => {
     const selector = row.querySelector(".row-selector");
     if (!selector) return;
-    selector.textContent = index === selectedIndex ? "⋮" : String(index + 1);
+    const isActive = index === selectedIndex;
+    selector.textContent = isActive ? "⋮" : String(index + 1);
+    selector.classList.toggle("is-active", isActive);
     selector.setAttribute(
       "aria-label",
       index === selectedIndex
@@ -723,7 +726,6 @@ function updateLastVoiceValueUi() {
   const visible = Boolean(voiceModeActive && lastVoiceNumericValue);
   lastVoiceValue.hidden = !visible;
   lastVoiceValue.textContent = visible ? lastVoiceNumericValue : "";
-  document.body.classList.toggle("last-voice-value-visible", visible);
 }
 
 function setLastVoiceNumericValue(value) {
@@ -743,7 +745,7 @@ function updateVoiceModeUi() {
   }
   if (!voiceSessionActive) {
     voiceButton.classList.remove("listening");
-    voiceButton.textContent = voiceModeActive ? "🎤 聞き取る" : "🎤 音声モード";
+    voiceButtonLabel.textContent = voiceModeActive ? "🎤 聞き取る" : "🎤 音声モード";
   }
   updateLastVoiceValueUi();
 }
@@ -903,7 +905,7 @@ async function applyPointSuggestion(pointName) {
   if (!handleFieldChange(target, { forceHistory: true })) return;
   recordPointName(target.value);
   hidePointSuggestions();
-  voiceButton.textContent = "🔊 復唱中…";
+  voiceButtonLabel.textContent = "🔊 復唱中…";
   voiceStatus.textContent = `${target.value} と復唱します`;
   await speakBack(
     pointNameToSpeech(target.value, project.settings.pointAliases),
@@ -1569,8 +1571,8 @@ tolerancePresetSelect.addEventListener("change", (event) => {
 insertRowButton.addEventListener("click", () => {
   if (selectedRowIndex === null) return;
   recordUndoSnapshot(activeSheet, "row-insert", true);
-  project.sheets.out.splice(selectedRowIndex + 1, 0, createRow("out"));
-  project.sheets.back.splice(selectedRowIndex + 1, 0, createRow("back"));
+  project.sheets.out.splice(selectedRowIndex, 0, createRow("out"));
+  project.sheets.back.splice(selectedRowIndex, 0, createRow("back"));
   closeRowActionPopover();
   renderSheet();
   scheduleAutosave();
@@ -1756,7 +1758,7 @@ const voiceController = createVoiceController({
       return;
     }
     voiceStatus.textContent = message;
-    if (message.includes("復唱")) voiceButton.textContent = "🔊 復唱中…";
+    if (message.includes("復唱")) voiceButtonLabel.textContent = "🔊 復唱中…";
     if (!message && voiceSessionActive && !voiceButton.classList.contains("listening")) {
       finishVoiceSession();
     }
@@ -1768,7 +1770,7 @@ const voiceController = createVoiceController({
       return;
     }
     voiceButton.classList.toggle("listening", listening);
-    voiceButton.textContent = listening ? "■ 聞き取り中（押すと中止）" : "🔊 処理中…";
+    voiceButtonLabel.textContent = listening ? "■ 聞き取り中（押すと中止）" : "🔊 処理中…";
   },
   onResult: async (transcript, recognitionDetails = {}) => {
     const resultSessionToken = voiceSessionToken;
@@ -1814,7 +1816,7 @@ const voiceController = createVoiceController({
       }
       if (field === "pointName") recordPointName(value);
       voiceStatus.textContent = `${value} と復唱します`;
-      voiceButton.textContent = "🔊 復唱中…";
+      voiceButtonLabel.textContent = "🔊 復唱中…";
       const repeatText = field === "pointName"
         ? pointNameToSpeech(value, project.settings.pointAliases)
         : field === "bs" || field === "fs"
@@ -1898,7 +1900,7 @@ voiceButton.addEventListener("click", () => {
   voiceTarget = selectedInput;
   voiceSessionToken += 1;
   setVoiceSessionActive(true);
-  voiceButton.textContent = "● 準備中…";
+  voiceButtonLabel.textContent = "● 準備中…";
   voiceController.start();
 });
 

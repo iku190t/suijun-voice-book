@@ -15,7 +15,7 @@
   <link rel="manifest" href="./manifest.json">
   <link rel="icon" href="./icons/icon-192.png">
   <link rel="apple-touch-icon" href="./icons/icon-192.png">
-  <link rel="stylesheet" href="./css/style.css?v=85">
+  <link rel="stylesheet" href="./css/style.css?v=86">
 </head>
 <body>
   <header class="app-header">
@@ -114,7 +114,7 @@
 
   <div id="rowActionPopover" class="row-action-popover" aria-label="選択した行の挿入と削除" hidden>
     <div id="rowActionButtons" class="row-action-buttons">
-      <button id="insertRowBtn" type="button">下へ挿入</button>
+      <button id="insertRowBtn" type="button">この行に挿入</button>
       <button id="deleteSelectedRowBtn" class="row-delete-button" type="button">削除</button>
     </div>
     <div id="rowDeleteConfirm" class="row-delete-confirm" hidden>
@@ -133,10 +133,12 @@
       <div id="pointSuggestionButtons" class="point-suggestion-buttons"></div>
     </section>
     <div class="voice-action">
-      <button id="voiceBtn" type="button">🎤 音声モード</button>
+      <button id="voiceBtn" type="button">
+        <span id="voiceButtonLabel">🎤 音声モード</span>
+        <span id="lastVoiceValue" class="last-voice-value" aria-label="直前に音声入力した数値" aria-live="polite" hidden></span>
+      </button>
       <button id="pointScriptSettingsBtn" class="point-script-settings-button" type="button" aria-controls="pointScriptDialog" aria-expanded="false" hidden>⚙ 設定</button>
     </div>
-    <div id="lastVoiceValue" class="last-voice-value" aria-label="直前に音声入力した数値" aria-live="polite" hidden></div>
     <button id="keyboardModeBtn" class="keyboard-mode-button" type="button" hidden>手動入力</button>
     <div id="voiceStatus" class="sr-only" aria-live="polite"></div>
   </div>
@@ -207,6 +209,6 @@
   </dialog>
 
   <noscript>このアプリの利用にはJavaScriptを有効にしてください。</noscript>
-  <script type="module" src="./js/app.js?v=85"></script>
+  <script type="module" src="./js/app.js?v=86"></script>
 </body>
 </html>
