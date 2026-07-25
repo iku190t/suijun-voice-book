@@ -6,7 +6,7 @@ import {
   LEVELING_TOLERANCE_PRESETS,
   sumObservationDistanceMeters,
   toNumber
-} from "./calculation.js?v=89";
+} from "./calculation.js?v=90";
 import {
   chooseLevelReading,
   createVoiceController,
@@ -14,13 +14,13 @@ import {
   normalizeSpokenNumber,
   prepareSpeechSynthesis,
   speakBack
-} from "./voice.js?v=89";
-import { clearProject, loadProject, saveProject } from "./storage.js?v=89";
-import { exportSheetCsv } from "./export.js?v=89";
+} from "./voice.js?v=90";
+import { clearProject, loadProject, saveProject } from "./storage.js?v=90";
+import { exportSheetCsv } from "./export.js?v=90";
 import {
   isValidStaffReading,
   reversePointNamesWithinUsedRows
-} from "./rules.js?v=89";
+} from "./rules.js?v=90";
 import {
   choosePointName,
   getRankedPointNameCandidates,
@@ -28,7 +28,7 @@ import {
   normalizePointName,
   pointNameToSpeech,
   recordPointNameUsage
-} from "./point-names.js?v=89";
+} from "./point-names.js?v=90";
 
 const DEFAULT_ROW_COUNT = 200;
 const POINT_SUGGESTION_LIMIT = 10;
@@ -1985,7 +1985,6 @@ sheetToggleButton.addEventListener("click", () => {
 keyboardModeButton.addEventListener("click", () => {
   if (voiceSessionActive) return;
   setVoiceModeActive(false);
-  showNotice("手動入力に切り替えました。セルを押して入力してください。", "success");
 });
 
 if ("serviceWorker" in navigator) {
