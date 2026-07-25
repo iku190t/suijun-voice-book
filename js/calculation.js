@@ -294,14 +294,18 @@ export function applyRoundTripDifferences(outRows, backRows) {
   if (lastUsedIndex < 0) return;
 
   const usedRowCount = lastUsedIndex + 1;
-  // 復路高低差はFS行の一つ上へ表示するため、往路との対応も一行上へずらす。
+  // 往路は上から下へ進み、FS側の行に高低差を表示する。
+  // 復路は逆向きのため、同じ区間の高低差は反転した行位置に表示される。
+  // したがって、往路i行目の区間は復路「使用行数 - 1 - i」行目と対応する。
   for (let outIndex = 1; outIndex < usedRowCount; outIndex += 1) {
     const backIndex = usedRowCount - 1 - outIndex;
     const outDifference = outRows[outIndex]?._difference;
     const backDifference = backRows[backIndex]?._difference;
     if (!Number.isFinite(outDifference) || !Number.isFinite(backDifference)) continue;
 
-    const differenceMm = Math.abs(outDifference + backDifference) * 1000;
+    // 往路と復路では進行方向が逆なので、符号ではなく同一区間の高低差量を比較する。
+    // 途中入力時に同符号の値が一時的に入っても、巨大な誤差表示にしない。
+    const differenceMm = Math.abs(Math.abs(outDifference) - Math.abs(backDifference)) * 1000;
     outRows[outIndex]._roundTripDifferenceMm = differenceMm;
     backRows[backIndex]._roundTripDifferenceMm = differenceMm;
   }

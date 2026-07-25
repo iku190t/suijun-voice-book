@@ -15,7 +15,10 @@
 * { box-sizing: border-box; }
 html, body { touch-action: pan-x pan-y; }
 body { margin: 0; padding-bottom: 144px; color: var(--ink); background: var(--paper); }
-button, input, select { font: inherit; }
+html, body, button, input, select, textarea, dialog, table {
+  font-family: "Yu Gothic UI", "Hiragino Kaku Gothic ProN", Meiryo, system-ui, sans-serif;
+}
+button, input, select, textarea { font: inherit; line-height: 1.25; }
 button, input, select { min-height: 44px; border: 1px solid #8dbbd7; border-radius: 9px; background: #fff; color: var(--ink); }
 button { padding: 9px 13px; font-weight: 800; cursor: pointer; touch-action: manipulation; }
 button:active { transform: translateY(1px); }
@@ -159,23 +162,23 @@ table.show-distance .distance-column { display: table-cell; }
 .distance-inline-toggle {
   position: absolute;
   z-index: 2;
-  top: 50%;
+  top: 0;
   right: 0;
-  width: 27px;
-  min-width: 27px;
-  height: 27px;
-  min-height: 27px;
+  width: 22px;
+  min-width: 22px;
+  height: 22px;
+  min-height: 22px;
   padding: 0;
-  transform: translate(50%, -50%);
-  border: 2px solid #bfe8ff;
+  transform: translate(50%, 0);
+  border: 1.5px solid #bfe8ff;
   border-radius: 50%;
   color: #176d9f;
   background: #fff;
-  box-shadow: 0 2px 6px rgba(9, 83, 128, .22);
-  font-size: 1.15rem;
+  box-shadow: 0 1px 4px rgba(9, 83, 128, .2);
+  font-size: .92rem;
   line-height: 1;
 }
-.distance-inline-toggle:active { transform: translate(50%, calc(-50% + 1px)); }
+.distance-inline-toggle:active { transform: translate(50%, 1px); }
 td.point-clipboard-anchor {
   position: relative;
   overflow: visible;
@@ -300,7 +303,6 @@ tr.row-delete-pending td input {
   font-variant-numeric: tabular-nums;
 }
 .row-selector.is-active {
-  font-family: Arial, sans-serif;
   font-size: clamp(1.8rem, 6vw, 2.35rem);
   font-weight: 1000;
   line-height: .7;
