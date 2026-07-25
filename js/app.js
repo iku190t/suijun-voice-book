@@ -6,7 +6,7 @@ import {
   LEVELING_TOLERANCE_PRESETS,
   sumObservationDistanceMeters,
   toNumber
-} from "./calculation.js?v=84";
+} from "./calculation.js?v=85";
 import {
   chooseLevelReading,
   createVoiceController,
@@ -14,13 +14,13 @@ import {
   normalizeSpokenNumber,
   prepareSpeechSynthesis,
   speakBack
-} from "./voice.js?v=84";
-import { clearProject, loadProject, saveProject } from "./storage.js?v=84";
-import { exportSheetCsv } from "./export.js?v=84";
+} from "./voice.js?v=85";
+import { clearProject, loadProject, saveProject } from "./storage.js?v=85";
+import { exportSheetCsv } from "./export.js?v=85";
 import {
   isValidStaffReading,
   reversePointNamesWithinUsedRows
-} from "./rules.js?v=84";
+} from "./rules.js?v=85";
 import {
   choosePointName,
   getRankedPointNameCandidates,
@@ -28,7 +28,7 @@ import {
   normalizePointName,
   pointNameToSpeech,
   recordPointNameUsage
-} from "./point-names.js?v=84";
+} from "./point-names.js?v=85";
 
 const DEFAULT_ROW_COUNT = 200;
 const POINT_SUGGESTION_LIMIT = 10;
@@ -44,6 +44,7 @@ const tolerancePresetSelect = document.querySelector("#tolerancePreset");
 const voiceButton = document.querySelector("#voiceBtn");
 const keyboardModeButton = document.querySelector("#keyboardModeBtn");
 const voiceStatus = document.querySelector("#voiceStatus");
+const lastVoiceValue = document.querySelector("#lastVoiceValue");
 const voiceDock = document.querySelector(".voice-dock");
 const pointScriptControls = document.querySelector("#pointScriptControls");
 const pointScriptDialog = document.querySelector("#pointScriptDialog");
@@ -55,6 +56,13 @@ const pointCopyButton = document.querySelector("#pointCopyBtn");
 const pointPasteButton = document.querySelector("#pointPasteBtn");
 const pointIncrementPasteButton = document.querySelector("#pointIncrementPasteBtn");
 const pointClearButton = document.querySelector("#pointClearBtn");
+const rowActionPopover = document.querySelector("#rowActionPopover");
+const rowActionButtons = document.querySelector("#rowActionButtons");
+const rowDeleteConfirm = document.querySelector("#rowDeleteConfirm");
+const insertRowButton = document.querySelector("#insertRowBtn");
+const deleteSelectedRowButton = document.querySelector("#deleteSelectedRowBtn");
+const confirmDeleteRowButton = document.querySelector("#confirmDeleteRowBtn");
+const cancelDeleteRowButton = document.querySelector("#cancelDeleteRowBtn");
 const undoButton = document.querySelector("#undoBtn");
 const redoButton = document.querySelector("#redoBtn");
 const sheetToggleButton = document.querySelector("#sheetToggleBtn");
@@ -91,6 +99,7 @@ let lastVoiceSuggestionShift = Number.NaN;
 let suggestionPositionCorrectionPending = false;
 let pointNameClipboard = "";
 let pointNameIncrementClipboard = "";
+let lastVoiceNumericValue = "";
 let pointClipboardPositionFrame = null;
 let pointClipboardDismissedFor = null;
 let keyboardViewportBaseline = window.visualViewport?.height || window.innerHeight;
@@ -333,8 +342,18 @@ function renderSheet() {
   voiceTarget = null;
   selectedRowIndex = null;
   document.body.append(pointClipboardPopover);
+  document.body.append(rowActionPopover);
+  rowActionPopover.hidden = true;
+  rowActionButtons.hidden = false;
+  rowDeleteConfirm.hidden = true;
   tbody.querySelectorAll(".point-clipboard-anchor").forEach((cell) => {
     cell.classList.remove("point-clipboard-anchor");
+  });
+  tbody.querySelectorAll(".row-action-anchor").forEach((cell) => {
+    cell.classList.remove("row-action-anchor");
+  });
+  tbody.querySelectorAll("tr.row-delete-pending").forEach((row) => {
+    row.classList.remove("row-delete-pending");
   });
   hidePointSuggestions();
   const fragment = document.createDocumentFragment();
@@ -573,11 +592,59 @@ function handleFieldChange(input, { recordHistory = true, forceHistory = false }
   return true;
 }
 
+function updateRowSelectorIndicators(activeIndex = null) {
+  const selectedIndex = activeIndex ?? (
+    selectedInput?.isConnected ? findRowIndex(selectedInput) : -1
+  );
+  Array.from(tbody.rows).forEach((row, index) => {
+    const selector = row.querySelector(".row-selector");
+    if (!selector) return;
+    selector.textContent = index === selectedIndex ? "⋮" : String(index + 1);
+    selector.setAttribute(
+      "aria-label",
+      index === selectedIndex
+        ? `${index + 1}行目の挿入・削除`
+        : `${index + 1}行目`
+    );
+  });
+}
+
+function closeRowActionPopover() {
+  rowActionPopover.hidden = true;
+  rowActionButtons.hidden = false;
+  rowDeleteConfirm.hidden = true;
+  rowActionPopover.parentElement?.classList.remove("row-action-anchor");
+  tbody.querySelectorAll("tr.row-delete-pending").forEach((row) => {
+    row.classList.remove("row-delete-pending");
+  });
+  selectedRowIndex = null;
+  updateRowSelectorIndicators();
+  updatePointClipboardButtons();
+}
+
+function openRowActionPopover(selector) {
+  const rowIndex = findRowIndex(selector);
+  if (rowIndex < 0) return;
+  closeRowActionPopover();
+  selectedRowIndex = rowIndex;
+  updateRowSelectorIndicators(rowIndex);
+  pointClipboardPopover.hidden = true;
+  pointClipboardPopover.parentElement?.classList.remove("point-clipboard-anchor");
+  const anchorCell = selector.closest("td");
+  anchorCell.classList.add("row-action-anchor");
+  anchorCell.append(rowActionPopover);
+  rowActionButtons.hidden = false;
+  rowDeleteConfirm.hidden = true;
+  rowActionPopover.hidden = false;
+}
+
 function markSelectedInput(input) {
+  if (!rowActionPopover.hidden) closeRowActionPopover();
   tbody.querySelectorAll(".voice-selected").forEach((element) => element.classList.remove("voice-selected"));
   if (input !== pointClipboardDismissedFor) pointClipboardDismissedFor = null;
   selectedInput = input;
   input?.classList.add("voice-selected");
+  updateRowSelectorIndicators();
   updatePointClipboardButtons();
 }
 
@@ -588,21 +655,30 @@ function incrementClipboardPointName(value) {
 }
 
 function updatePointClipboardButtons() {
-  const pointSelected = Boolean(
+  const cellSelected = Boolean(
     !voiceSessionActive &&
-    selectedInput?.isConnected &&
-    selectedInput.dataset.field === "pointName"
+    selectedInput?.isConnected
   );
-  const popoverAllowed = pointSelected && selectedInput !== pointClipboardDismissedFor;
+  const pointSelected = cellSelected && selectedInput.dataset.field === "pointName";
+  const clearOnlySelected = Boolean(
+    cellSelected &&
+    voiceModeActive &&
+    selectedInput.dataset.field !== "pointName"
+  );
+  const dismissed = pointSelected && selectedInput === pointClipboardDismissedFor;
+  const popoverAllowed = (pointSelected || clearOnlySelected) && !dismissed;
+  pointClipboardPopover.classList.toggle("clear-only", clearOnlySelected);
   pointClipboardPopover.hidden = !popoverAllowed;
+  pointCopyButton.hidden = !pointSelected;
   pointCopyButton.disabled = !pointSelected || !selectedInput.value.trim();
   pointPasteButton.disabled = !pointSelected || !pointNameClipboard;
-  pointPasteButton.hidden = !pointNameClipboard;
+  pointPasteButton.hidden = !pointSelected || !pointNameClipboard;
   pointPasteButton.textContent = pointNameClipboard;
   pointIncrementPasteButton.disabled = !pointSelected || !pointNameIncrementClipboard;
-  pointIncrementPasteButton.hidden = !pointNameIncrementClipboard;
+  pointIncrementPasteButton.hidden = !pointSelected || !pointNameIncrementClipboard;
   pointIncrementPasteButton.textContent = pointNameIncrementClipboard;
-  pointClearButton.disabled = !pointSelected || !selectedInput.value.trim();
+  pointClearButton.hidden = !pointSelected && !clearOnlySelected;
+  pointClearButton.disabled = !cellSelected || !selectedInput.value.trim();
   if (popoverAllowed) {
     const targetCell = selectedInput.closest("td");
     tbody.querySelectorAll(".point-clipboard-anchor").forEach((cell) => {
@@ -622,8 +698,7 @@ function updatePointClipboardButtons() {
 function positionPointClipboardPopover() {
   if (
     pointClipboardPopover.hidden ||
-    !selectedInput?.isConnected ||
-    selectedInput.dataset.field !== "pointName"
+    !selectedInput?.isConnected
   ) return;
   pointClipboardPopover.classList.remove("place-left");
 }
@@ -644,6 +719,18 @@ function syncVoiceInputLocks() {
   if (locked) document.activeElement?.blur();
 }
 
+function updateLastVoiceValueUi() {
+  const visible = Boolean(voiceModeActive && lastVoiceNumericValue);
+  lastVoiceValue.hidden = !visible;
+  lastVoiceValue.textContent = visible ? lastVoiceNumericValue : "";
+  document.body.classList.toggle("last-voice-value-visible", visible);
+}
+
+function setLastVoiceNumericValue(value) {
+  lastVoiceNumericValue = String(value ?? "").trim();
+  updateLastVoiceValueUi();
+}
+
 function updateVoiceModeUi() {
   document.body.classList.toggle("voice-mode-active", voiceModeActive);
   voiceButton.classList.toggle("voice-mode", voiceModeActive);
@@ -658,10 +745,13 @@ function updateVoiceModeUi() {
     voiceButton.classList.remove("listening");
     voiceButton.textContent = voiceModeActive ? "🎤 聞き取る" : "🎤 音声モード";
   }
+  updateLastVoiceValueUi();
 }
 
 function setVoiceModeActive(active) {
+  const activating = Boolean(active) && !voiceModeActive;
   voiceModeActive = Boolean(active);
+  if (activating) lastVoiceNumericValue = "";
   if (!voiceModeActive) voiceTarget = null;
   syncVoiceInputLocks();
   updateVoiceModeUi();
@@ -1351,16 +1441,21 @@ pointCopyButton.addEventListener("click", () => {
 pointClearButton.addEventListener("click", () => {
   if (
     !selectedInput?.isConnected ||
-    selectedInput.dataset.field !== "pointName" ||
     !selectedInput.value.trim()
   ) return;
   const target = selectedInput;
+  const field = target.dataset.field;
   target.value = "";
   if (!handleFieldChange(target, { forceHistory: true })) return;
+  formatNumericInput(target);
   markSelectedInput(target);
   if (voiceModeActive) voiceTarget = target;
-  if (!voiceSessionActive) showPointNameSuggestions(target);
-  showNotice("点名をクリアしました。", "success");
+  if (!voiceSessionActive && field === "pointName") {
+    showPointNameSuggestions(target);
+  } else {
+    hidePointSuggestions();
+  }
+  showNotice(field === "pointName" ? "点名をクリアしました。" : "セルをクリアしました。", "success");
   updatePointClipboardButtons();
 });
 
@@ -1435,12 +1530,9 @@ document.addEventListener("pointerup", () => {
 tbody.addEventListener("click", (event) => {
   const selector = event.target.closest(".row-selector");
   if (!selector) return;
-  selectedRowIndex = findRowIndex(selector);
-  if (selectedRowIndex < 0) return;
-  tbody.querySelectorAll("tr.row-selected").forEach((row) => row.classList.remove("row-selected"));
-  selector.closest("tr").classList.add("row-selected");
-  document.querySelector("#rowDialogTitle").textContent = `${selectedRowIndex + 1}行目の操作`;
-  document.querySelector("#rowDialog").showModal();
+  event.preventDefault();
+  event.stopPropagation();
+  openRowActionPopover(selector);
 });
 
 tbody.addEventListener("keydown", (event) => {
@@ -1474,35 +1566,46 @@ tolerancePresetSelect.addEventListener("change", (event) => {
   scheduleAutosave();
 });
 
-const rowDialog = document.querySelector("#rowDialog");
-rowDialog.addEventListener("close", () => {
-  tbody.querySelectorAll("tr.row-selected").forEach((row) => row.classList.remove("row-selected"));
-  selectedRowIndex = null;
-});
-document.querySelector("#insertRowBtn").addEventListener("click", () => {
+insertRowButton.addEventListener("click", () => {
   if (selectedRowIndex === null) return;
   recordUndoSnapshot(activeSheet, "row-insert", true);
   project.sheets.out.splice(selectedRowIndex + 1, 0, createRow("out"));
   project.sheets.back.splice(selectedRowIndex + 1, 0, createRow("back"));
-  rowDialog.close();
+  closeRowActionPopover();
   renderSheet();
   scheduleAutosave();
 });
-document.querySelector("#deleteSelectedRowBtn").addEventListener("click", () => {
+deleteSelectedRowButton.addEventListener("click", () => {
   if (selectedRowIndex === null) return;
   const rows = project.sheets[activeSheet];
   if (rows.length <= 1) {
     showNotice("最後の1行は削除できません。", "error");
     return;
   }
-  if (!confirm(`${selectedRowIndex + 1}行目を削除しますか？`)) return;
+  rowActionButtons.hidden = true;
+  rowDeleteConfirm.hidden = false;
+  tbody.rows[selectedRowIndex]?.classList.add("row-delete-pending");
+});
+confirmDeleteRowButton.addEventListener("click", () => {
+  if (selectedRowIndex === null) return;
   recordUndoSnapshot(activeSheet, "row-delete", true);
   project.sheets.out.splice(selectedRowIndex, 1);
   project.sheets.back.splice(selectedRowIndex, 1);
-  rowDialog.close();
+  closeRowActionPopover();
   renderSheet();
   scheduleAutosave();
 });
+cancelDeleteRowButton.addEventListener("click", () => {
+  closeRowActionPopover();
+});
+document.addEventListener("pointerdown", (event) => {
+  if (
+    rowActionPopover.hidden ||
+    rowActionPopover.contains(event.target) ||
+    event.target.closest(".row-selector")
+  ) return;
+  closeRowActionPopover();
+}, { capture: true });
 distanceToggleButton.addEventListener("click", () => {
   project.settings.showDistance = !project.settings.showDistance;
   applyDistanceVisibility();
@@ -1706,6 +1809,9 @@ const voiceController = createVoiceController({
       target.value = value;
       if (!handleFieldChange(target, { forceHistory: true })) return;
       formatNumericInput(target);
+      if (NUMERIC_FIELDS.has(field)) {
+        setLastVoiceNumericValue(target.value);
+      }
       if (field === "pointName") recordPointName(value);
       voiceStatus.textContent = `${value} と復唱します`;
       voiceButton.textContent = "🔊 復唱中…";

@@ -15,7 +15,7 @@
   <link rel="manifest" href="./manifest.json">
   <link rel="icon" href="./icons/icon-192.png">
   <link rel="apple-touch-icon" href="./icons/icon-192.png">
-  <link rel="stylesheet" href="./css/style.css?v=84">
+  <link rel="stylesheet" href="./css/style.css?v=85">
 </head>
 <body>
   <header class="app-header">
@@ -112,6 +112,18 @@
     <button id="pointClearBtn" type="button" disabled>クリア</button>
   </div>
 
+  <div id="rowActionPopover" class="row-action-popover" aria-label="選択した行の挿入と削除" hidden>
+    <div id="rowActionButtons" class="row-action-buttons">
+      <button id="insertRowBtn" type="button">下へ挿入</button>
+      <button id="deleteSelectedRowBtn" class="row-delete-button" type="button">削除</button>
+    </div>
+    <div id="rowDeleteConfirm" class="row-delete-confirm" hidden>
+      <span>削除しますか？</span>
+      <button id="confirmDeleteRowBtn" class="row-delete-button" type="button">はい</button>
+      <button id="cancelDeleteRowBtn" type="button">いいえ</button>
+    </div>
+  </div>
+
   <div class="voice-dock">
     <section id="pointSuggestions" class="point-suggestions" aria-label="測点名の優先候補" hidden>
       <div class="point-suggestions-heading">
@@ -124,6 +136,7 @@
       <button id="voiceBtn" type="button">🎤 音声モード</button>
       <button id="pointScriptSettingsBtn" class="point-script-settings-button" type="button" aria-controls="pointScriptDialog" aria-expanded="false" hidden>⚙ 設定</button>
     </div>
+    <div id="lastVoiceValue" class="last-voice-value" aria-label="直前に音声入力した数値" aria-live="polite" hidden></div>
     <button id="keyboardModeBtn" class="keyboard-mode-button" type="button" hidden>手動入力</button>
     <div id="voiceStatus" class="sr-only" aria-live="polite"></div>
   </div>
@@ -167,18 +180,6 @@
     </form>
   </dialog>
 
-  <dialog id="rowDialog" class="action-dialog" aria-labelledby="rowDialogTitle">
-    <form method="dialog">
-      <button class="dialog-close" value="cancel" aria-label="閉じる">×</button>
-      <h2 id="rowDialogTitle">行を選択</h2>
-      <div class="dialog-actions">
-        <button id="insertRowBtn" type="button">この行の下に追加</button>
-        <button id="deleteSelectedRowBtn" class="danger-button" type="button">この行を削除</button>
-        <button type="submit" value="cancel">キャンセル</button>
-      </div>
-    </form>
-  </dialog>
-
   <dialog id="clearDialog" class="action-dialog" aria-labelledby="clearDialogTitle">
     <form method="dialog">
       <button class="dialog-close" value="cancel" aria-label="閉じる">×</button>
@@ -206,6 +207,6 @@
   </dialog>
 
   <noscript>このアプリの利用にはJavaScriptを有効にしてください。</noscript>
-  <script type="module" src="./js/app.js?v=84"></script>
+  <script type="module" src="./js/app.js?v=85"></script>
 </body>
 </html>
