@@ -6,7 +6,7 @@ import {
   LEVELING_TOLERANCE_PRESETS,
   sumObservationDistanceMeters,
   toNumber
-} from "./calculation.js?v=92";
+} from "./calculation.js?v=93";
 import {
   chooseLevelReading,
   createVoiceController,
@@ -14,14 +14,14 @@ import {
   normalizeSpokenNumber,
   prepareSpeechSynthesis,
   speakBack
-} from "./voice.js?v=92";
-import { clearProject, loadProject, saveProject } from "./storage.js?v=92";
-import { exportSheetCsv } from "./export.js?v=92";
+} from "./voice.js?v=93";
+import { clearProject, loadProject, saveProject } from "./storage.js?v=93";
+import { exportSheetCsv } from "./export.js?v=93";
 import {
   alignSheetsWithCurrentLabels,
   isValidStaffReading,
   reversePointNamesWithinUsedRows
-} from "./rules.js?v=92";
+} from "./rules.js?v=93";
 import {
   choosePointName,
   getRankedPointNameCandidates,
@@ -29,7 +29,7 @@ import {
   normalizePointName,
   pointNameToSpeech,
   recordPointNameUsage
-} from "./point-names.js?v=92";
+} from "./point-names.js?v=93";
 
 const DEFAULT_ROW_COUNT = 200;
 const POINT_SUGGESTION_LIMIT = 10;
@@ -39,6 +39,7 @@ const UNSIGNED_DECIMAL_FIELDS = new Set(["bs", "fs", "distance"]);
 const tbody = document.querySelector("#notebookBody");
 const notice = document.querySelector("#notice");
 const notebook = document.querySelector("#notebook");
+const tableShell = document.querySelector(".table-shell");
 const tableWrap = document.querySelector(".table-wrap");
 const distanceToggleButton = document.querySelector("#distanceToggleBtn");
 const stickyTableHeader = document.querySelector("#stickyTableHeader");
@@ -1341,17 +1342,74 @@ tableWrap.addEventListener("scroll", () => {
   scheduleStickyTableHeader();
 }, { passive: true });
 
+function syncStickyHeaderColumns() {
+  const sourceCells = [...(notebook.tHead?.rows[0]?.cells || [])];
+  const stickyCells = [...(stickyNotebookHeader.tHead?.rows[0]?.cells || [])];
+  const sourceTableWidth = notebook.getBoundingClientRect().width;
+  if (!sourceTableWidth || sourceCells.length !== stickyCells.length) return;
+
+  const tableWidth = `${sourceTableWidth}px`;
+  stickyNotebookHeader.style.width = tableWidth;
+  stickyNotebookHeader.style.minWidth = tableWidth;
+  stickyCells.forEach((cell, index) => {
+    const width = sourceCells[index].getBoundingClientRect().width;
+    const cellWidth = `${width}px`;
+    cell.style.width = cellWidth;
+    cell.style.minWidth = cellWidth;
+    cell.style.maxWidth = cellWidth;
+  });
+}
+
+function placeDistanceToggle(button, pointHeading, container, visibleRect) {
+  if (!button || !pointHeading || !container) return;
+  const headingRect = pointHeading.getBoundingClientRect();
+  const containerRect = container.getBoundingClientRect();
+  const containingBlockLeft = containerRect.left + container.clientLeft;
+  const containingBlockTop = containerRect.top + container.clientTop;
+  const boundaryX = headingRect.right;
+  const boundaryVisible = (
+    boundaryX >= visibleRect.left - 1 &&
+    boundaryX <= visibleRect.right + 1
+  );
+  button.style.left = `${boundaryX - containingBlockLeft}px`;
+  button.style.top = `${headingRect.top - containingBlockTop}px`;
+  button.style.visibility = boundaryVisible ? "visible" : "hidden";
+}
+
 function updateStickyTableHeader() {
   const wrapRect = tableWrap.getBoundingClientRect();
+  const sourcePointHeading = notebook.tHead?.querySelector(".point-heading");
+  placeDistanceToggle(distanceToggleButton, sourcePointHeading, tableShell, wrapRect);
+
   const headerHeight = notebook.tHead?.getBoundingClientRect().height || 0;
   const visible = wrapRect.top < 0 && wrapRect.bottom > headerHeight;
   stickyTableHeader.hidden = !visible;
   if (!visible) return;
+
   const left = Math.max(0, wrapRect.left);
   const width = Math.min(window.innerWidth - left, wrapRect.width);
   stickyTableHeader.style.left = `${Math.round(left)}px`;
   stickyTableHeader.style.width = `${Math.round(width)}px`;
-  stickyNotebookHeader.style.transform = `translateX(${-tableWrap.scrollLeft}px)`;
+  syncStickyHeaderColumns();
+
+  let translateX = -tableWrap.scrollLeft;
+  stickyNotebookHeader.style.transform = `translateX(${translateX}px)`;
+  const sourceFirstCell = notebook.tHead?.rows[0]?.cells[0];
+  const stickyFirstCell = stickyNotebookHeader.tHead?.rows[0]?.cells[0];
+  if (sourceFirstCell && stickyFirstCell) {
+    translateX += sourceFirstCell.getBoundingClientRect().left -
+      stickyFirstCell.getBoundingClientRect().left;
+    stickyNotebookHeader.style.transform = `translateX(${translateX}px)`;
+  }
+
+  const stickyPointHeading = stickyNotebookHeader.tHead?.querySelector(".point-heading");
+  const stickyViewportRect = stickyTableHeader.getBoundingClientRect();
+  placeDistanceToggle(
+    stickyDistanceToggleButton,
+    stickyPointHeading,
+    stickyTableHeader,
+    stickyViewportRect
+  );
 }
 
 function scheduleStickyTableHeader() {
@@ -2009,3 +2067,4 @@ window.addEventListener("pagehide", () => {
 });
 
 renderSheet();
+document.fonts?.ready.then(() => scheduleStickyTableHeader());

@@ -15,7 +15,7 @@
   <link rel="manifest" href="./manifest.json">
   <link rel="icon" href="./icons/icon-192.png">
   <link rel="apple-touch-icon" href="./icons/icon-192.png">
-  <link rel="stylesheet" href="./css/style.css?v=92">
+  <link rel="stylesheet" href="./css/style.css?v=93">
 </head>
 <body>
   <header class="app-header">
@@ -84,40 +84,46 @@
     </div>
 
     <div id="stickyTableHeader" class="sticky-table-header" hidden>
-      <table id="stickyNotebookHeader">
-        <thead>
-          <tr>
-            <th>No.</th>
-            <th class="point-heading">点名<button id="stickyDistanceToggleBtn" class="distance-inline-toggle" type="button" aria-label="距離列を表示">＋</button></th>
-            <th class="distance-column">距離 m</th>
-            <th>後視 BS</th>
-            <th>前視 FS</th>
-            <th>往復差 mm</th>
-            <th>高低差</th>
-            <th>既知/仮標高</th>
-            <th>備考</th>
-          </tr>
-        </thead>
-      </table>
+      <div class="sticky-table-viewport">
+        <table id="stickyNotebookHeader">
+          <thead>
+            <tr>
+              <th>No.</th>
+              <th class="point-heading">点名</th>
+              <th class="distance-column">距離 m</th>
+              <th>後視 BS</th>
+              <th>前視 FS</th>
+              <th>往復差 mm</th>
+              <th>高低差</th>
+              <th>既知/仮標高</th>
+              <th>備考</th>
+            </tr>
+          </thead>
+        </table>
+      </div>
+      <button id="stickyDistanceToggleBtn" class="distance-inline-toggle" type="button" aria-label="距離列を表示">＋</button>
     </div>
 
-    <div class="table-wrap" tabindex="0" aria-label="水準野帳。見出し行を固定して上下左右にスクロールできます">
-      <table id="notebook">
-        <thead>
-          <tr>
-            <th>No.</th>
-            <th class="point-heading">点名<button id="distanceToggleBtn" class="distance-inline-toggle" type="button" aria-label="距離列を表示">＋</button></th>
-            <th class="distance-column">距離 m</th>
-            <th>後視 BS</th>
-            <th>前視 FS</th>
-            <th>往復差 mm</th>
-            <th>高低差</th>
-            <th>既知/仮標高</th>
-            <th>備考</th>
-          </tr>
-        </thead>
-        <tbody id="notebookBody"></tbody>
-      </table>
+    <div class="table-shell">
+      <div class="table-wrap" tabindex="0" aria-label="水準野帳。見出し行を固定して上下左右にスクロールできます">
+        <table id="notebook">
+          <thead>
+            <tr>
+              <th>No.</th>
+              <th class="point-heading">点名</th>
+              <th class="distance-column">距離 m</th>
+              <th>後視 BS</th>
+              <th>前視 FS</th>
+              <th>往復差 mm</th>
+              <th>高低差</th>
+              <th>既知/仮標高</th>
+              <th>備考</th>
+            </tr>
+          </thead>
+          <tbody id="notebookBody"></tbody>
+        </table>
+      </div>
+      <button id="distanceToggleBtn" class="distance-inline-toggle" type="button" aria-label="距離列を表示">＋</button>
     </div>
   </main>
 
@@ -226,6 +232,6 @@
   </dialog>
 
   <noscript>このアプリの利用にはJavaScriptを有効にしてください。</noscript>
-  <script type="module" src="./js/app.js?v=92"></script>
+  <script type="module" src="./js/app.js?v=93"></script>
 </body>
 </html>
