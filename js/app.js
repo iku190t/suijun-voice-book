@@ -6,7 +6,7 @@ import {
   LEVELING_TOLERANCE_PRESETS,
   sumObservationDistanceMeters,
   toNumber
-} from "./calculation.js?v=91";
+} from "./calculation.js?v=92";
 import {
   chooseLevelReading,
   createVoiceController,
@@ -14,13 +14,14 @@ import {
   normalizeSpokenNumber,
   prepareSpeechSynthesis,
   speakBack
-} from "./voice.js?v=91";
-import { clearProject, loadProject, saveProject } from "./storage.js?v=91";
-import { exportSheetCsv } from "./export.js?v=91";
+} from "./voice.js?v=92";
+import { clearProject, loadProject, saveProject } from "./storage.js?v=92";
+import { exportSheetCsv } from "./export.js?v=92";
 import {
+  alignSheetsWithCurrentLabels,
   isValidStaffReading,
   reversePointNamesWithinUsedRows
-} from "./rules.js?v=91";
+} from "./rules.js?v=92";
 import {
   choosePointName,
   getRankedPointNameCandidates,
@@ -28,7 +29,7 @@ import {
   normalizePointName,
   pointNameToSpeech,
   recordPointNameUsage
-} from "./point-names.js?v=91";
+} from "./point-names.js?v=92";
 
 const DEFAULT_ROW_COUNT = 200;
 const POINT_SUGGESTION_LIMIT = 10;
@@ -206,6 +207,7 @@ function createBlankProject() {
       showDistance: false,
       voiceRate: 1.2,
       voiceSettingsVersion: 2,
+      sheetMeaningVersion: 2,
       tableScale: 1,
       pointAliases: [],
       pointNameScripts: {
@@ -247,8 +249,12 @@ function normalizeLoadedProject(loaded) {
   let outRows = [];
   let backRows = [];
   if (loaded.sheets) {
-    outRows = Array.isArray(loaded.sheets.out) ? loaded.sheets.out : [];
-    backRows = Array.isArray(loaded.sheets.back) ? loaded.sheets.back : [];
+    const alignedSheets = alignSheetsWithCurrentLabels(
+      loaded.sheets,
+      loaded.settings?.sheetMeaningVersion
+    );
+    outRows = alignedSheets.out;
+    backRows = alignedSheets.back;
   } else if (Array.isArray(loaded.rows)) {
     outRows = loaded.rows.filter((row) => row.route !== "back");
     backRows = loaded.rows.filter((row) => row.route === "back");
@@ -285,6 +291,7 @@ function normalizeLoadedProject(loaded) {
         ? clamp(Number(loaded.settings?.voiceRate) || 1.2, 0.5, 1.5)
         : 1.2,
       voiceSettingsVersion: 2,
+      sheetMeaningVersion: 2,
       pointAliases: loadedAliases,
       pointNameScripts: {
         kanji: hasCurrentVoiceDefaults && loadedScripts.kanji === true,
@@ -371,9 +378,13 @@ function renderSheet() {
   project.sheets[activeSheet].forEach((row, index) => fragment.appendChild(rowTemplate(row, index)));
   tbody.replaceChildren(fragment);
   syncVoiceInputLocks();
+  const currentName = activeSheet === "out" ? "往路" : "復路";
   const destinationName = activeSheet === "out" ? "復路" : "往路";
-  sheetToggleButton.textContent = destinationName;
-  sheetToggleButton.setAttribute("aria-label", `${destinationName}に切り替え`);
+  sheetToggleButton.textContent = currentName;
+  sheetToggleButton.setAttribute(
+    "aria-label",
+    `${currentName}を表示中。押すと${destinationName}に切り替え`
+  );
   applyDistanceVisibility();
   applyTableScale(project.settings.tableScale);
   recalculateAndRender();

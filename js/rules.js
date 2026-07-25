@@ -79,3 +79,16 @@ export function reversePointNamesWithinUsedRows(sourceRows, targetRows) {
   }
   return usedLength;
 }
+
+export function alignSheetsWithCurrentLabels(sheets, sheetMeaningVersion) {
+  const out = Array.isArray(sheets?.out) ? sheets.out : [];
+  const back = Array.isArray(sheets?.back) ? sheets.back : [];
+  if (Number(sheetMeaningVersion) >= 2) {
+    return { out, back, migrated: false };
+  }
+
+  // 旧版の一つボタンは、表示中ではなく「切替先」の名称を表示していた。
+  // 利用者が画面の「往路・復路」を現在シートとして入力したデータを、
+  // 現在の正しい表示名と内部シートの意味へ一度だけ合わせる。
+  return { out: back, back: out, migrated: true };
+}
