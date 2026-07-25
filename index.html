@@ -15,7 +15,7 @@
   <link rel="manifest" href="./manifest.json">
   <link rel="icon" href="./icons/icon-192.png">
   <link rel="apple-touch-icon" href="./icons/icon-192.png">
-  <link rel="stylesheet" href="./css/style.css?v=88">
+  <link rel="stylesheet" href="./css/style.css?v=89">
 </head>
 <body>
   <header class="app-header">
@@ -60,6 +60,7 @@
     <div class="toolbar" aria-label="操作">
       <button id="saveBtn" type="button">上書き保存</button>
       <button id="csvBtn" type="button">CSV出力</button>
+      <button id="settingsOpenBtn" type="button" aria-controls="settingsDialog" aria-expanded="false">⚙ 設定</button>
       <button id="clearBtn" class="danger-outline" type="button">消去</button>
     </div>
   </header>
@@ -80,6 +81,24 @@
           </svg>
         </button>
       </div>
+    </div>
+
+    <div id="stickyTableHeader" class="sticky-table-header" hidden>
+      <table id="stickyNotebookHeader">
+        <thead>
+          <tr>
+            <th>No.</th>
+            <th class="point-heading">点名<button id="stickyDistanceToggleBtn" class="distance-inline-toggle" type="button" aria-label="距離列を表示">＋</button></th>
+            <th class="distance-column">距離 m</th>
+            <th>後視 BS</th>
+            <th>前視 FS</th>
+            <th>往復差 mm</th>
+            <th>高低差</th>
+            <th>既知/仮標高</th>
+            <th>備考</th>
+          </tr>
+        </thead>
+      </table>
     </div>
 
     <div class="table-wrap" tabindex="0" aria-label="水準野帳。見出し行を固定して上下左右にスクロールできます">
@@ -134,9 +153,8 @@
     <div class="voice-action">
       <button id="voiceBtn" type="button">
         <span id="voiceButtonLabel">🎤 音声モード</span>
-        <span id="lastVoiceValue" class="last-voice-value" aria-label="直前に音声入力した数値" aria-live="polite" hidden></span>
+        <span id="lastVoiceValue" class="last-voice-value" aria-label="直前に音声入力した内容" aria-live="polite" hidden></span>
       </button>
-      <button id="pointScriptSettingsBtn" class="point-script-settings-button" type="button" aria-controls="settingsDialog" aria-expanded="false" hidden>⚙ 設定</button>
     </div>
     <button id="keyboardModeBtn" class="keyboard-mode-button" type="button" hidden>手動入力</button>
     <div id="voiceStatus" class="sr-only" aria-live="polite"></div>
@@ -174,15 +192,22 @@
     </form>
   </dialog>
 
-  <dialog id="clearDialog" class="action-dialog" aria-labelledby="clearDialogTitle">
+  <dialog id="clearDialog" class="action-dialog clear-dialog" aria-labelledby="clearDialogTitle">
     <form method="dialog">
       <button class="dialog-close" value="cancel" aria-label="閉じる">×</button>
       <h2 id="clearDialogTitle">消去するシートを選択</h2>
-      <div class="dialog-actions clear-actions">
+      <div id="clearSelection" class="dialog-actions clear-actions">
         <button type="button" data-clear-target="out">往路を消す</button>
         <button type="button" data-clear-target="back">復路を消す</button>
         <button class="danger-button" type="button" data-clear-target="all">全シートを消す</button>
         <button type="submit" value="cancel">キャンセル</button>
+      </div>
+      <div id="clearConfirmation" class="clear-confirmation" hidden>
+        <p><strong id="clearTargetLabel"></strong>のデータを消去しますか？</p>
+        <div class="clear-confirmation-actions">
+          <button id="confirmClearBtn" class="danger-button" type="button">はい</button>
+          <button id="cancelClearBtn" type="button">いいえ</button>
+        </div>
       </div>
     </form>
   </dialog>
@@ -201,6 +226,6 @@
   </dialog>
 
   <noscript>このアプリの利用にはJavaScriptを有効にしてください。</noscript>
-  <script type="module" src="./js/app.js?v=88"></script>
+  <script type="module" src="./js/app.js?v=89"></script>
 </body>
 </html>

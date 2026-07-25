@@ -6,7 +6,7 @@ import {
   LEVELING_TOLERANCE_PRESETS,
   sumObservationDistanceMeters,
   toNumber
-} from "./calculation.js?v=88";
+} from "./calculation.js?v=89";
 import {
   chooseLevelReading,
   createVoiceController,
@@ -14,13 +14,13 @@ import {
   normalizeSpokenNumber,
   prepareSpeechSynthesis,
   speakBack
-} from "./voice.js?v=88";
-import { clearProject, loadProject, saveProject } from "./storage.js?v=88";
-import { exportSheetCsv } from "./export.js?v=88";
+} from "./voice.js?v=89";
+import { clearProject, loadProject, saveProject } from "./storage.js?v=89";
+import { exportSheetCsv } from "./export.js?v=89";
 import {
   isValidStaffReading,
   reversePointNamesWithinUsedRows
-} from "./rules.js?v=88";
+} from "./rules.js?v=89";
 import {
   choosePointName,
   getRankedPointNameCandidates,
@@ -28,7 +28,7 @@ import {
   normalizePointName,
   pointNameToSpeech,
   recordPointNameUsage
-} from "./point-names.js?v=88";
+} from "./point-names.js?v=89";
 
 const DEFAULT_ROW_COUNT = 200;
 const POINT_SUGGESTION_LIMIT = 10;
@@ -40,6 +40,9 @@ const notice = document.querySelector("#notice");
 const notebook = document.querySelector("#notebook");
 const tableWrap = document.querySelector(".table-wrap");
 const distanceToggleButton = document.querySelector("#distanceToggleBtn");
+const stickyTableHeader = document.querySelector("#stickyTableHeader");
+const stickyNotebookHeader = document.querySelector("#stickyNotebookHeader");
+const stickyDistanceToggleButton = document.querySelector("#stickyDistanceToggleBtn");
 const tolerancePresetSelect = document.querySelector("#tolerancePreset");
 const voiceButton = document.querySelector("#voiceBtn");
 const voiceButtonLabel = document.querySelector("#voiceButtonLabel");
@@ -49,7 +52,7 @@ const lastVoiceValue = document.querySelector("#lastVoiceValue");
 const voiceDock = document.querySelector(".voice-dock");
 const pointScriptControls = document.querySelector("#pointScriptControls");
 const settingsDialog = document.querySelector("#settingsDialog");
-const pointScriptSettingsButton = document.querySelector("#pointScriptSettingsBtn");
+const settingsOpenButton = document.querySelector("#settingsOpenBtn");
 const pointSuggestions = document.querySelector("#pointSuggestions");
 const pointSuggestionButtons = document.querySelector("#pointSuggestionButtons");
 const pointClipboardPopover = document.querySelector("#pointClipboardPopover");
@@ -100,10 +103,11 @@ let lastVoiceSuggestionShift = Number.NaN;
 let suggestionPositionCorrectionPending = false;
 let pointNameClipboard = "";
 let pointNameIncrementClipboard = "";
-let lastVoiceNumericValue = "";
+let lastVoiceValueText = "";
 let pointClipboardPositionFrame = null;
 let pointClipboardDismissedFor = null;
 let keyboardViewportBaseline = window.visualViewport?.height || window.innerHeight;
+let stickyHeaderFrame = null;
 const HISTORY_LIMIT = 50;
 const undoHistory = { out: [], back: [] };
 const redoHistory = { out: [], back: [] };
@@ -380,9 +384,13 @@ function renderSheet() {
 function applyDistanceVisibility() {
   const visible = Boolean(project.settings.showDistance);
   notebook.classList.toggle("show-distance", visible);
-  distanceToggleButton.textContent = visible ? "－" : "＋";
-  distanceToggleButton.setAttribute("aria-label", visible ? "距離列を収納" : "距離列を表示");
-  distanceToggleButton.setAttribute("aria-pressed", String(visible));
+  stickyNotebookHeader.classList.toggle("show-distance", visible);
+  [distanceToggleButton, stickyDistanceToggleButton].forEach((button) => {
+    button.textContent = visible ? "－" : "＋";
+    button.setAttribute("aria-label", visible ? "距離列を収納" : "距離列を表示");
+    button.setAttribute("aria-pressed", String(visible));
+  });
+  scheduleStickyTableHeader();
 }
 
 function applyTableScale(value) {
@@ -404,8 +412,11 @@ function applyTableScale(value) {
     "--header-font-size": 16
   };
   Object.entries(pixels).forEach(([property, base]) => {
-    notebook.style.setProperty(property, `${Math.round(base * scale * 10) / 10}px`);
+    const size = `${Math.round(base * scale * 10) / 10}px`;
+    notebook.style.setProperty(property, size);
+    stickyNotebookHeader.style.setProperty(property, size);
   });
+  scheduleStickyTableHeader();
 }
 
 function touchDistance(touches) {
@@ -437,7 +448,6 @@ tableWrap.addEventListener("touchend", (event) => {
     scheduleAutosave();
   }
 }, { passive: true });
-
 tableWrap.addEventListener("touchcancel", () => {
   pinchStartDistance = null;
   tableWrap.classList.remove("pinching");
@@ -729,13 +739,13 @@ function syncVoiceInputLocks() {
 }
 
 function updateLastVoiceValueUi() {
-  const visible = Boolean(voiceModeActive && lastVoiceNumericValue);
+  const visible = Boolean(voiceModeActive && lastVoiceValueText);
   lastVoiceValue.hidden = !visible;
-  lastVoiceValue.textContent = visible ? lastVoiceNumericValue : "";
+  lastVoiceValue.textContent = visible ? lastVoiceValueText : "";
 }
 
-function setLastVoiceNumericValue(value) {
-  lastVoiceNumericValue = String(value ?? "").trim();
+function setLastVoiceValue(value) {
+  lastVoiceValueText = String(value ?? "").trim();
   updateLastVoiceValueUi();
 }
 
@@ -744,11 +754,6 @@ function updateVoiceModeUi() {
   voiceButton.classList.toggle("voice-mode", voiceModeActive);
   keyboardModeButton.hidden = !voiceModeActive;
   keyboardModeButton.disabled = voiceSessionActive;
-  pointScriptSettingsButton.hidden = !voiceModeActive;
-  if (!voiceModeActive && settingsDialog.open) {
-    settingsDialog.close();
-    pointScriptSettingsButton.setAttribute("aria-expanded", "false");
-  }
   if (!voiceSessionActive) {
     voiceButton.classList.remove("listening");
     voiceButtonLabel.textContent = voiceModeActive ? "🎤 聞き取る" : "🎤 音声モード";
@@ -759,7 +764,7 @@ function updateVoiceModeUi() {
 function setVoiceModeActive(active) {
   const activating = Boolean(active) && !voiceModeActive;
   voiceModeActive = Boolean(active);
-  if (activating) lastVoiceNumericValue = "";
+  if (activating) lastVoiceValueText = "";
   if (!voiceModeActive) voiceTarget = null;
   syncVoiceInputLocks();
   updateVoiceModeUi();
@@ -1323,12 +1328,46 @@ window.addEventListener("pointercancel", (event) => finishPointerGesture(event, 
 
 tableWrap.addEventListener("scroll", () => {
   schedulePointClipboardPosition();
+  scheduleStickyTableHeader();
 }, { passive: true });
 
-window.addEventListener("scroll", schedulePointClipboardPosition, { passive: true });
-window.addEventListener("resize", schedulePointClipboardPosition, { passive: true });
-window.visualViewport?.addEventListener("resize", schedulePointClipboardPosition);
-window.visualViewport?.addEventListener("scroll", schedulePointClipboardPosition);
+function updateStickyTableHeader() {
+  const wrapRect = tableWrap.getBoundingClientRect();
+  const headerHeight = notebook.tHead?.getBoundingClientRect().height || 0;
+  const visible = wrapRect.top < 0 && wrapRect.bottom > headerHeight;
+  stickyTableHeader.hidden = !visible;
+  if (!visible) return;
+  const left = Math.max(0, wrapRect.left);
+  const width = Math.min(window.innerWidth - left, wrapRect.width);
+  stickyTableHeader.style.left = `${Math.round(left)}px`;
+  stickyTableHeader.style.width = `${Math.round(width)}px`;
+  stickyNotebookHeader.style.transform = `translateX(${-tableWrap.scrollLeft}px)`;
+}
+
+function scheduleStickyTableHeader() {
+  if (stickyHeaderFrame !== null) return;
+  stickyHeaderFrame = requestAnimationFrame(() => {
+    stickyHeaderFrame = null;
+    updateStickyTableHeader();
+  });
+}
+
+window.addEventListener("scroll", () => {
+  schedulePointClipboardPosition();
+  scheduleStickyTableHeader();
+}, { passive: true });
+window.addEventListener("resize", () => {
+  schedulePointClipboardPosition();
+  scheduleStickyTableHeader();
+}, { passive: true });
+window.visualViewport?.addEventListener("resize", () => {
+  schedulePointClipboardPosition();
+  scheduleStickyTableHeader();
+});
+window.visualViewport?.addEventListener("scroll", () => {
+  schedulePointClipboardPosition();
+  scheduleStickyTableHeader();
+});
 
 tbody.addEventListener("click", (event) => {
   const input = event.target.closest("input");
@@ -1614,11 +1653,13 @@ document.addEventListener("pointerdown", (event) => {
   ) return;
   closeRowActionPopover();
 }, { capture: true });
-distanceToggleButton.addEventListener("click", () => {
+function toggleDistanceColumn() {
   project.settings.showDistance = !project.settings.showDistance;
   applyDistanceVisibility();
   scheduleAutosave();
-});
+}
+distanceToggleButton.addEventListener("click", toggleDistanceColumn);
+stickyDistanceToggleButton.addEventListener("click", toggleDistanceColumn);
 document.querySelector("#saveBtn").addEventListener("click", () => {
   project = saveProject(project);
   showNotice("上書き保存しました。", "success");
@@ -1632,28 +1673,56 @@ document.querySelector("#csvBtn").addEventListener("click", async () => {
   }
 });
 const clearDialog = document.querySelector("#clearDialog");
-document.querySelector("#clearBtn").addEventListener("click", () => clearDialog.showModal());
+const clearSelection = document.querySelector("#clearSelection");
+const clearConfirmation = document.querySelector("#clearConfirmation");
+const clearTargetLabel = document.querySelector("#clearTargetLabel");
+const confirmClearButton = document.querySelector("#confirmClearBtn");
+const cancelClearButton = document.querySelector("#cancelClearBtn");
+let pendingClearTarget = null;
+
+function resetClearDialog() {
+  pendingClearTarget = null;
+  clearSelection.hidden = false;
+  clearConfirmation.hidden = true;
+  clearTargetLabel.textContent = "";
+}
+
+document.querySelector("#clearBtn").addEventListener("click", () => {
+  resetClearDialog();
+  clearDialog.showModal();
+});
 clearDialog.querySelectorAll("[data-clear-target]").forEach((button) => {
   button.addEventListener("click", () => {
-    const target = button.dataset.clearTarget;
-    const targetLabel = target === "out" ? "往路" : target === "back" ? "復路" : "全シート";
-    if (!confirm(`${targetLabel}のデータを消去しますか？`)) return;
-
-    recordUndoSnapshot(activeSheet, `clear-${target}`, true);
-    if (target === "all") {
-      const settings = { ...project.settings };
-      clearProject();
-      project = createBlankProject();
-      project.settings = settings;
-    } else {
-      project.sheets[target] = createRows(target, project.sheets[target === "out" ? "back" : "out"].length);
-    }
-    clearDialog.close();
-    renderSheet();
-    project = saveProject(project);
-    showNotice(`${targetLabel}を消去しました。`, "success");
+    pendingClearTarget = button.dataset.clearTarget;
+    clearTargetLabel.textContent = pendingClearTarget === "out"
+      ? "往路"
+      : pendingClearTarget === "back"
+        ? "復路"
+        : "全シート";
+    clearSelection.hidden = true;
+    clearConfirmation.hidden = false;
   });
 });
+confirmClearButton.addEventListener("click", () => {
+  const target = pendingClearTarget;
+  if (!target) return;
+  const targetLabel = target === "out" ? "往路" : target === "back" ? "復路" : "全シート";
+  recordUndoSnapshot(activeSheet, `clear-${target}`, true);
+  if (target === "all") {
+    const settings = { ...project.settings };
+    clearProject();
+    project = createBlankProject();
+    project.settings = settings;
+  } else {
+    project.sheets[target] = createRows(target, project.sheets[target === "out" ? "back" : "out"].length);
+  }
+  clearDialog.close();
+  renderSheet();
+  project = saveProject(project);
+  showNotice(`${targetLabel}を消去しました。`, "success");
+});
+cancelClearButton.addEventListener("click", resetClearDialog);
+clearDialog.addEventListener("close", resetClearDialog);
 
 const supportDialog = document.querySelector("#supportDialog");
 document.querySelector("#supportOpenBtn").addEventListener("click", () => supportDialog.showModal());
@@ -1667,16 +1736,16 @@ voiceRateValue.textContent = `${project.settings.voiceRate.toFixed(1)}倍`;
 pointScriptInputs.forEach((input) => {
   input.checked = Boolean(project.settings.pointNameScripts[input.dataset.pointScript]);
 });
-pointScriptSettingsButton.addEventListener("click", (event) => {
+settingsOpenButton.addEventListener("click", (event) => {
   event.stopPropagation();
   if (!settingsDialog.open) {
     renderPointAliasEditors();
     settingsDialog.showModal();
-    pointScriptSettingsButton.setAttribute("aria-expanded", "true");
+    settingsOpenButton.setAttribute("aria-expanded", "true");
   }
 });
 settingsDialog.addEventListener("close", () => {
-  pointScriptSettingsButton.setAttribute("aria-expanded", "false");
+  settingsOpenButton.setAttribute("aria-expanded", "false");
 });
 voiceRateInput.addEventListener("input", () => {
   project.settings.voiceRate = clamp(Number(voiceRateInput.value) || 1.2, 0.5, 1.5);
@@ -1813,9 +1882,7 @@ const voiceController = createVoiceController({
       target.value = value;
       if (!handleFieldChange(target, { forceHistory: true })) return;
       formatNumericInput(target);
-      if (NUMERIC_FIELDS.has(field)) {
-        setLastVoiceNumericValue(target.value);
-      }
+      setLastVoiceValue(target.value);
       if (field === "pointName") recordPointName(value);
       voiceStatus.textContent = `${value} と復唱します`;
       voiceButtonLabel.textContent = "🔊 復唱中…";
