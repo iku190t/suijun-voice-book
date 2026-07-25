@@ -102,10 +102,12 @@ main { max-width: 1540px; margin: 0 auto; padding: 9px 8px 28px; }
 }
 
 .table-wrap {
-  overflow-x: auto;
-  overflow-y: visible;
+  max-height: max(280px, calc(100dvh - 116px));
+  overflow: auto;
   padding-top: 17px;
   touch-action: pan-x pan-y;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
   border: 1px solid #9fc9e2;
   border-radius: 9px;
   background: var(--surface);
@@ -115,6 +117,12 @@ main { max-width: 1540px; margin: 0 auto; padding: 9px 8px 28px; }
 table { width: 100%; min-width: var(--table-min-width, 790px); border-collapse: separate; border-spacing: 0; table-layout: fixed; }
 th, td { height: var(--row-height, 48px); padding: 0; border-right: 1px solid var(--line); border-bottom: 1px solid var(--line); text-align: center; }
 th { height: var(--row-height, 48px); padding: 5px 2px; color: #fff; background: #2588c5; font-size: var(--header-font-size, 12px); white-space: nowrap; }
+.table-wrap thead th {
+  position: sticky;
+  z-index: 14;
+  top: 0;
+  box-shadow: 0 2px 0 #8fc4e2;
+}
 th:nth-child(1), td:nth-child(1) { width: var(--number-width, 42px); }
 th:nth-child(2), td:nth-child(2) { width: var(--point-width, 116px); }
 th:nth-child(3), td:nth-child(3) { width: var(--distance-width, 94px); }
