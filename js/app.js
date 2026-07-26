@@ -6,7 +6,7 @@ import {
   LEVELING_TOLERANCE_PRESETS,
   resolveToleranceDistanceMeters,
   toNumber
-} from "./calculation.js?v=111";
+} from "./calculation.js?v=112";
 import {
   chooseLevelReading,
   createVoiceController,
@@ -14,14 +14,14 @@ import {
   normalizeSpokenNumber,
   prepareSpeechSynthesis,
   speakBack
-} from "./voice.js?v=111";
-import { clearProject, loadProject, saveProject } from "./storage.js?v=111";
-import { exportSheetCsv } from "./export.js?v=111";
+} from "./voice.js?v=112";
+import { clearProject, loadProject, saveProject } from "./storage.js?v=112";
+import { exportSheetCsv } from "./export.js?v=112";
 import {
   alignSheetsWithCurrentLabels,
   isValidStaffReading,
   reversePointNamesWithinUsedRows
-} from "./rules.js?v=111";
+} from "./rules.js?v=112";
 import {
   choosePointName,
   getRankedPointNameCandidates,
@@ -29,8 +29,8 @@ import {
   normalizePointName,
   pointNameToSpeech,
   recordPointNameUsage
-} from "./point-names.js?v=111";
-import { initializeAnalytics, trackEvent } from "./analytics.js?v=111";
+} from "./point-names.js?v=112";
+import { initializeAnalytics, trackEvent } from "./analytics.js?v=112";
 
 initializeAnalytics();
 
@@ -599,12 +599,12 @@ function updateToleranceDisplay(toleranceState) {
   tolerancePresetSummary.textContent = toleranceState.preset.label;
   toleranceDistanceSummary.textContent = toleranceState.distanceMeters === null
     ? "距離待ち"
-    : `${toleranceState.distanceMode === "manual" ? "手入力" : "シート"} ${Number(toleranceState.distanceMeters.toFixed(3))}m`;
+    : `${toleranceState.distanceMode === "manual" ? "手入力" : "シート"} ${Math.round(toleranceState.distanceMeters)}m`;
   manualToleranceDistanceField.hidden = toleranceState.distanceMode !== "manual";
   if (document.activeElement !== manualToleranceDistanceInput) {
     const manualDistance = toNumber(project.settings.manualToleranceDistance);
     manualToleranceDistanceInput.value = manualDistance !== null && manualDistance > 0
-      ? String(manualDistance)
+      ? String(Math.round(manualDistance))
       : "";
   }
   document.querySelector("#toleranceFormula").textContent = `${toleranceState.preset.coefficient}mm√S`;
@@ -1864,6 +1864,9 @@ manualToleranceDistanceInput.addEventListener("input", (event) => {
     : null;
   recalculateAndRender();
   scheduleAutosave();
+});
+manualToleranceDistanceInput.addEventListener("blur", () => {
+  updateToleranceDisplay(getToleranceState());
 });
 
 insertRowButton.addEventListener("click", () => {
