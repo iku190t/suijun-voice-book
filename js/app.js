@@ -7,7 +7,7 @@ import {
   LEVELING_TOLERANCE_PRESETS,
   resolveToleranceDistanceMeters,
   toNumber
-} from "./calculation.js?v=148";
+} from "./calculation.js?v=149";
 import {
   chooseLevelReading,
   createVoiceController,
@@ -15,15 +15,15 @@ import {
   normalizeSpokenNumber,
   prepareSpeechSynthesis,
   speakBack
-} from "./voice.js?v=148";
-import { clearProject, loadProject, saveProject } from "./storage.js?v=148";
-import { exportNotebookCsv } from "./export.js?v=148";
+} from "./voice.js?v=149";
+import { clearProject, loadProject, saveProject } from "./storage.js?v=149";
+import { exportNotebookCsv } from "./export.js?v=149";
 import {
   alignSheetsWithCurrentLabels,
   isValidStaffReading,
   rowHasLevelObservationData,
   reversePointNamesWithinUsedRows
-} from "./rules.js?v=148";
+} from "./rules.js?v=149";
 import {
   choosePointName,
   composePointNameSuggestionCandidates,
@@ -33,8 +33,8 @@ import {
   normalizePointName,
   pointNameToSpeech,
   recordPointNameUsage
-} from "./point-names.js?v=148";
-import { initializeAnalytics, trackEvent } from "./analytics.js?v=148";
+} from "./point-names.js?v=149";
+import { initializeAnalytics, trackEvent } from "./analytics.js?v=149";
 
 initializeAnalytics();
 
@@ -44,6 +44,7 @@ const APP_SHARE_TITLE = "水準ボイス野帳";
 const APP_SHARE_TEXT = "水準測量の音声入力Web野帳です。";
 const POINT_SUGGESTION_LIMIT = 6;
 const POINT_SUGGESTION_SEEDS = ["NO.0", "TP0", "KBM0", "T-0", "BC.0", "SP.0"];
+const POINT_NAME_FINALIZE_DELAYS = new Set([1000, 1500, 2000]);
 const NUMERIC_FIELDS = new Set(["bs", "fs", "elevation", "planHeight", "distance"]);
 const UNSIGNED_DECIMAL_FIELDS = new Set(["bs", "fs", "distance"]);
 const COLUMN_DEFINITIONS = [
@@ -274,7 +275,8 @@ function createBlankProject() {
       ),
       columnVisibilityDefaultsVersion: 3,
       voiceRate: 1.2,
-      voiceSettingsVersion: 2,
+      pointNameFinalizeDelayMs: 1500,
+      voiceSettingsVersion: 3,
       autoVoiceCursorMove: true,
       sheetMeaningVersion: 2,
       tableScale: 0.44,
@@ -441,7 +443,12 @@ function normalizeLoadedProject(loaded) {
       voiceRate: hasCurrentVoiceDefaults
         ? clamp(Number(loaded.settings?.voiceRate) || 1.2, 0.5, 1.5)
         : 1.2,
-      voiceSettingsVersion: 2,
+      pointNameFinalizeDelayMs: POINT_NAME_FINALIZE_DELAYS.has(
+        Number(loaded.settings?.pointNameFinalizeDelayMs)
+      )
+        ? Number(loaded.settings.pointNameFinalizeDelayMs)
+        : 1500,
+      voiceSettingsVersion: 3,
       autoVoiceCursorMove: loaded.settings?.autoVoiceCursorMove !== false,
       sheetMeaningVersion: 2,
       tolerancePreset: hasCurrentToleranceDefaults &&
@@ -2711,11 +2718,13 @@ installAppButton.addEventListener("click", async () => {
 
 const voiceRateInput = document.querySelector("#voiceRate");
 const voiceRateValue = document.querySelector("#voiceRateValue");
+const pointNameFinalizeDelayInput = document.querySelector("#pointNameFinalizeDelay");
 const autoVoiceCursorMoveInput = document.querySelector("#autoVoiceCursorMove");
 const pointAliasList = document.querySelector("#pointAliasList");
 const pointScriptInputs = [...pointScriptControls.querySelectorAll("[data-point-script]")];
 voiceRateInput.value = project.settings.voiceRate.toFixed(1);
 voiceRateValue.textContent = `${project.settings.voiceRate.toFixed(1)}倍`;
+pointNameFinalizeDelayInput.value = String(project.settings.pointNameFinalizeDelayMs);
 autoVoiceCursorMoveInput.checked = project.settings.autoVoiceCursorMove !== false;
 pointScriptInputs.forEach((input) => {
   input.checked = Boolean(project.settings.pointNameScripts[input.dataset.pointScript]);
@@ -2735,6 +2744,14 @@ settingsDialog.addEventListener("close", () => {
 voiceRateInput.addEventListener("input", () => {
   project.settings.voiceRate = clamp(Number(voiceRateInput.value) || 1.2, 0.5, 1.5);
   voiceRateValue.textContent = `${project.settings.voiceRate.toFixed(1)}倍`;
+  scheduleAutosave();
+});
+pointNameFinalizeDelayInput.addEventListener("change", () => {
+  const delay = Number(pointNameFinalizeDelayInput.value);
+  project.settings.pointNameFinalizeDelayMs = POINT_NAME_FINALIZE_DELAYS.has(delay)
+    ? delay
+    : 1500;
+  pointNameFinalizeDelayInput.value = String(project.settings.pointNameFinalizeDelayMs);
   scheduleAutosave();
 });
 autoVoiceCursorMoveInput.addEventListener("change", () => {
@@ -2809,32 +2826,6 @@ pointAliasList.addEventListener("click", (event) => {
   if (!pointAliasList.children.length) pointAliasList.append(createPointAliasEditor());
   collectPointAliases();
 });
-
-function normalizeVoiceMatchText(value) {
-  return String(value ?? "")
-    .normalize("NFKC")
-    .toLocaleLowerCase("ja-JP")
-    .replace(/[、。,\s]/g, "");
-}
-
-function isImmediatePointNameVoiceMatch(value, transcript, alternatives = []) {
-  const inputs = [...new Set([
-    transcript,
-    ...(Array.isArray(alternatives) ? alternatives : [])
-  ].map((input) => String(input ?? "").trim()).filter(Boolean))];
-
-  return inputs.some((input) => {
-    const normalized = normalizePointName(input, project.settings.pointAliases);
-    if (normalized !== value) return false;
-    if (/^(?=.*\d)[A-Z0-9.+-]+$/.test(normalized)) return true;
-
-    const spokenKey = normalizeVoiceMatchText(input);
-    return project.settings.pointAliases.some((alias) => (
-      normalizeVoiceMatchText(alias.spoken) === spokenKey &&
-      normalizePointName(alias.pointName, project.settings.pointAliases) === value
-    ));
-  });
-}
 
 const voiceController = createVoiceController({
   onStatus: (message) => {
@@ -2944,15 +2935,15 @@ const voiceController = createVoiceController({
         project.settings.pointNameScripts
       );
       if (!pointName) return false;
-      if (
-        recognitionDetails.isFinal ||
-        isImmediatePointNameVoiceMatch(
-          pointName,
-          transcript,
-          recognitionDetails.alternatives
-        )
-      ) return true;
-      return { delayMs: 280, key: pointName };
+      if (recognitionDetails.isFinal) return true;
+      const interimKey = [
+        transcript,
+        ...(recognitionDetails.alternatives || [])
+      ].join("\u241f");
+      return {
+        delayMs: project.settings.pointNameFinalizeDelayMs,
+        key: interimKey
+      };
     }
     if (!NUMERIC_FIELDS.has(voiceTarget.dataset.field)) return false;
     if (voiceTarget.dataset.field === "bs" || voiceTarget.dataset.field === "fs") {

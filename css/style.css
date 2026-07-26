@@ -1023,6 +1023,13 @@ dialog .eyebrow { color: var(--brand-2); }
 .danger-button { border-color: #bd5151; color: #fff; background: #b83232; }
 .setting-field { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 8px; font-weight: var(--weight-bold); }
 .setting-field output { color: var(--brand-2); font-variant-numeric: tabular-nums; }
+.point-name-wait-setting { margin-top: 14px; }
+.point-name-wait-setting select {
+  min-width: 112px;
+  padding: 7px 34px 7px 12px;
+  font-size: 1rem;
+  font-weight: var(--weight-bold);
+}
 .rate-slider { width: 100%; margin-top: 12px; accent-color: var(--brand); }
 .rate-labels { display: flex; justify-content: space-between; color: #547188; font-size: .72rem; }
 .alias-settings { margin-top: 20px; padding-top: 15px; border-top: 1px solid var(--line); }
