@@ -7,7 +7,7 @@ import {
   LEVELING_TOLERANCE_PRESETS,
   resolveToleranceDistanceMeters,
   toNumber
-} from "./calculation.js?v=161";
+} from "./calculation.js?v=162";
 import {
   chooseLevelReading,
   createVoiceController,
@@ -15,15 +15,15 @@ import {
   normalizeSpokenNumber,
   prepareSpeechSynthesis,
   speakBack
-} from "./voice.js?v=161";
-import { clearProject, loadProject, saveProject } from "./storage.js?v=161";
-import { exportNotebookCsv } from "./export.js?v=161";
+} from "./voice.js?v=162";
+import { clearProject, loadProject, saveProject } from "./storage.js?v=162";
+import { exportNotebookCsv } from "./export.js?v=162";
 import {
   alignSheetsWithCurrentLabels,
   isValidStaffReading,
   rowHasLevelObservationData,
   reversePointNamesWithinUsedRows
-} from "./rules.js?v=161";
+} from "./rules.js?v=162";
 import {
   choosePointName,
   composePointNameSuggestionCandidates,
@@ -36,8 +36,8 @@ import {
   normalizePointName,
   pointNameToSpeech,
   recordPointNameUsage
-} from "./point-names.js?v=161";
-import { initializeAnalytics, trackEvent } from "./analytics.js?v=161";
+} from "./point-names.js?v=162";
+import { initializeAnalytics, trackEvent } from "./analytics.js?v=162";
 
 initializeAnalytics();
 
@@ -45,6 +45,8 @@ const DEFAULT_ROW_COUNT = 200;
 const APP_SHARE_URL = "https://iku190t.github.io/suijun-voice-book/";
 const APP_SHARE_TITLE = "水準ボイス";
 const APP_SHARE_TEXT = "水準測量の音声入力Web野帳です。";
+const APP_RELEASE_VERSION = new URL(import.meta.url).searchParams.get("v") || "162";
+const FEEDBACK_EMAIL = "ez.survey2023@gmail.com";
 const POINT_SUGGESTION_LIMIT = 6;
 const POINT_SUGGESTION_SEEDS = ["NO.0", "TP0", "KBM0", "T-0", "BC.0", "SP.0"];
 const POINT_NAME_FINALIZE_DELAYS = new Set([500, 1000, 1500, 2000]);
@@ -99,6 +101,7 @@ const voiceDock = document.querySelector(".voice-dock");
 const pointScriptControls = document.querySelector("#pointScriptControls");
 const settingsDialog = document.querySelector("#settingsDialog");
 const settingsOpenButton = document.querySelector("#settingsOpenBtn");
+const feedbackMailButton = document.querySelector("#feedbackMailBtn");
 const pointSuggestions = document.querySelector("#pointSuggestions");
 const pointSuggestionButtons = document.querySelector("#pointSuggestionButtons");
 const pointClipboardPopover = document.querySelector("#pointClipboardPopover");
@@ -3029,6 +3032,24 @@ settingsOpenButton.addEventListener("click", (event) => {
 });
 settingsDialog.addEventListener("close", () => {
   settingsOpenButton.setAttribute("aria-expanded", "false");
+});
+feedbackMailButton.addEventListener("click", () => {
+  const subject = "水準ボイス 改善案・不具合報告";
+  const body = [
+    "【種類】改善案 / 不具合",
+    "",
+    "【内容】",
+    "",
+    "",
+    "【利用環境】",
+    `アプリ版：v${APP_RELEASE_VERSION}`,
+    `端末・ブラウザ：${navigator.userAgent}`,
+    `ページ：${window.location.href}`,
+  ].join("\r\n");
+  const mailto = `mailto:${FEEDBACK_EMAIL}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+  trackEvent("open_feedback_email");
+  settingsDialog.close();
+  window.location.href = mailto;
 });
 voiceRateInput.addEventListener("input", () => {
   project.settings.voiceRate = clamp(Number(voiceRateInput.value) || 1.2, 0.5, 1.5);

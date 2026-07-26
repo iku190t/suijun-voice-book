@@ -1084,6 +1084,31 @@ dialog .eyebrow { color: var(--brand-2); }
 .alias-row input { width: 100%; min-width: 0; padding: 7px 8px; font-size: 16px; }
 .alias-remove { min-width: 44px; padding: 5px; border-color: #e5a7a7; color: #8d2020; background: #fff7f7; }
 .add-alias-button { width: 100%; margin-top: 9px; color: #0f527c; background: #e9f7ff; }
+.feedback-settings {
+  margin-top: 20px;
+  padding-top: 15px;
+  border-top: 1px solid var(--line);
+}
+.feedback-settings h3 {
+  margin: 0 0 4px;
+  color: #174f73;
+  font-size: 1rem;
+}
+.feedback-settings p {
+  margin: 0 0 10px;
+  color: #547188;
+  font-size: .8rem;
+  line-height: 1.5;
+}
+.feedback-mail-button {
+  width: 100%;
+  min-height: 48px;
+  border-color: #6aaed3;
+  color: #0f527c;
+  background: #e9f7ff;
+  font-size: 1rem;
+  font-weight: var(--weight-bold);
+}
 .table-wrap.pinching { border-color: #1b8dce; box-shadow: 0 0 0 3px rgba(27,141,206,.18); }
 .point-suggestions {
   width: 100%;
