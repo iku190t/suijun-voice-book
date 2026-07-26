@@ -7,7 +7,7 @@ import {
   LEVELING_TOLERANCE_PRESETS,
   resolveToleranceDistanceMeters,
   toNumber
-} from "./calculation.js?v=138";
+} from "./calculation.js?v=139";
 import {
   chooseLevelReading,
   createVoiceController,
@@ -15,15 +15,15 @@ import {
   normalizeSpokenNumber,
   prepareSpeechSynthesis,
   speakBack
-} from "./voice.js?v=138";
-import { clearProject, loadProject, saveProject } from "./storage.js?v=138";
-import { exportNotebookCsv } from "./export.js?v=138";
+} from "./voice.js?v=139";
+import { clearProject, loadProject, saveProject } from "./storage.js?v=139";
+import { exportNotebookCsv } from "./export.js?v=139";
 import {
   alignSheetsWithCurrentLabels,
   isValidStaffReading,
   rowHasLevelObservationData,
   reversePointNamesWithinUsedRows
-} from "./rules.js?v=138";
+} from "./rules.js?v=139";
 import {
   choosePointName,
   getPointNameConfusionCandidates,
@@ -32,8 +32,8 @@ import {
   normalizePointName,
   pointNameToSpeech,
   recordPointNameUsage
-} from "./point-names.js?v=138";
-import { initializeAnalytics, trackEvent } from "./analytics.js?v=138";
+} from "./point-names.js?v=139";
+import { initializeAnalytics, trackEvent } from "./analytics.js?v=139";
 
 initializeAnalytics();
 
@@ -1633,6 +1633,11 @@ async function moveAfterVoiceInput(current) {
   const field = current.dataset.field;
   const rowIndex = findRowIndex(current);
   if (!field || rowIndex < 0) return;
+
+  if (field === "planHeight") {
+    moveStraightDown(current, false);
+    return;
+  }
 
   if (field === "fs") {
     ensureFollowingRow(rowIndex);
