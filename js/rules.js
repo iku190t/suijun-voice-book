@@ -65,6 +65,19 @@ export function rowHasContent(row) {
   );
 }
 
+export function rowHasEnteredContent(row) {
+  return Boolean(
+    String(row?.pointName ?? "").trim() ||
+    row?.bs !== null && row?.bs !== undefined ||
+    row?.fs !== null && row?.fs !== undefined ||
+    row?.distance !== null && row?.distance !== undefined ||
+    row?.elevationType === "manual" &&
+      row?.elevation !== null &&
+      row?.elevation !== undefined ||
+    String(row?.note ?? "").trim()
+  );
+}
+
 export function reversePointNamesWithinUsedRows(sourceRows, targetRows) {
   let usedLength = 0;
   sourceRows.forEach((row, index) => {
