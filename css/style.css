@@ -51,8 +51,21 @@ a { color: #0d5d74; }
 .brand { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; max-width: 1500px; margin: 0 auto 10px; }
 .brand h1 { margin: 0; font-size: clamp(1.45rem, 5vw, 2.2rem); letter-spacing: .02em; }
 .eyebrow { margin: 0 0 2px; color: #d9f2ff; font-size: .68rem; font-weight: var(--weight-bold); letter-spacing: .1em; text-transform: uppercase; }
-.brand-links { display: flex; align-items: center; gap: 7px; flex-wrap: wrap; justify-content: flex-end; font-size: .73rem; }
-.brand-links a { color: #fff; font-weight: var(--weight-strong); }
+.brand-links {
+  display: grid;
+  grid-template-columns: repeat(2, max-content);
+  align-items: center;
+  justify-content: end;
+  gap: 3px 6px;
+  font-size: .73rem;
+}
+.brand-links a {
+  grid-column: 1 / -1;
+  color: #fff;
+  font-weight: var(--weight-strong);
+  text-align: right;
+  white-space: nowrap;
+}
 .support-button,
 .share-button { min-height: 38px; padding: 6px 9px; border-color: #bce8ff; color: #07334f; background: #d9f4ff; }
 .share-button { color: #fff; border-color: rgba(255, 255, 255, .8); background: rgba(4, 73, 117, .5); }
@@ -844,7 +857,13 @@ dialog .eyebrow { color: var(--brand-2); }
 }
 
 @media (max-width: 430px) {
-  .brand-links { max-width: 48%; }
+  .brand-links { max-width: 52%; }
+  .brand-links a { font-size: .65rem; }
+  .brand-links .share-button,
+  .brand-links .support-button {
+    min-height: 34px;
+    padding: 4px 7px;
+  }
   .summary-card, .tolerance-card { padding: 7px 8px; }
   .toolbar {
     grid-template-columns: repeat(4, minmax(0, 1fr));
