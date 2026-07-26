@@ -1,6 +1,6 @@
 const GA_MEASUREMENT_ID = "G-88B9YPJXWP";
 const APP_NAME = "suijun_voice_book";
-const APP_VERSION = "154";
+const APP_VERSION = "155";
 
 function getGtag() {
   return typeof window.gtag === "function" ? window.gtag : null;
@@ -38,7 +38,7 @@ export function initializeAnalytics() {
   window.gtag("config", GA_MEASUREMENT_ID, {
     app_name: APP_NAME,
     app_version: APP_VERSION,
-    page_title: "水準ボイス野帳",
+    page_title: "水準ボイス",
     anonymize_ip: true
   });
   trackEvent("page_access");

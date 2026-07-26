@@ -1,4 +1,4 @@
-import { formatRoundTripMillimeters } from "./calculation.js?v=154";
+import { formatRoundTripMillimeters } from "./calculation.js?v=155";
 
 const CSV_HEADERS = [
   "No.",
@@ -98,7 +98,7 @@ export function createNotebookCsv(outRows, backRows) {
 export function createCsvFilename(now = new Date()) {
   const pad = (value) => String(value).padStart(2, "0");
   return [
-    "水準ボイス野帳",
+    "水準ボイス",
     now.getFullYear(),
     "-",
     pad(now.getMonth() + 1),
@@ -121,7 +121,7 @@ export async function exportNotebookCsv({ outRows = [], backRows = [] } = {}) {
   const shareData = file
     ? {
       files: [file],
-      title: "水準ボイス野帳",
+      title: "水準ボイス",
       text: "往路・復路のCSVです。"
     }
     : null;
