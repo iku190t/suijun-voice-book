@@ -7,7 +7,7 @@ import {
   LEVELING_TOLERANCE_PRESETS,
   resolveToleranceDistanceMeters,
   toNumber
-} from "./calculation.js?v=169";
+} from "./calculation.js?v=170";
 import {
   chooseLevelReading,
   createVoiceController,
@@ -15,15 +15,15 @@ import {
   normalizeSpokenNumber,
   prepareSpeechSynthesis,
   speakBack
-} from "./voice.js?v=169";
-import { clearProject, loadProject, saveProject } from "./storage.js?v=169";
-import { exportNotebookCsv } from "./export.js?v=169";
+} from "./voice.js?v=170";
+import { clearProject, loadProject, saveProject } from "./storage.js?v=170";
+import { exportNotebookCsv } from "./export.js?v=170";
 import {
   alignSheetsWithCurrentLabels,
   isValidStaffReading,
   rowHasLevelObservationData,
   reversePointNamesWithinUsedRows
-} from "./rules.js?v=169";
+} from "./rules.js?v=170";
 import {
   choosePointName,
   composePointNameSuggestionCandidates,
@@ -36,8 +36,8 @@ import {
   normalizePointName,
   pointNameToSpeech,
   recordPointNameUsage
-} from "./point-names.js?v=169";
-import { initializeAnalytics, trackEvent } from "./analytics.js?v=169";
+} from "./point-names.js?v=170";
+import { initializeAnalytics, trackEvent } from "./analytics.js?v=170";
 
 initializeAnalytics();
 
@@ -45,7 +45,7 @@ const DEFAULT_ROW_COUNT = 200;
 const APP_SHARE_URL = "https://iku190t.github.io/suijun-voice-book/";
 const APP_SHARE_TITLE = "水準ボイス";
 const APP_SHARE_TEXT = "水準測量の音声入力Web野帳です。";
-const APP_RELEASE_VERSION = new URL(import.meta.url).searchParams.get("v") || "169";
+const APP_RELEASE_VERSION = new URL(import.meta.url).searchParams.get("v") || "170";
 const FEEDBACK_EMAIL = "ez.survey2023@gmail.com";
 const POINT_SUGGESTION_LIMIT = 6;
 const POINT_SUGGESTION_SEEDS = ["NO.0", "TP0", "KBM0", "T-0", "BC.0", "SP.0"];
@@ -821,12 +821,17 @@ function recalculateAndRender() {
     tr.querySelector(".diff").textContent = Number.isFinite(row._difference)
       ? row._difference.toFixed(3)
       : "";
-    tr.querySelector(".round-trip-diff").textContent = Number.isFinite(row._roundTripDifferenceMm)
+    const roundTripDifferenceCell = tr.querySelector(".round-trip-diff");
+    roundTripDifferenceCell.textContent = Number.isFinite(row._roundTripDifferenceMm)
       ? formatRoundTripMillimeters(
         row._roundTripDifferenceMm,
         row._roundTripDifferenceIntermediate
       )
       : "";
+    roundTripDifferenceCell.classList.toggle(
+      "negative",
+      Number.isFinite(row._roundTripDifferenceMm) && row._roundTripDifferenceMm < 0
+    );
     const elevationInput = tr.querySelector('[data-field="elevation"]');
     if (document.activeElement !== elevationInput || row.elevationType === "calculated") {
       elevationInput.value = displayValue(row.elevation, row.elevation !== null ? 3 : null);

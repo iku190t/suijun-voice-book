@@ -693,6 +693,7 @@ td input.voice-selected { position: relative; z-index: 7; box-shadow: inset 0 0 
 tr:nth-child(even) td { background-color: rgba(46, 145, 203, .035); }
 td.calc { padding: 4px; background: #eaf6fc !important; font-size: var(--input-font-size, 16px); font-weight: var(--weight-strong); font-variant-numeric: tabular-nums; }
 tr.incomplete .diff { color: #9b5700; }
+td.round-trip-diff.negative { color: #c52c2c; }
 td.plan-difference.negative { color: #c52c2c; }
 td.starting-elevation-cell,
 td.starting-elevation-cell input {
