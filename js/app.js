@@ -6,7 +6,7 @@ import {
   LEVELING_TOLERANCE_PRESETS,
   sumObservationDistanceMeters,
   toNumber
-} from "./calculation.js?v=98";
+} from "./calculation.js?v=99";
 import {
   chooseLevelReading,
   createVoiceController,
@@ -14,14 +14,14 @@ import {
   normalizeSpokenNumber,
   prepareSpeechSynthesis,
   speakBack
-} from "./voice.js?v=98";
-import { clearProject, loadProject, saveProject } from "./storage.js?v=98";
-import { exportSheetCsv } from "./export.js?v=98";
+} from "./voice.js?v=99";
+import { clearProject, loadProject, saveProject } from "./storage.js?v=99";
+import { exportSheetCsv } from "./export.js?v=99";
 import {
   alignSheetsWithCurrentLabels,
   isValidStaffReading,
   reversePointNamesWithinUsedRows
-} from "./rules.js?v=98";
+} from "./rules.js?v=99";
 import {
   choosePointName,
   getRankedPointNameCandidates,
@@ -29,8 +29,8 @@ import {
   normalizePointName,
   pointNameToSpeech,
   recordPointNameUsage
-} from "./point-names.js?v=98";
-import { initializeAnalytics, trackEvent } from "./analytics.js?v=98";
+} from "./point-names.js?v=99";
+import { initializeAnalytics, trackEvent } from "./analytics.js?v=99";
 
 initializeAnalytics();
 
@@ -112,6 +112,8 @@ let lastVoiceValueText = "";
 let pointClipboardPositionFrame = null;
 let pointClipboardDismissedFor = null;
 let keyboardViewportBaseline = window.visualViewport?.height || window.innerHeight;
+let keyboardCellScrollTimer = null;
+let keyboardCellScrollTarget = null;
 let stickyHeaderFrame = null;
 const HISTORY_LIMIT = 50;
 const undoHistory = { out: [], back: [] };
@@ -1138,6 +1140,49 @@ function keepSuggestionEditorAboveKeyboard() {
 window.visualViewport?.addEventListener("resize", keepSuggestionEditorAboveKeyboard);
 window.visualViewport?.addEventListener("scroll", keepSuggestionEditorAboveKeyboard);
 
+function ensureFocusedCellAboveKeyboard(input) {
+  if (
+    !input?.isConnected ||
+    document.activeElement !== input ||
+    !input.matches("#notebookBody input") ||
+    voiceModeActive ||
+    voiceSessionActive
+  ) return;
+
+  const viewport = window.visualViewport;
+  const viewportHeight = viewport?.height || window.innerHeight;
+  if (keyboardViewportBaseline - viewportHeight <= 120) return;
+
+  const rowHeight = input.closest("tr")?.getBoundingClientRect().height || 48;
+  const visibleTop = viewport?.offsetTop || 0;
+  const visibleBottom = visibleTop + viewportHeight;
+  const maximumClearance = Math.max(rowHeight, viewportHeight - rowHeight - 72);
+  const fourRowClearance = Math.min(rowHeight * 4, maximumClearance);
+  const desiredCellBottom = visibleBottom - fourRowClearance - 8;
+  const overlap = input.getBoundingClientRect().bottom - desiredCellBottom;
+  if (overlap <= 1) return;
+
+  window.scrollBy({
+    top: Math.ceil(overlap),
+    left: 0,
+    behavior: "smooth",
+  });
+}
+
+function scheduleFocusedCellKeyboardScroll(input = document.activeElement, delay = 120) {
+  if (
+    !input?.matches?.("#notebookBody input") ||
+    voiceModeActive ||
+    voiceSessionActive
+  ) return;
+  keyboardCellScrollTarget = input;
+  clearTimeout(keyboardCellScrollTimer);
+  keyboardCellScrollTimer = setTimeout(() => {
+    keyboardCellScrollTimer = null;
+    requestAnimationFrame(() => ensureFocusedCellAboveKeyboard(keyboardCellScrollTarget));
+  }, delay);
+}
+
 function updateSoftwareKeyboardState() {
   const viewportHeight = window.visualViewport?.height || window.innerHeight;
   if (!document.activeElement?.matches?.("#notebookBody input")) {
@@ -1152,11 +1197,24 @@ function updateSoftwareKeyboardState() {
     keyboardViewportBaseline - viewportHeight > 120
   );
   document.body.classList.toggle("software-keyboard-open", keyboardOpen);
+  if (keyboardOpen) {
+    const rowHeight = document.activeElement.closest("tr")?.getBoundingClientRect().height || 48;
+    document.body.style.setProperty("--keyboard-row-clearance", `${Math.ceil(rowHeight * 4 + 16)}px`);
+  } else {
+    document.body.style.removeProperty("--keyboard-row-clearance");
+  }
+  return keyboardOpen;
 }
 
-window.visualViewport?.addEventListener("resize", updateSoftwareKeyboardState);
+function handleKeyboardViewportResize() {
+  if (updateSoftwareKeyboardState()) {
+    scheduleFocusedCellKeyboardScroll(document.activeElement, 90);
+  }
+}
+
+window.visualViewport?.addEventListener("resize", handleKeyboardViewportResize);
 window.visualViewport?.addEventListener("scroll", updateSoftwareKeyboardState);
-window.addEventListener("resize", updateSoftwareKeyboardState);
+window.addEventListener("resize", handleKeyboardViewportResize);
 
 function recordPointName(pointName) {
   const normalized = normalizePointName(pointName, project.settings.pointAliases);
@@ -1295,7 +1353,10 @@ tbody.addEventListener("focusin", (event) => {
   } else {
     hidePointSuggestions();
   }
-  requestAnimationFrame(updateSoftwareKeyboardState);
+  requestAnimationFrame(() => {
+    updateSoftwareKeyboardState();
+    scheduleFocusedCellKeyboardScroll(event.target, 280);
+  });
 });
 
 tbody.addEventListener("pointerdown", (event) => {
@@ -1487,6 +1548,11 @@ tbody.addEventListener("change", (event) => {
 });
 
 tbody.addEventListener("focusout", (event) => {
+  if (keyboardCellScrollTarget === event.target) {
+    keyboardCellScrollTarget = null;
+    clearTimeout(keyboardCellScrollTimer);
+    keyboardCellScrollTimer = null;
+  }
   requestAnimationFrame(updateSoftwareKeyboardState);
   endHistoryGroup();
   if (event.target.matches("input")) formatNumericInput(event.target);

@@ -856,3 +856,7 @@ body.point-suggestions-visible:not(.voice-mode-active) .point-suggestion-editor 
   height: 40px;
   min-height: 40px;
 }
+
+body.software-keyboard-open:not(.voice-mode-active) {
+  padding-bottom: calc(var(--keyboard-row-clearance, 208px) + env(safe-area-inset-bottom));
+}
