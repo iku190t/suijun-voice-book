@@ -7,7 +7,7 @@ import {
   LEVELING_TOLERANCE_PRESETS,
   resolveToleranceDistanceMeters,
   toNumber
-} from "./calculation.js?v=157";
+} from "./calculation.js?v=158";
 import {
   chooseLevelReading,
   createVoiceController,
@@ -15,15 +15,15 @@ import {
   normalizeSpokenNumber,
   prepareSpeechSynthesis,
   speakBack
-} from "./voice.js?v=157";
-import { clearProject, loadProject, saveProject } from "./storage.js?v=157";
-import { exportNotebookCsv } from "./export.js?v=157";
+} from "./voice.js?v=158";
+import { clearProject, loadProject, saveProject } from "./storage.js?v=158";
+import { exportNotebookCsv } from "./export.js?v=158";
 import {
   alignSheetsWithCurrentLabels,
   isValidStaffReading,
   rowHasLevelObservationData,
   reversePointNamesWithinUsedRows
-} from "./rules.js?v=157";
+} from "./rules.js?v=158";
 import {
   choosePointName,
   composePointNameSuggestionCandidates,
@@ -36,8 +36,8 @@ import {
   normalizePointName,
   pointNameToSpeech,
   recordPointNameUsage
-} from "./point-names.js?v=157";
-import { initializeAnalytics, trackEvent } from "./analytics.js?v=157";
+} from "./point-names.js?v=158";
+import { initializeAnalytics, trackEvent } from "./analytics.js?v=158";
 
 initializeAnalytics();
 
@@ -80,6 +80,7 @@ const tableShell = document.querySelector(".table-shell");
 const tableWrap = document.querySelector(".table-wrap");
 const stickyTableHeader = document.querySelector("#stickyTableHeader");
 const stickyNotebookHeader = document.querySelector("#stickyNotebookHeader");
+const sheetHeading = document.querySelector(".sheet-heading");
 const hiddenColumnButtons = document.querySelector("#hiddenColumnButtons");
 const tolerancePresetSelect = document.querySelector("#tolerancePreset");
 const toleranceDistanceModeSelect = document.querySelector("#toleranceDistanceMode");
@@ -1961,14 +1962,29 @@ function syncStickyHeaderColumns() {
 
 function updateStickyTableHeader() {
   const wrapRect = tableWrap.getBoundingClientRect();
-
+  const sheetHeadingRect = sheetHeading.getBoundingClientRect();
+  const viewportTop = window.visualViewport?.offsetTop || 0;
+  const sheetHeadingIsStuck =
+    sheetHeadingRect.top <= viewportTop + 1 &&
+    wrapRect.bottom > sheetHeadingRect.bottom;
+  sheetHeading.classList.toggle("is-stuck", sheetHeadingIsStuck);
   const headerHeight = notebook.tHead?.getBoundingClientRect().height || 0;
-  const visible = wrapRect.top < 0 && wrapRect.bottom > headerHeight;
+  const sourceHeaderTop = notebook.tHead
+    ? notebook.tHead.getBoundingClientRect().top
+    : wrapRect.top;
+  const stickyTop = sheetHeadingIsStuck
+    ? Math.max(viewportTop, sheetHeadingRect.bottom)
+    : viewportTop;
+  const visible =
+    sheetHeadingIsStuck &&
+    sourceHeaderTop < stickyTop &&
+    wrapRect.bottom > stickyTop + headerHeight;
   stickyTableHeader.hidden = !visible;
   if (!visible) return;
 
   const left = Math.max(0, wrapRect.left);
   const width = Math.min(window.innerWidth - left, wrapRect.width);
+  stickyTableHeader.style.top = `${Math.round(stickyTop)}px`;
   stickyTableHeader.style.left = `${Math.round(left)}px`;
   stickyTableHeader.style.width = `${Math.round(width)}px`;
   syncStickyHeaderColumns();
