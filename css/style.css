@@ -22,7 +22,7 @@
 html, body { touch-action: pan-x pan-y; }
 body {
   margin: 0;
-  padding-bottom: 184px;
+  padding-bottom: 144px;
   color: var(--ink);
   background: var(--paper);
   font-family: var(--app-font);
@@ -91,45 +91,6 @@ a { color: #0d5d74; }
   stroke-linecap: round;
   stroke-linejoin: round;
 }
-.bottom-install-button {
-  position: fixed;
-  z-index: 56;
-  bottom: max(8px, env(safe-area-inset-bottom));
-  left: 50%;
-  display: flex;
-  width: auto;
-  min-width: 142px;
-  min-height: 40px;
-  align-items: center;
-  justify-content: center;
-  gap: 5px;
-  padding: 5px 10px;
-  border: 0;
-  color: #fff;
-  background: transparent;
-  box-shadow: none;
-  font-size: .78rem;
-  font-weight: var(--weight-bold);
-  transform: translateX(-50%);
-}
-.bottom-install-button svg {
-  width: 25px;
-  height: 25px;
-}
-.bottom-install-button path {
-  fill: none;
-  stroke: currentColor;
-  stroke-width: 2.2;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-}
-.bottom-install-button:active {
-  transform: translateX(-50%) translateY(1px);
-}
-body.software-keyboard-open .bottom-install-button {
-  display: none;
-}
-
 .history-buttons { display: flex; align-items: center; gap: 8px; margin-left: auto; }
 .history-buttons button {
   display: grid;
@@ -597,7 +558,7 @@ tr.row-action-selected .row-selector {
   justify-content: center;
   align-items: center;
   gap: 10px;
-  padding: 8px max(10px, env(safe-area-inset-right)) max(52px, calc(8px + env(safe-area-inset-bottom))) max(10px, env(safe-area-inset-left));
+  padding: 8px max(10px, env(safe-area-inset-right)) max(8px, env(safe-area-inset-bottom)) max(10px, env(safe-area-inset-left));
   border-top: 1px solid #7eb9dc;
   color: #fff;
   background: rgba(13, 101, 157, .97);
@@ -771,6 +732,20 @@ dialog .eyebrow { color: var(--brand-2); }
   margin: 0;
   padding-left: 1.5em;
   line-height: 1.65;
+}
+.install-settings {
+  padding-top: 14px;
+  border-top: 1px solid #b7d7e9;
+}
+.install-settings h3 {
+  margin: 0 0 9px;
+}
+.install-settings-button {
+  width: 100%;
+  min-height: 48px;
+  color: #fff;
+  border-color: var(--brand);
+  background: var(--brand);
 }
 .clear-confirmation {
   margin-top: 14px;
@@ -954,7 +929,7 @@ dialog .eyebrow { color: var(--brand-2); }
   }
   .voice-dock { grid-template-columns: 1fr; gap: 3px; }
   .voice-dock button { min-height: 116px; }
-  body { padding-bottom: 184px; }
+  body { padding-bottom: 144px; }
   .history-buttons { gap: 5px; margin-left: auto; }
   .history-buttons button { width: 42px; min-width: 42px; }
   .history-buttons svg { width: 36px; }

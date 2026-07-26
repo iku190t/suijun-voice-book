@@ -7,7 +7,7 @@ import {
   LEVELING_TOLERANCE_PRESETS,
   resolveToleranceDistanceMeters,
   toNumber
-} from "./calculation.js?v=116";
+} from "./calculation.js?v=117";
 import {
   chooseLevelReading,
   createVoiceController,
@@ -15,14 +15,14 @@ import {
   normalizeSpokenNumber,
   prepareSpeechSynthesis,
   speakBack
-} from "./voice.js?v=116";
-import { clearProject, loadProject, saveProject } from "./storage.js?v=116";
-import { exportSheetCsv } from "./export.js?v=116";
+} from "./voice.js?v=117";
+import { clearProject, loadProject, saveProject } from "./storage.js?v=117";
+import { exportSheetCsv } from "./export.js?v=117";
 import {
   alignSheetsWithCurrentLabels,
   isValidStaffReading,
   reversePointNamesWithinUsedRows
-} from "./rules.js?v=116";
+} from "./rules.js?v=117";
 import {
   choosePointName,
   getRankedPointNameCandidates,
@@ -30,8 +30,8 @@ import {
   normalizePointName,
   pointNameToSpeech,
   recordPointNameUsage
-} from "./point-names.js?v=116";
-import { initializeAnalytics, trackEvent } from "./analytics.js?v=116";
+} from "./point-names.js?v=117";
+import { initializeAnalytics, trackEvent } from "./analytics.js?v=117";
 
 initializeAnalytics();
 
@@ -2013,6 +2013,7 @@ shareAppButton.addEventListener("click", async () => {
 copyShareUrlButton.addEventListener("click", copyAppShareUrl);
 
 const installAppButton = document.querySelector("#installAppBtn");
+const installAppSection = document.querySelector("#installAppSection");
 const installDialog = document.querySelector("#installDialog");
 const installDialogMessage = document.querySelector("#installDialogMessage");
 const installDialogSteps = document.querySelector("#installDialogSteps");
@@ -2048,20 +2049,20 @@ function showInstallInstructions() {
 window.addEventListener("beforeinstallprompt", (event) => {
   event.preventDefault();
   deferredInstallPrompt = event;
-  if (!isAppStandalone()) installAppButton.hidden = false;
+  if (!isAppStandalone()) installAppSection.hidden = false;
 });
 
 window.addEventListener("appinstalled", () => {
   deferredInstallPrompt = null;
-  installAppButton.hidden = true;
+  installAppSection.hidden = true;
   trackEvent("install_app");
 });
 
-if (isAppStandalone()) installAppButton.hidden = true;
+if (isAppStandalone()) installAppSection.hidden = true;
 
 installAppButton.addEventListener("click", async () => {
   if (isAppStandalone()) {
-    installAppButton.hidden = true;
+    installAppSection.hidden = true;
     return;
   }
   if (!deferredInstallPrompt) {
@@ -2071,7 +2072,7 @@ installAppButton.addEventListener("click", async () => {
   deferredInstallPrompt.prompt();
   const choice = await deferredInstallPrompt.userChoice;
   trackEvent("install_prompt_result", { outcome: choice.outcome });
-  if (choice.outcome === "accepted") installAppButton.hidden = true;
+  if (choice.outcome === "accepted") installAppSection.hidden = true;
   deferredInstallPrompt = null;
 });
 
