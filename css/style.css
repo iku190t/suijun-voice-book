@@ -922,6 +922,9 @@ body.external-ui-recovery .voice-dock {
     minmax(0, 1.1fr);
   gap: 2px;
 }
+.point-name-keyboard-actions .numeric-keyboard-sign {
+  display: none;
+}
 .voice-dock .point-name-keyboard-actions .point-name-keyboard-space {
   color: #0d527b;
   background: #f7fcff;
@@ -981,8 +984,15 @@ body.external-ui-recovery .voice-dock {
   grid-template-rows: repeat(2, 60px);
   align-content: center;
 }
-.point-name-keyboard[data-keyboard-layout="numeric"] [data-point-keyboard-action="backspace"] {
-  grid-column: span 2;
+.point-name-keyboard[data-keyboard-layout="numeric"] .point-name-keyboard-actions > [data-point-keyboard-action="backspace"] {
+  display: none;
+}
+.point-name-keyboard[data-keyboard-layout="numeric"] .point-name-keyboard-actions .numeric-keyboard-sign {
+  display: block;
+  color: #fff;
+  border-color: #087ec0;
+  background: #168dcc;
+  font-size: 1.05rem;
 }
 .voice-dock .point-name-keyboard[data-keyboard-layout="numeric"] .point-name-keyboard-actions button {
   min-height: 60px;
@@ -1002,11 +1012,11 @@ body.external-ui-recovery .voice-dock {
   min-height: 0;
   font-size: 1.3rem;
 }
-.voice-dock .point-name-keyboard[data-keyboard-layout="numeric"] .numeric-keyboard-sign {
-  color: #fff;
-  border-color: #087ec0;
-  background: #168dcc;
-  font-size: 1.05rem;
+.voice-dock .point-name-keyboard[data-keyboard-layout="numeric"] .numeric-keyboard-backspace {
+  color: #111;
+  border-color: #9ac9e1;
+  background: #fff;
+  font-size: 1.35rem;
 }
 body.point-keyboard-active .voice-dock {
   grid-template-columns: minmax(280px, 560px);
