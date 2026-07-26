@@ -7,7 +7,7 @@ import {
   LEVELING_TOLERANCE_PRESETS,
   resolveToleranceDistanceMeters,
   toNumber
-} from "./calculation.js?v=174";
+} from "./calculation.js?v=175";
 import {
   chooseLevelReading,
   createVoiceController,
@@ -15,15 +15,15 @@ import {
   normalizeSpokenNumber,
   prepareSpeechSynthesis,
   speakBack
-} from "./voice.js?v=174";
-import { clearProject, loadProject, saveProject } from "./storage.js?v=174";
-import { exportNotebookCsv } from "./export.js?v=174";
+} from "./voice.js?v=175";
+import { clearProject, loadProject, saveProject } from "./storage.js?v=175";
+import { exportNotebookCsv } from "./export.js?v=175";
 import {
   alignSheetsWithCurrentLabels,
   isValidStaffReading,
   rowHasLevelObservationData,
   reversePointNamesWithinUsedRows
-} from "./rules.js?v=174";
+} from "./rules.js?v=175";
 import {
   choosePointName,
   composePointNameSuggestionCandidates,
@@ -36,8 +36,8 @@ import {
   normalizePointName,
   pointNameToSpeech,
   recordPointNameUsage
-} from "./point-names.js?v=174";
-import { initializeAnalytics, trackEvent } from "./analytics.js?v=174";
+} from "./point-names.js?v=175";
+import { initializeAnalytics, trackEvent } from "./analytics.js?v=175";
 
 initializeAnalytics();
 
@@ -45,7 +45,7 @@ const DEFAULT_ROW_COUNT = 200;
 const APP_SHARE_URL = "https://iku190t.github.io/suijun-voice-book/";
 const APP_SHARE_TITLE = "水準ボイス";
 const APP_SHARE_TEXT = "水準測量の音声入力Web野帳です。";
-const APP_RELEASE_VERSION = new URL(import.meta.url).searchParams.get("v") || "174";
+const APP_RELEASE_VERSION = new URL(import.meta.url).searchParams.get("v") || "175";
 const FEEDBACK_EMAIL = "ez.survey2023@gmail.com";
 const POINT_SUGGESTION_LIMIT = 6;
 const POINT_SUGGESTION_SEEDS = ["NO.0", "TP0", "KBM0", "T-0", "BC.0", "SP.0"];
@@ -130,7 +130,7 @@ const sheetToggleButton = document.querySelector("#sheetToggleBtn");
 let activeSheet = "out";
 let selectedInput = null;
 let voiceTarget = null;
-let voiceModeActive = false;
+let voiceModeActive = true;
 let voiceSessionActive = false;
 let selectedRowIndex = null;
 let autosaveTimer = null;
@@ -1178,12 +1178,12 @@ function setLastVoiceValue(value) {
 
 function updateVoiceModeUi() {
   document.body.classList.toggle("voice-mode-active", voiceModeActive);
-  voiceButton.classList.toggle("voice-mode", voiceModeActive);
-  keyboardModeButton.hidden = !voiceModeActive;
+  voiceButton.classList.add("voice-mode");
+  keyboardModeButton.hidden = false;
   keyboardModeButton.disabled = false;
   if (!voiceSessionActive) {
     voiceButton.classList.remove("listening");
-    voiceButtonLabel.textContent = voiceModeActive ? "🎤 聞き取る" : "🎤 音声モード";
+    voiceButtonLabel.textContent = "🎤 聞き取る";
   }
   updateLastVoiceValueUi();
 }
@@ -2237,6 +2237,15 @@ tbody.addEventListener("focusout", (event) => {
     keyboardCellScrollTimer = null;
   }
   requestAnimationFrame(updateSoftwareKeyboardState);
+  setTimeout(() => {
+    if (
+      !voiceModeActive &&
+      !voiceSessionActive &&
+      !document.activeElement?.matches?.("#notebookBody input")
+    ) {
+      setVoiceModeActive(true);
+    }
+  }, 0);
   endHistoryGroup();
   if (event.target.matches("input")) formatNumericInput(event.target);
   if (!event.target.matches('input[data-field="pointName"]')) return;
@@ -3334,10 +3343,9 @@ if (!voiceController.supported) {
 voiceButton.addEventListener("click", async () => {
   if (!voiceModeActive) {
     const target = selectedInput?.isConnected ? selectedInput : null;
+    document.activeElement?.blur();
     setVoiceModeActive(true);
-    target?.blur();
     if (target?.dataset.field === "pointName") showPointNameSuggestions(target);
-    return;
   }
   if (voiceSessionActive) {
     cancelActiveVoiceSession();
@@ -3411,4 +3419,5 @@ window.addEventListener("pagehide", () => {
 
 initializeColumnVisibilityControls();
 renderSheet();
+updateVoiceModeUi();
 document.fonts?.ready.then(() => scheduleStickyTableHeader());
