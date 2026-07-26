@@ -1,6 +1,6 @@
 const GA_MEASUREMENT_ID = "G-88B9YPJXWP";
 const APP_NAME = "suijun_voice_book";
-const APP_VERSION = "144";
+const APP_VERSION = "145";
 
 function getGtag() {
   return typeof window.gtag === "function" ? window.gtag : null;

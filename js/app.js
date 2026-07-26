@@ -7,7 +7,7 @@ import {
   LEVELING_TOLERANCE_PRESETS,
   resolveToleranceDistanceMeters,
   toNumber
-} from "./calculation.js?v=144";
+} from "./calculation.js?v=145";
 import {
   chooseLevelReading,
   createVoiceController,
@@ -15,15 +15,15 @@ import {
   normalizeSpokenNumber,
   prepareSpeechSynthesis,
   speakBack
-} from "./voice.js?v=144";
-import { clearProject, loadProject, saveProject } from "./storage.js?v=144";
-import { exportNotebookCsv } from "./export.js?v=144";
+} from "./voice.js?v=145";
+import { clearProject, loadProject, saveProject } from "./storage.js?v=145";
+import { exportNotebookCsv } from "./export.js?v=145";
 import {
   alignSheetsWithCurrentLabels,
   isValidStaffReading,
   rowHasLevelObservationData,
   reversePointNamesWithinUsedRows
-} from "./rules.js?v=144";
+} from "./rules.js?v=145";
 import {
   choosePointName,
   composePointNameSuggestionCandidates,
@@ -33,8 +33,8 @@ import {
   normalizePointName,
   pointNameToSpeech,
   recordPointNameUsage
-} from "./point-names.js?v=144";
-import { initializeAnalytics, trackEvent } from "./analytics.js?v=144";
+} from "./point-names.js?v=145";
+import { initializeAnalytics, trackEvent } from "./analytics.js?v=145";
 
 initializeAnalytics();
 
@@ -159,6 +159,7 @@ let pointClipboardDismissedFor = null;
 let planHeightBulkSelectedRows = new Set();
 let planHeightRangeMode = false;
 let planHeightRangeStart = null;
+let planHeightBulkReturnState = null;
 let keyboardViewportBaseline = window.visualViewport?.height || window.innerHeight;
 let keyboardCellScrollTimer = null;
 let keyboardCellScrollTarget = null;
@@ -2096,12 +2097,55 @@ function renderPlanHeightPointList() {
   updatePlanHeightBulkControls();
 }
 
+function restorePlanHeightBulkReturnCell(state) {
+  if (!state || state.sheet !== activeSheet) return;
+  const targetRow = Array.from(tbody.rows)
+    .find((row) => row.dataset.rowId === state.rowId);
+  const target = targetRow?.querySelector(`[data-field="${state.field}"]`);
+  if (!target) return;
+
+  if (voiceModeActive || voiceSessionActive) {
+    selectVoiceTargetWithoutKeyboard(target);
+  } else {
+    markSelectedInput(target);
+    target.blur();
+  }
+
+  const alignToOriginalPosition = () => {
+    if (
+      state.sheet !== activeSheet ||
+      selectedInput !== target ||
+      !target.isConnected
+    ) return;
+    tableWrap.scrollLeft = state.tableScrollLeft;
+    window.scrollTo(state.windowScrollX, state.windowScrollY);
+    scheduleStickyTableHeader();
+    schedulePointClipboardPosition();
+  };
+
+  alignToOriginalPosition();
+  requestAnimationFrame(() => {
+    alignToOriginalPosition();
+  });
+  [120, 360, 720].forEach((delay) => {
+    setTimeout(alignToOriginalPosition, delay);
+  });
+}
+
 function openPlanHeightBulkDialog() {
   if (
     !selectedInput?.isConnected ||
     selectedInput.dataset.field !== "planHeight"
   ) return;
   const selectedRowIndex = findRowIndex(selectedInput);
+  planHeightBulkReturnState = {
+    sheet: activeSheet,
+    rowId: selectedInput.closest("tr")?.dataset.rowId || "",
+    field: selectedInput.dataset.field,
+    tableScrollLeft: tableWrap.scrollLeft,
+    windowScrollX: window.scrollX,
+    windowScrollY: window.scrollY
+  };
   planHeightBulkSelectedRows = new Set();
   if (
     selectedRowIndex >= 0 &&
@@ -2229,9 +2273,12 @@ applyPlanHeightBulkButton.addEventListener("click", () => {
 });
 
 planHeightBulkDialog.addEventListener("close", () => {
+  const returnState = planHeightBulkReturnState;
+  planHeightBulkReturnState = null;
   planHeightBulkSelectedRows.clear();
   planHeightRangeMode = false;
   planHeightRangeStart = null;
+  restorePlanHeightBulkReturnCell(returnState);
 });
 
 pointCopyButton.addEventListener("click", () => {
