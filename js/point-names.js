@@ -1,4 +1,4 @@
-import { normalizeAliasKey, resolvePointAlias } from "./rules.js?v=149";
+import { normalizeAliasKey, resolvePointAlias } from "./rules.js?v=150";
 
 const BASE_PRIORITY_POINT_NAMES = [...new Set(`
 BM,KBM,TBM,仮BM,水準点,仮水準点,既知点,未知点,固定点,既設点,新設点,閉合点,確認点,チェック点,
@@ -467,9 +467,28 @@ export function incrementPointName(pointName, manualAliases = []) {
   return `${match[1]}${paddedNumber}`;
 }
 
+export function getOffsetPointNameCandidates(pointName, manualAliases = []) {
+  const normalized = normalizePointName(pointName, manualAliases);
+  const match = normalized.match(/^(NO\.?)(\d+)\+(\d+)$/i);
+  if (!match) return [];
+
+  const prefix = match[1].toUpperCase();
+  const baseNumber = Number(match[2]);
+  const offset = Number(match[3]);
+  const base = `${prefix}${match[2]}`;
+  const nextBase = `${prefix}${baseNumber + 1}`;
+
+  if (offset === 5) return [`${base}+10`, `${base}+15`];
+  if (offset === 10) return [`${base}+15`, nextBase];
+  if (offset === 15) return [nextBase];
+  return [];
+}
+
 export function incrementPointNameOrCopy(pointName, manualAliases = []) {
   const normalized = normalizePointName(pointName, manualAliases);
   if (!normalized) return "";
+  const offsetCandidates = getOffsetPointNameCandidates(normalized, manualAliases);
+  if (offsetCandidates.length) return offsetCandidates[0];
   const match = normalized.match(/^(.*?)(\d+)$/);
   if (!match) return normalized;
   const numberText = match[2];

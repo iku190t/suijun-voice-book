@@ -7,7 +7,7 @@ import {
   LEVELING_TOLERANCE_PRESETS,
   resolveToleranceDistanceMeters,
   toNumber
-} from "./calculation.js?v=149";
+} from "./calculation.js?v=150";
 import {
   chooseLevelReading,
   createVoiceController,
@@ -15,26 +15,27 @@ import {
   normalizeSpokenNumber,
   prepareSpeechSynthesis,
   speakBack
-} from "./voice.js?v=149";
-import { clearProject, loadProject, saveProject } from "./storage.js?v=149";
-import { exportNotebookCsv } from "./export.js?v=149";
+} from "./voice.js?v=150";
+import { clearProject, loadProject, saveProject } from "./storage.js?v=150";
+import { exportNotebookCsv } from "./export.js?v=150";
 import {
   alignSheetsWithCurrentLabels,
   isValidStaffReading,
   rowHasLevelObservationData,
   reversePointNamesWithinUsedRows
-} from "./rules.js?v=149";
+} from "./rules.js?v=150";
 import {
   choosePointName,
   composePointNameSuggestionCandidates,
   getPointNameConfusionCandidates,
+  getOffsetPointNameCandidates,
   getRankedPointNameCandidates,
   incrementPointNameOrCopy,
   normalizePointName,
   pointNameToSpeech,
   recordPointNameUsage
-} from "./point-names.js?v=149";
-import { initializeAnalytics, trackEvent } from "./analytics.js?v=149";
+} from "./point-names.js?v=150";
+import { initializeAnalytics, trackEvent } from "./analytics.js?v=150";
 
 initializeAnalytics();
 
@@ -1267,6 +1268,22 @@ function showPointNameSuggestions(input) {
     namesAboveCurrentRow.at(-1),
     project.settings.pointAliases
   );
+  const offsetPatternCandidates = getOffsetPointNameCandidates(
+    namesAboveCurrentRow.at(-1),
+    project.settings.pointAliases
+  );
+  const offsetPatternBase = normalizePointName(
+    namesAboveCurrentRow.at(-1),
+    project.settings.pointAliases
+  ).match(/^(NO\.?\d+)\+\d+$/i)?.[1] || "";
+  const rankedCandidatesWithOffsetPatterns = [
+    ...offsetPatternCandidates.slice(1),
+    ...rankedCandidates.filter((pointName) => (
+      !offsetPatternCandidates.length ||
+      !pointName.startsWith(`${offsetPatternBase}+`) ||
+      offsetPatternCandidates.includes(pointName)
+    ))
+  ];
   const confusionCandidates = currentPointName
     ? getPointNameConfusionCandidates(
       currentPointName,
@@ -1276,12 +1293,12 @@ function showPointNameSuggestions(input) {
       POINT_SUGGESTION_LIMIT - 1
     )
     : [];
-  const candidate = rankedCandidates.find((pointName) => (
+  const candidate = rankedCandidatesWithOffsetPatterns.find((pointName) => (
     pointName !== incrementedCandidate &&
     pointName !== currentPointName
   ));
   const uniqueCandidates = composePointNameSuggestionCandidates(
-    rankedCandidates,
+    rankedCandidatesWithOffsetPatterns,
     currentPointName,
     confusionCandidates,
     POINT_SUGGESTION_LIMIT,
