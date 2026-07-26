@@ -7,7 +7,7 @@ import {
   LEVELING_TOLERANCE_PRESETS,
   resolveToleranceDistanceMeters,
   toNumber
-} from "./calculation.js?v=181";
+} from "./calculation.js?v=182";
 import {
   chooseLevelReading,
   createVoiceController,
@@ -15,15 +15,15 @@ import {
   normalizeSpokenNumber,
   prepareSpeechSynthesis,
   speakBack
-} from "./voice.js?v=181";
-import { clearProject, loadProject, saveProject } from "./storage.js?v=181";
-import { exportNotebookCsv } from "./export.js?v=181";
+} from "./voice.js?v=182";
+import { clearProject, loadProject, saveProject } from "./storage.js?v=182";
+import { exportNotebookCsv } from "./export.js?v=182";
 import {
   alignSheetsWithCurrentLabels,
   isValidStaffReading,
   rowHasLevelObservationData,
   reversePointNamesWithinUsedRows
-} from "./rules.js?v=181";
+} from "./rules.js?v=182";
 import {
   choosePointName,
   composePointNameSuggestionCandidates,
@@ -36,8 +36,8 @@ import {
   normalizePointName,
   pointNameToSpeech,
   recordPointNameUsage
-} from "./point-names.js?v=181";
-import { initializeAnalytics, trackEvent } from "./analytics.js?v=181";
+} from "./point-names.js?v=182";
+import { initializeAnalytics, trackEvent } from "./analytics.js?v=182";
 
 initializeAnalytics();
 
@@ -45,7 +45,7 @@ const DEFAULT_ROW_COUNT = 200;
 const APP_SHARE_URL = "https://iku190t.github.io/suijun-voice-book/";
 const APP_SHARE_TITLE = "水準ボイス";
 const APP_SHARE_TEXT = "水準測量の音声入力Web野帳です。";
-const APP_RELEASE_VERSION = new URL(import.meta.url).searchParams.get("v") || "181";
+const APP_RELEASE_VERSION = new URL(import.meta.url).searchParams.get("v") || "182";
 const FEEDBACK_EMAIL = "ez.survey2023@gmail.com";
 const POINT_SUGGESTION_LIMIT = 6;
 const POINT_SUGGESTION_SEEDS = ["NO.0", "TP0", "KBM0", "T-0", "BC.0", "SP.0"];
@@ -1565,7 +1565,9 @@ pointNameKeyboard.addEventListener("click", (event) => {
       setVoiceModeActive(true);
       markSelectedInput(target);
       voiceTarget = target;
-      voiceButton.click();
+      if (target.dataset.field === "pointName") {
+        showPointNameSuggestions(target);
+      }
       break;
     }
     case "done":
