@@ -842,7 +842,7 @@ body.external-ui-recovery .voice-dock {
 .point-name-keyboard-display {
   display: grid;
   grid-template-columns: auto minmax(0, 1fr) auto;
-  min-height: 29px;
+  min-height: 41px;
   align-items: center;
   gap: 5px;
 }
@@ -852,15 +852,15 @@ body.external-ui-recovery .voice-dock {
 }
 .point-name-keyboard-display output {
   display: block;
-  min-height: 27px;
-  padding: 2px 7px;
+  min-height: 41px;
+  padding: 4px 8px;
   overflow: hidden;
   border: 2px solid #168dcc;
   border-radius: 7px;
   background: #fff;
-  font-size: 1.08rem;
+  font-size: 1.62rem;
   font-weight: var(--weight-heavy);
-  line-height: 19px;
+  line-height: 29px;
   text-overflow: ellipsis;
   touch-action: none;
   user-select: none;
@@ -1058,7 +1058,7 @@ body.software-keyboard-open:not(.voice-mode-active) .voice-dock {
 }
 body.voice-mode-active { padding-bottom: calc(212px + env(safe-area-inset-bottom)); }
 body.voice-mode-active.point-keyboard-active {
-  padding-bottom: calc(226px + env(safe-area-inset-bottom));
+  padding-bottom: calc(240px + env(safe-area-inset-bottom));
 }
 body.point-suggestions-visible { padding-bottom: calc(322px + env(safe-area-inset-bottom)); }
 @keyframes pulse { 50% { box-shadow: 0 0 0 7px rgba(255,105,97,.2); } }
