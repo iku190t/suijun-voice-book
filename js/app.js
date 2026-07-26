@@ -6,7 +6,7 @@ import {
   LEVELING_TOLERANCE_PRESETS,
   resolveToleranceDistanceMeters,
   toNumber
-} from "./calculation.js?v=107";
+} from "./calculation.js?v=108";
 import {
   chooseLevelReading,
   createVoiceController,
@@ -14,14 +14,14 @@ import {
   normalizeSpokenNumber,
   prepareSpeechSynthesis,
   speakBack
-} from "./voice.js?v=107";
-import { clearProject, loadProject, saveProject } from "./storage.js?v=107";
-import { exportSheetCsv } from "./export.js?v=107";
+} from "./voice.js?v=108";
+import { clearProject, loadProject, saveProject } from "./storage.js?v=108";
+import { exportSheetCsv } from "./export.js?v=108";
 import {
   alignSheetsWithCurrentLabels,
   isValidStaffReading,
   reversePointNamesWithinUsedRows
-} from "./rules.js?v=107";
+} from "./rules.js?v=108";
 import {
   choosePointName,
   getRankedPointNameCandidates,
@@ -29,12 +29,15 @@ import {
   normalizePointName,
   pointNameToSpeech,
   recordPointNameUsage
-} from "./point-names.js?v=107";
-import { initializeAnalytics, trackEvent } from "./analytics.js?v=107";
+} from "./point-names.js?v=108";
+import { initializeAnalytics, trackEvent } from "./analytics.js?v=108";
 
 initializeAnalytics();
 
 const DEFAULT_ROW_COUNT = 200;
+const APP_SHARE_URL = "https://iku190t.github.io/suijun-voice-book/";
+const APP_SHARE_TITLE = "水準ボイス野帳";
+const APP_SHARE_TEXT = "水準測量の音声入力Web野帳です。";
 const POINT_SUGGESTION_LIMIT = 10;
 const POINT_SUGGESTION_SEEDS = ["NO.0", "TP0", "KBM0", "T-0", "BC.0", "SP.0"];
 const NUMERIC_FIELDS = new Set(["bs", "fs", "elevation", "distance"]);
@@ -1953,6 +1956,57 @@ document.querySelector("#supportOpenBtn").addEventListener("click", () => {
   supportDialog.showModal();
   trackEvent("open_support");
 });
+
+const shareDialog = document.querySelector("#shareDialog");
+const shareAppButton = document.querySelector("#shareAppBtn");
+const copyShareUrlButton = document.querySelector("#copyShareUrlBtn");
+
+function showShareDialog() {
+  if (!shareDialog.open) shareDialog.showModal();
+}
+
+async function copyAppShareUrl() {
+  try {
+    if (!navigator.clipboard?.writeText) throw new Error("Clipboard API unavailable");
+    await navigator.clipboard.writeText(APP_SHARE_URL);
+  } catch {
+    const temporaryInput = document.createElement("textarea");
+    temporaryInput.value = APP_SHARE_URL;
+    temporaryInput.setAttribute("readonly", "");
+    temporaryInput.style.position = "fixed";
+    temporaryInput.style.opacity = "0";
+    document.body.appendChild(temporaryInput);
+    temporaryInput.select();
+    document.execCommand("copy");
+    temporaryInput.remove();
+  }
+  copyShareUrlButton.textContent = "コピーしました";
+  window.setTimeout(() => {
+    copyShareUrlButton.textContent = "URLをコピー";
+  }, 1600);
+  trackEvent("copy_app_url");
+}
+
+shareAppButton.addEventListener("click", async () => {
+  if (!navigator.share) {
+    showShareDialog();
+    trackEvent("open_share_fallback");
+    return;
+  }
+  try {
+    await navigator.share({
+      title: APP_SHARE_TITLE,
+      text: APP_SHARE_TEXT,
+      url: APP_SHARE_URL
+    });
+    trackEvent("share_app");
+  } catch (error) {
+    if (error?.name === "AbortError") return;
+    showShareDialog();
+    trackEvent("open_share_fallback");
+  }
+});
+copyShareUrlButton.addEventListener("click", copyAppShareUrl);
 
 const voiceRateInput = document.querySelector("#voiceRate");
 const voiceRateValue = document.querySelector("#voiceRateValue");

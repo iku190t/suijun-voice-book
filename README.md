@@ -32,6 +32,7 @@
 - 通常は非表示で、必要なときだけ表示できる距離列
 - localStorageへの上書き保存・自動復元・シート別消去
 - UTF-8 BOM付きCSV出力
+- 端末標準の共有画面、QRコード、URLコピーによるアプリ共有
 - 作業規程に基づく1～4級の選択と、距離に応じた許容値・「合格／要確認」の自動表示
 - PWA（ホーム画面追加・オフライン起動）
 - Google Analytics 4による匿名のアクセス・機能利用状況の把握
@@ -106,6 +107,12 @@ Web Speech APIに未対応のブラウザでは音声入力ボタンだけが無
 
 「CSV出力」を押すと、スマートフォンでは共有画面を開きます。端末にGmailが入っている場合はGmailを選択し、CSVを添付して送信できます。ファイル共有に対応していないブラウザでは、現在表示している往路または復路を従来どおりダウンロードします。距離列が画面で非表示でもCSVには含まれます。Excelで文字化けしにくいUTF-8 BOM付きです。
 
+## アプリの共有
+
+画面上部の「共有」を押すと、iPhone・Androidでは端末標準の共有画面が開きます。LINE、メール、メッセージなど、端末に表示された送信先を選んで公開URLを送れます。共有機能に対応していないブラウザではQRコードとURLを表示し、「URLをコピー」で送信できます。
+
+公開URL：https://iku190t.github.io/suijun-voice-book/
+
 ## GitHub Pagesへの公開方法
 
 1. このフォルダー一式をGitHubリポジトリへ登録します。
@@ -148,8 +155,11 @@ PWAと音声認識には安全な接続が必要です。GitHub PagesはHTTPSで
 │  ├─ point-names.js
 │  └─ analytics.js
 ├─ icons/
+│  ├─ icon-master.png
 │  ├─ icon-192.png
 │  └─ icon-512.png
+├─ assets/
+│  └─ share-qr.png
 ├─ manifest.json
 ├─ service-worker.js
 └─ README.md

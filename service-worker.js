@@ -1,19 +1,21 @@
-const CACHE_NAME = "suijun-voice-book-v107";
+const CACHE_NAME = "suijun-voice-book-v108";
 const APP_ASSETS = [
   "./",
   "./index.html",
-  "./css/style.css?v=107",
-  "./js/app.js?v=107",
-  "./js/calculation.js?v=107",
-  "./js/voice.js?v=107",
-  "./js/storage.js?v=107",
-  "./js/export.js?v=107",
-  "./js/rules.js?v=107",
-  "./js/point-names.js?v=107",
-  "./js/analytics.js?v=107",
+  "./css/style.css?v=108",
+  "./js/app.js?v=108",
+  "./js/calculation.js?v=108",
+  "./js/voice.js?v=108",
+  "./js/storage.js?v=108",
+  "./js/export.js?v=108",
+  "./js/rules.js?v=108",
+  "./js/point-names.js?v=108",
+  "./js/analytics.js?v=108",
   "./manifest.json",
-  "./icons/icon-192.png",
-  "./icons/icon-512.png"
+  "./assets/share-qr.png",
+  "./icons/icon-192.png?v=108",
+  "./icons/icon-512.png?v=108",
+  "./icons/icon-master.png"
 ];
 
 self.addEventListener("install", (event) => {

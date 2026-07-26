@@ -53,7 +53,9 @@ a { color: #0d5d74; }
 .eyebrow { margin: 0 0 2px; color: #d9f2ff; font-size: .68rem; font-weight: var(--weight-bold); letter-spacing: .1em; text-transform: uppercase; }
 .brand-links { display: flex; align-items: center; gap: 7px; flex-wrap: wrap; justify-content: flex-end; font-size: .73rem; }
 .brand-links a { color: #fff; font-weight: var(--weight-strong); }
-.support-button { min-height: 38px; padding: 6px 9px; border-color: #bce8ff; color: #07334f; background: #d9f4ff; }
+.support-button,
+.share-button { min-height: 38px; padding: 6px 9px; border-color: #bce8ff; color: #07334f; background: #d9f4ff; }
+.share-button { color: #fff; border-color: rgba(255, 255, 255, .8); background: rgba(4, 73, 117, .5); }
 
 .history-buttons { display: flex; align-items: center; gap: 8px; margin-left: auto; }
 .history-buttons button {
@@ -646,6 +648,43 @@ dialog .eyebrow { color: var(--brand-2); }
   font-weight: var(--weight-bold);
   letter-spacing: 0;
   line-height: 1.35;
+}
+.share-dialog {
+  width: min(390px, calc(100vw - 24px));
+}
+.share-dialog > form {
+  display: grid;
+  gap: 12px;
+}
+.share-dialog h2,
+.share-dialog p {
+  margin: 0;
+}
+.share-qr {
+  display: block;
+  width: min(230px, 70vw);
+  height: auto;
+  margin: 2px auto;
+  border: 8px solid #fff;
+  border-radius: 12px;
+  background: #fff;
+}
+.share-url {
+  display: block;
+  padding: 10px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  color: #17445f;
+  background: #f3faff;
+  font-size: .85rem;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+  user-select: all;
+}
+.share-dialog .primary-button {
+  color: #fff;
+  border-color: var(--brand);
+  background: var(--brand);
 }
 .clear-confirmation {
   margin-top: 14px;
