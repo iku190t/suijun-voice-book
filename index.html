@@ -13,9 +13,9 @@
   <meta name="description" content="水準測量の観測値を音声やキーボードで入力できる、無料の現場向けWeb野帳です。">
   <title>水準ボイス野帳</title>
   <link rel="manifest" href="./manifest.json">
-  <link rel="icon" href="./icons/icon-192.png?v=125">
-  <link rel="apple-touch-icon" href="./icons/icon-192.png?v=125">
-  <link rel="stylesheet" href="./css/style.css?v=125">
+  <link rel="icon" href="./icons/icon-192.png?v=127">
+  <link rel="apple-touch-icon" href="./icons/icon-192.png?v=127">
+  <link rel="stylesheet" href="./css/style.css?v=127">
 </head>
 <body>
   <header class="app-header">
@@ -74,6 +74,7 @@
     <div id="notice" class="notice" role="alert" hidden></div>
     <div class="sheet-heading">
       <button id="sheetToggleBtn" class="sheet-toggle-button" type="button" aria-label="往路を表示中。押すと復路に切り替え">往路</button>
+      <div id="hiddenColumnButtons" class="hidden-column-buttons" aria-label="非表示列を再表示"></div>
       <div class="history-buttons" aria-label="入力履歴">
         <button id="undoBtn" type="button" aria-label="元に戻す" title="元に戻す">
           <svg viewBox="0 0 48 32" aria-hidden="true">
@@ -106,7 +107,6 @@
           </thead>
         </table>
       </div>
-      <button id="stickyDistanceToggleBtn" class="distance-inline-toggle" type="button" aria-label="距離列を表示">＋</button>
     </div>
 
     <div class="table-shell">
@@ -128,7 +128,6 @@
           <tbody id="notebookBody"></tbody>
         </table>
       </div>
-      <button id="distanceToggleBtn" class="distance-inline-toggle" type="button" aria-label="距離列を表示">＋</button>
     </div>
   </main>
 
@@ -295,6 +294,6 @@
   </dialog>
 
   <noscript>このアプリの利用にはJavaScriptを有効にしてください。</noscript>
-  <script type="module" src="./js/app.js?v=125"></script>
+  <script type="module" src="./js/app.js?v=127"></script>
 </body>
 </html>
