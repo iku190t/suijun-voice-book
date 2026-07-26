@@ -7,7 +7,7 @@ import {
   LEVELING_TOLERANCE_PRESETS,
   resolveToleranceDistanceMeters,
   toNumber
-} from "./calculation.js?v=150";
+} from "./calculation.js?v=151";
 import {
   chooseLevelReading,
   createVoiceController,
@@ -15,15 +15,15 @@ import {
   normalizeSpokenNumber,
   prepareSpeechSynthesis,
   speakBack
-} from "./voice.js?v=150";
-import { clearProject, loadProject, saveProject } from "./storage.js?v=150";
-import { exportNotebookCsv } from "./export.js?v=150";
+} from "./voice.js?v=151";
+import { clearProject, loadProject, saveProject } from "./storage.js?v=151";
+import { exportNotebookCsv } from "./export.js?v=151";
 import {
   alignSheetsWithCurrentLabels,
   isValidStaffReading,
   rowHasLevelObservationData,
   reversePointNamesWithinUsedRows
-} from "./rules.js?v=150";
+} from "./rules.js?v=151";
 import {
   choosePointName,
   composePointNameSuggestionCandidates,
@@ -34,8 +34,8 @@ import {
   normalizePointName,
   pointNameToSpeech,
   recordPointNameUsage
-} from "./point-names.js?v=150";
-import { initializeAnalytics, trackEvent } from "./analytics.js?v=150";
+} from "./point-names.js?v=151";
+import { initializeAnalytics, trackEvent } from "./analytics.js?v=151";
 
 initializeAnalytics();
 
@@ -45,7 +45,7 @@ const APP_SHARE_TITLE = "水準ボイス野帳";
 const APP_SHARE_TEXT = "水準測量の音声入力Web野帳です。";
 const POINT_SUGGESTION_LIMIT = 6;
 const POINT_SUGGESTION_SEEDS = ["NO.0", "TP0", "KBM0", "T-0", "BC.0", "SP.0"];
-const POINT_NAME_FINALIZE_DELAYS = new Set([1000, 1500, 2000]);
+const POINT_NAME_FINALIZE_DELAYS = new Set([500, 1000, 1500, 2000]);
 const NUMERIC_FIELDS = new Set(["bs", "fs", "elevation", "planHeight", "distance"]);
 const UNSIGNED_DECIMAL_FIELDS = new Set(["bs", "fs", "distance"]);
 const COLUMN_DEFINITIONS = [
@@ -276,7 +276,7 @@ function createBlankProject() {
       ),
       columnVisibilityDefaultsVersion: 3,
       voiceRate: 1.2,
-      pointNameFinalizeDelayMs: 1500,
+      pointNameFinalizeDelayMs: 1000,
       voiceSettingsVersion: 3,
       autoVoiceCursorMove: true,
       sheetMeaningVersion: 2,
@@ -448,7 +448,7 @@ function normalizeLoadedProject(loaded) {
         Number(loaded.settings?.pointNameFinalizeDelayMs)
       )
         ? Number(loaded.settings.pointNameFinalizeDelayMs)
-        : 1500,
+        : 1000,
       voiceSettingsVersion: 3,
       autoVoiceCursorMove: loaded.settings?.autoVoiceCursorMove !== false,
       sheetMeaningVersion: 2,
@@ -2767,7 +2767,7 @@ pointNameFinalizeDelayInput.addEventListener("change", () => {
   const delay = Number(pointNameFinalizeDelayInput.value);
   project.settings.pointNameFinalizeDelayMs = POINT_NAME_FINALIZE_DELAYS.has(delay)
     ? delay
-    : 1500;
+    : 1000;
   pointNameFinalizeDelayInput.value = String(project.settings.pointNameFinalizeDelayMs);
   scheduleAutosave();
 });
