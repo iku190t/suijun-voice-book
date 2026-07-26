@@ -6,7 +6,7 @@ import {
   LEVELING_TOLERANCE_PRESETS,
   sumObservationDistanceMeters,
   toNumber
-} from "./calculation.js?v=96";
+} from "./calculation.js?v=97";
 import {
   chooseLevelReading,
   createVoiceController,
@@ -14,14 +14,14 @@ import {
   normalizeSpokenNumber,
   prepareSpeechSynthesis,
   speakBack
-} from "./voice.js?v=96";
-import { clearProject, loadProject, saveProject } from "./storage.js?v=96";
-import { exportSheetCsv } from "./export.js?v=96";
+} from "./voice.js?v=97";
+import { clearProject, loadProject, saveProject } from "./storage.js?v=97";
+import { exportSheetCsv } from "./export.js?v=97";
 import {
   alignSheetsWithCurrentLabels,
   isValidStaffReading,
   reversePointNamesWithinUsedRows
-} from "./rules.js?v=96";
+} from "./rules.js?v=97";
 import {
   choosePointName,
   getRankedPointNameCandidates,
@@ -29,8 +29,8 @@ import {
   normalizePointName,
   pointNameToSpeech,
   recordPointNameUsage
-} from "./point-names.js?v=96";
-import { initializeAnalytics, trackEvent } from "./analytics.js?v=96";
+} from "./point-names.js?v=97";
+import { initializeAnalytics, trackEvent } from "./analytics.js?v=97";
 
 initializeAnalytics();
 

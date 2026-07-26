@@ -301,18 +301,11 @@ tbody td input,
 tbody .row-selector,
 tbody td.calc { font-size: var(--input-font-size, 16px); }
 tr.row-action-selected td {
-  background-color: #dff3ff !important;
-  box-shadow: inset 0 3px #168bd1, inset 0 -3px #168bd1;
-}
-tr.row-action-selected td:first-child {
-  box-shadow: inset 3px 0 #168bd1, inset 0 3px #168bd1, inset 0 -3px #168bd1;
-}
-tr.row-action-selected td:last-child {
-  box-shadow: inset -3px 0 #168bd1, inset 0 3px #168bd1, inset 0 -3px #168bd1;
+  background-color: #e7f6e8 !important;
 }
 tr.row-action-selected td input,
 tr.row-action-selected .row-selector {
-  background: rgba(223, 243, 255, .9) !important;
+  background: #e7f6e8 !important;
 }
 tr.row-delete-pending td {
   background-color: #ffe7e7 !important;
