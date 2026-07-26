@@ -80,14 +80,14 @@ a { color: #0d5d74; }
   box-shadow: none;
 }
 .share-button svg {
-  width: 25px;
-  height: 25px;
+  width: 22px;
+  height: 30px;
   overflow: visible;
 }
 .share-button path {
   fill: none;
   stroke: currentColor;
-  stroke-width: 2.4;
+  stroke-width: 2.5;
   stroke-linecap: round;
   stroke-linejoin: round;
 }

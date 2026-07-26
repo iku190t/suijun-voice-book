@@ -7,7 +7,7 @@ import {
   LEVELING_TOLERANCE_PRESETS,
   resolveToleranceDistanceMeters,
   toNumber
-} from "./calculation.js?v=127";
+} from "./calculation.js?v=128";
 import {
   chooseLevelReading,
   createVoiceController,
@@ -15,14 +15,14 @@ import {
   normalizeSpokenNumber,
   prepareSpeechSynthesis,
   speakBack
-} from "./voice.js?v=127";
-import { clearProject, loadProject, saveProject } from "./storage.js?v=127";
-import { exportSheetCsv } from "./export.js?v=127";
+} from "./voice.js?v=128";
+import { clearProject, loadProject, saveProject } from "./storage.js?v=128";
+import { exportSheetCsv } from "./export.js?v=128";
 import {
   alignSheetsWithCurrentLabels,
   isValidStaffReading,
   reversePointNamesWithinUsedRows
-} from "./rules.js?v=127";
+} from "./rules.js?v=128";
 import {
   choosePointName,
   getRankedPointNameCandidates,
@@ -30,8 +30,8 @@ import {
   normalizePointName,
   pointNameToSpeech,
   recordPointNameUsage
-} from "./point-names.js?v=127";
-import { initializeAnalytics, trackEvent } from "./analytics.js?v=127";
+} from "./point-names.js?v=128";
+import { initializeAnalytics, trackEvent } from "./analytics.js?v=128";
 
 initializeAnalytics();
 
@@ -271,6 +271,33 @@ function createBlankProject() {
   };
 }
 
+function createSampleProject() {
+  const sample = createBlankProject();
+  const outSampleRows = [
+    { pointName: "KBM1", bs: 1.567, elevation: 100, elevationType: "manual" },
+    { pointName: "PF-2", bs: 3.074, fs: 0.898 },
+    { pointName: "TP", bs: 3.901, fs: 0.834 },
+    { pointName: "TF-3", fs: 1.333 },
+    { pointName: "TF-4", fs: 1.257 },
+    { pointName: "6K400", fs: 1.595 }
+  ];
+  const backSampleRows = [
+    { pointName: "6K400", bs: 1.619 },
+    { pointName: "TF-4", fs: 1.283 },
+    { pointName: "TF-3", fs: 1.359 },
+    { pointName: "TP", bs: 0.828, fs: 3.925 },
+    { pointName: "PF-2", bs: 0.912, fs: 3.064 },
+    { pointName: "KBM1", fs: 1.581 }
+  ];
+  outSampleRows.forEach((values, index) => {
+    Object.assign(sample.sheets.out[index], values);
+  });
+  backSampleRows.forEach((values, index) => {
+    Object.assign(sample.sheets.back[index], values);
+  });
+  return sample;
+}
+
 function normalizeRow(row, route) {
   const bs = toNumber(row?.bs);
   const fs = toNumber(row?.fs);
@@ -289,7 +316,7 @@ function normalizeRow(row, route) {
 }
 
 function normalizeLoadedProject(loaded) {
-  const blank = createBlankProject();
+  const blank = loaded ? createBlankProject() : createSampleProject();
   if (!loaded) return blank;
 
   let outRows = [];
