@@ -827,7 +827,11 @@ dialog .eyebrow { color: var(--brand-2); }
 .point-suggestions-heading { display: flex; align-items: center; gap: 10px; margin-bottom: 6px; }
 .point-suggestions-heading strong { color: #174f73; font-size: .75rem; }
 .point-suggestions-heading span { color: #55798f; font-size: .68rem; }
-.point-suggestion-buttons { display: grid; gap: 7px; }
+.point-suggestion-buttons {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 7px;
+}
 .point-suggestion-buttons button {
   min-width: 0;
   height: 42px;
@@ -843,12 +847,12 @@ dialog .eyebrow { color: var(--brand-2); }
 }
 .point-suggestion-buttons .primary-point-suggestion {
   position: relative;
-  height: 62px;
-  min-height: 62px;
-  padding-top: 17px;
+  height: 48px;
+  min-height: 48px;
+  padding-top: 13px;
   border: 3px solid #087ec0;
   background: #c8edff;
-  font-size: 1.32rem;
+  font-size: 1.05rem;
   font-weight: var(--weight-heavy);
 }
 .point-suggestion-buttons .primary-point-suggestion::before {
@@ -860,34 +864,6 @@ dialog .eyebrow { color: var(--brand-2); }
   font-size: .56rem;
   font-weight: var(--weight-strong);
   line-height: 1;
-}
-.point-suggestion-alternatives {
-  display: flex;
-  gap: 7px;
-  width: 100%;
-  overflow-x: auto;
-  overscroll-behavior: contain;
-  scroll-snap-type: x mandatory;
-  scrollbar-width: none;
-  -webkit-overflow-scrolling: touch;
-  touch-action: pan-x;
-}
-.point-suggestion-alternatives::-webkit-scrollbar { display: none; }
-.point-suggestion-alternatives > button {
-  flex: 0 0 calc((100% - 14px) / 3);
-  scroll-snap-align: start;
-}
-.point-suggestion-alternatives > .point-suggestion-editor {
-  flex: 0 0 100%;
-}
-.point-suggestion-alternatives.editing {
-  display: block;
-  overflow: visible;
-  -webkit-mask-image: none;
-  mask-image: none;
-}
-.point-suggestion-alternatives.editing > .point-suggestion-editor {
-  width: 100%;
 }
 .point-suggestion-buttons .current-point-suggestion {
   position: relative;
@@ -904,6 +880,10 @@ dialog .eyebrow { color: var(--brand-2); }
   font-size: .55rem;
   font-weight: var(--weight-strong);
   line-height: 1;
+}
+.point-suggestion-buttons .confusion-point-suggestion {
+  border-color: #91c9e8;
+  background: #f7fcff;
 }
 .point-suggestion-editor {
   display: grid;
@@ -967,12 +947,8 @@ dialog .eyebrow { color: var(--brand-2); }
   min-height: 42px;
 }
 .voice-dock .point-suggestion-buttons > .primary-point-suggestion {
-  height: 62px;
-  min-height: 62px;
-}
-.voice-dock .point-suggestion-alternatives > button {
-  height: 42px;
-  min-height: 42px;
+  height: 48px;
+  min-height: 48px;
 }
 .voice-dock .point-suggestion-editor button {
   height: 54px;
@@ -984,15 +960,14 @@ body.voice-mode-active .point-suggestions {
 body.voice-mode-active .point-suggestion-buttons {
   gap: 6px;
 }
-body.voice-mode-active .voice-dock .point-suggestion-buttons > button,
-body.voice-mode-active .voice-dock .point-suggestion-alternatives > button {
-  height: 34px;
-  min-height: 34px;
+body.voice-mode-active .voice-dock .point-suggestion-buttons > button {
+  height: 40px;
+  min-height: 40px;
   line-height: 1;
 }
 body.voice-mode-active .voice-dock .point-suggestion-buttons > .primary-point-suggestion {
-  height: 50px;
-  min-height: 50px;
+  height: 40px;
+  min-height: 40px;
 }
 body.voice-mode-active .point-suggestion-buttons .primary-point-suggestion,
 body.voice-mode-active .point-suggestion-buttons .current-point-suggestion {
@@ -1067,6 +1042,7 @@ body.point-suggestions-visible:not(.voice-mode-active) .point-suggestions-headin
   line-height: 1.1;
 }
 body.point-suggestions-visible:not(.voice-mode-active) .point-suggestion-buttons {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 4px;
 }
 body.point-suggestions-visible:not(.voice-mode-active) .point-suggestion-buttons > button,
@@ -1082,28 +1058,6 @@ body.point-suggestions-visible:not(.voice-mode-active) .point-suggestion-buttons
   color: #063e62;
   background: #bfe9ff;
   font-weight: var(--weight-heavy);
-}
-body.point-suggestions-visible:not(.voice-mode-active) .point-suggestion-alternatives {
-  display: grid;
-  max-height: 128px;
-  grid-template-columns: 1fr;
-  gap: 4px;
-  overflow-x: hidden;
-  overflow-y: auto;
-  scroll-snap-type: y mandatory;
-  touch-action: pan-y;
-  -webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 10%, #000 90%, transparent 100%);
-  mask-image: linear-gradient(to bottom, transparent 0, #000 10%, #000 90%, transparent 100%);
-}
-body.point-suggestions-visible:not(.voice-mode-active) .point-suggestion-alternatives > button {
-  width: 100%;
-  min-width: 0;
-  height: 40px;
-  min-height: 40px;
-  scroll-snap-align: start;
-}
-body.point-suggestions-visible:not(.voice-mode-active) .point-suggestion-alternatives > .point-suggestion-editor {
-  width: 100%;
 }
 body.point-suggestions-visible:not(.voice-mode-active) .point-suggestion-editor {
   grid-template-columns: 1fr 1fr;

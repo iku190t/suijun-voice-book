@@ -1,4 +1,4 @@
-import { normalizeAliasKey, resolvePointAlias } from "./rules.js?v=88";
+import { normalizeAliasKey, resolvePointAlias } from "./rules.js?v=136";
 
 const BASE_PRIORITY_POINT_NAMES = [...new Set(`
 BM,KBM,TBM,仮BM,水準点,仮水準点,既知点,未知点,固定点,既設点,新設点,閉合点,確認点,チェック点,
@@ -78,9 +78,9 @@ const SPOKEN_LETTERS = [
   ["U", "ユー", "ユウ"],
   ["V", "ブイ", "ヴィー"],
   ["W", "ダブリュー", "ダブル"],
-  ["X", "エックス"],
+  ["X", "エックス", "エクス"],
   ["Y", "ワイ"],
-  ["Z", "ゼット", "ズィー"]
+  ["Z", "ゼット", "ズィー", "ゼッド"]
 ].flatMap(([letter, ...readings]) => readings.map((reading) => ({
   letter,
   reading: normalizeAliasKey(reading)
@@ -118,6 +118,35 @@ const DEFAULT_POINT_READINGS = {
   "KA": "ケーエー", "KE": "ケーイー", "CL": "シーエル", "P": "ピー", "K": "ケー", "T": "ティー",
   ".": "テン", "-": "ハイフン"
 };
+
+export const POINT_NAME_LETTER_CONFUSIONS = Object.freeze({
+  A: ["K", "H", "J", "E"],
+  B: ["D", "P", "V", "E", "G", "T"],
+  C: ["G", "T", "D", "E", "Z"],
+  D: ["B", "T", "G", "E", "P"],
+  E: ["B", "D", "P", "T", "V", "G"],
+  F: ["S", "X", "H"],
+  G: ["D", "B", "C", "T", "E", "Z"],
+  H: ["A", "S"],
+  I: ["Y", "A"],
+  J: ["A", "K", "G", "Z"],
+  K: ["A", "J", "H"],
+  L: ["R", "M", "N"],
+  M: ["N", "L"],
+  N: ["M", "L"],
+  O: ["0", "Q"],
+  P: ["B", "T", "D", "E", "V", "G"],
+  Q: ["9", "O", "U"],
+  R: ["L"],
+  S: ["F", "X", "H"],
+  T: ["P", "D", "B", "E", "G", "C"],
+  U: ["Q", "W"],
+  V: ["B", "D", "P", "E", "T"],
+  W: ["U", "V"],
+  X: ["S", "F"],
+  Y: ["I"],
+  Z: ["G", "C", "J", "D"]
+});
 
 function spokenNumberToArabic(input, allowHomophoneCorrections = true) {
   if (allowHomophoneCorrections) {
@@ -640,6 +669,75 @@ export function getRankedPointNameCandidates(
   });
 
   return results;
+}
+
+function pointNameTypeKey(pointName) {
+  return String(pointName ?? "")
+    .normalize("NFKC")
+    .toUpperCase()
+    .replace(/\d+(?:\+\d+)?$/u, "")
+    .replace(/[.\-_]+$/u, "");
+}
+
+export function getPointNameConfusionCandidates(
+  pointName,
+  manualAliases = [],
+  pointNamesAbove = [],
+  history = {},
+  limit = 3
+) {
+  if (limit <= 0) return [];
+  const normalized = normalizePointName(pointName, manualAliases);
+  if (!normalized) return [];
+
+  const usedTypes = new Map();
+  (Array.isArray(pointNamesAbove) ? pointNamesAbove : []).forEach((usedPointName) => {
+    const typeKey = pointNameTypeKey(normalizePointName(usedPointName, manualAliases));
+    if (!typeKey) return;
+    usedTypes.set(typeKey, (usedTypes.get(typeKey) || 0) + 1);
+  });
+
+  const variants = [];
+  let sourceOrder = 0;
+  const characters = [...normalized];
+  characters.forEach((letter, index) => {
+    const confusions = POINT_NAME_LETTER_CONFUSIONS[letter];
+    if (!confusions) return;
+    confusions.forEach((replacement, confusionIndex) => {
+      const candidate = [
+        ...characters.slice(0, index),
+        replacement,
+        ...characters.slice(index + 1)
+      ].join("");
+      if (
+        candidate === normalized ||
+        !isAllowedPointNameCandidate(candidate, manualAliases)
+      ) return;
+      const typeKey = pointNameTypeKey(candidate);
+      const usage = history?.[candidate] || {};
+      variants.push({
+        pointName: candidate,
+        sheetCount: usedTypes.get(typeKey) || 0,
+        historyCount: Number(usage.count) || 0,
+        lastUsed: Number(usage.lastUsed) || 0,
+        sourceOrder: sourceOrder + confusionIndex
+      });
+    });
+    sourceOrder += confusions.length;
+  });
+
+  return variants
+    .sort((left, right) => (
+      right.sheetCount - left.sheetCount ||
+      right.historyCount - left.historyCount ||
+      right.lastUsed - left.lastUsed ||
+      left.sourceOrder - right.sourceOrder
+    ))
+    .filter((candidate, index, all) => (
+      all.findIndex((item) => item.pointName === candidate.pointName) === index
+    ))
+    .slice(0, limit)
+    .map((candidate) => candidate.pointName);
 }
 
 export function getNextPointNameCandidates(

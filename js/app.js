@@ -7,7 +7,7 @@ import {
   LEVELING_TOLERANCE_PRESETS,
   resolveToleranceDistanceMeters,
   toNumber
-} from "./calculation.js?v=135";
+} from "./calculation.js?v=136";
 import {
   chooseLevelReading,
   createVoiceController,
@@ -15,24 +15,25 @@ import {
   normalizeSpokenNumber,
   prepareSpeechSynthesis,
   speakBack
-} from "./voice.js?v=135";
-import { clearProject, loadProject, saveProject } from "./storage.js?v=135";
-import { exportSheetCsv } from "./export.js?v=135";
+} from "./voice.js?v=136";
+import { clearProject, loadProject, saveProject } from "./storage.js?v=136";
+import { exportSheetCsv } from "./export.js?v=136";
 import {
   alignSheetsWithCurrentLabels,
   isValidStaffReading,
   rowHasLevelObservationData,
   reversePointNamesWithinUsedRows
-} from "./rules.js?v=135";
+} from "./rules.js?v=136";
 import {
   choosePointName,
+  getPointNameConfusionCandidates,
   getRankedPointNameCandidates,
   incrementPointNameOrCopy,
   normalizePointName,
   pointNameToSpeech,
   recordPointNameUsage
-} from "./point-names.js?v=135";
-import { initializeAnalytics, trackEvent } from "./analytics.js?v=135";
+} from "./point-names.js?v=136";
+import { initializeAnalytics, trackEvent } from "./analytics.js?v=136";
 
 initializeAnalytics();
 
@@ -40,7 +41,7 @@ const DEFAULT_ROW_COUNT = 200;
 const APP_SHARE_URL = "https://iku190t.github.io/suijun-voice-book/";
 const APP_SHARE_TITLE = "水準ボイス野帳";
 const APP_SHARE_TEXT = "水準測量の音声入力Web野帳です。";
-const POINT_SUGGESTION_LIMIT = 10;
+const POINT_SUGGESTION_LIMIT = 6;
 const POINT_SUGGESTION_SEEDS = ["NO.0", "TP0", "KBM0", "T-0", "BC.0", "SP.0"];
 const NUMERIC_FIELDS = new Set(["bs", "fs", "elevation", "distance"]);
 const UNSIGNED_DECIMAL_FIELDS = new Set(["bs", "fs", "distance"]);
@@ -1171,49 +1172,62 @@ function showPointNameSuggestions(input) {
   const namesAboveCurrentRow = project.sheets[activeSheet]
     .slice(0, Math.max(0, rowIndex))
     .map((row) => row.pointName);
-  let candidates = getRankedPointNameCandidates(
+  const rankedCandidates = getRankedPointNameCandidates(
     namesAboveCurrentRow,
     project.settings.pointAliases,
     project.settings.pointNameHistory,
     POINT_SUGGESTION_SEEDS,
-    POINT_SUGGESTION_LIMIT,
+    12,
     input.value
   );
   const currentPointName = normalizePointName(
     input.value,
     project.settings.pointAliases
   );
-  if (currentPointName && candidates[0] !== currentPointName) {
-    candidates = [
-      candidates[0],
-      currentPointName,
-      ...candidates.slice(1).filter((pointName) => pointName !== currentPointName)
-    ].filter(Boolean).slice(0, POINT_SUGGESTION_LIMIT);
-  }
+  const strongestCandidate = rankedCandidates[0] || currentPointName;
+  const confusionSource = currentPointName || strongestCandidate;
+  const confusionCandidates = getPointNameConfusionCandidates(
+    confusionSource,
+    project.settings.pointAliases,
+    namesAboveCurrentRow,
+    project.settings.pointNameHistory,
+    3
+  );
+  const candidates = [
+    strongestCandidate,
+    currentPointName,
+    ...confusionCandidates,
+    ...rankedCandidates.slice(1)
+  ]
+    .filter(Boolean)
+    .filter((pointName, index, all) => all.indexOf(pointName) === index)
+    .slice(0, POINT_SUGGESTION_LIMIT);
   if (!candidates.length) {
     hidePointSuggestions();
     return;
   }
-  const buttons = candidates.map((pointName, index) => {
+  const buttons = candidates.map((pointName) => {
     const button = document.createElement("button");
     button.type = "button";
     button.dataset.pointSuggestion = pointName;
-    if (index === 0) button.classList.add("primary-point-suggestion");
+    if (pointName === strongestCandidate) {
+      button.classList.add("primary-point-suggestion");
+      button.dataset.suggestionRole = "strongest";
+    }
     if (pointName === currentPointName) {
       button.classList.add("current-point-suggestion");
+      button.dataset.suggestionRole = "current";
       button.setAttribute("aria-label", `現在値 ${pointName}`);
+    } else if (confusionCandidates.includes(pointName)) {
+      button.classList.add("confusion-point-suggestion");
+      button.dataset.suggestionRole = "confusion";
+    } else if (!button.dataset.suggestionRole) {
+      button.dataset.suggestionRole = "other";
     }
     button.textContent = pointName;
     return button;
   });
-  const primaryButton = buttons[0];
-  const alternatives = document.createElement("div");
-  alternatives.className = "point-suggestion-alternatives";
-  alternatives.append(...buttons.slice(1));
-  pointSuggestionButtons.replaceChildren(
-    ...(primaryButton ? [primaryButton] : []),
-    ...(alternatives.childElementCount ? [alternatives] : [])
-  );
+  pointSuggestionButtons.replaceChildren(...buttons);
   pointSuggestions.hidden = false;
   document.body.classList.add("point-suggestions-visible");
   keepSelectedPointAboveSuggestions(input);
