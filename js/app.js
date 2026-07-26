@@ -7,7 +7,7 @@ import {
   LEVELING_TOLERANCE_PRESETS,
   resolveToleranceDistanceMeters,
   toNumber
-} from "./calculation.js?v=129";
+} from "./calculation.js?v=130";
 import {
   chooseLevelReading,
   createVoiceController,
@@ -15,15 +15,15 @@ import {
   normalizeSpokenNumber,
   prepareSpeechSynthesis,
   speakBack
-} from "./voice.js?v=129";
-import { clearProject, loadProject, saveProject } from "./storage.js?v=129";
-import { exportSheetCsv } from "./export.js?v=129";
+} from "./voice.js?v=130";
+import { clearProject, loadProject, saveProject } from "./storage.js?v=130";
+import { exportSheetCsv } from "./export.js?v=130";
 import {
   alignSheetsWithCurrentLabels,
   isValidStaffReading,
   rowHasContent,
   reversePointNamesWithinUsedRows
-} from "./rules.js?v=129";
+} from "./rules.js?v=130";
 import {
   choosePointName,
   getRankedPointNameCandidates,
@@ -31,8 +31,8 @@ import {
   normalizePointName,
   pointNameToSpeech,
   recordPointNameUsage
-} from "./point-names.js?v=129";
-import { initializeAnalytics, trackEvent } from "./analytics.js?v=129";
+} from "./point-names.js?v=130";
+import { initializeAnalytics, trackEvent } from "./analytics.js?v=130";
 
 initializeAnalytics();
 
@@ -256,7 +256,7 @@ function createBlankProject() {
       sheetMeaningVersion: 2,
       tableScale: 0.44,
       tableScaleDefaultsVersion: 2,
-      sampleDataDefaultsVersion: 1,
+      sampleDataDefaultsVersion: 2,
       pointAliases: [],
       pointNameScripts: {
         kanji: false,
@@ -338,7 +338,7 @@ function normalizeLoadedProject(loaded) {
   outRows = outRows.map((row) => normalizeRow(row, "out"));
   backRows = backRows.map((row) => normalizeRow(row, "back"));
   const shouldAddInitialSample =
-    (Number(loaded.settings?.sampleDataDefaultsVersion) || 0) < 1 &&
+    (Number(loaded.settings?.sampleDataDefaultsVersion) || 0) < 2 &&
     !outRows.some(rowHasContent) &&
     !backRows.some(rowHasContent);
   if (shouldAddInitialSample) {
@@ -426,7 +426,7 @@ function normalizeLoadedProject(loaded) {
           ? clamp(loadedTableScale, 0.4, 1.8)
           : 0.44,
       tableScaleDefaultsVersion: 2,
-      sampleDataDefaultsVersion: 1,
+      sampleDataDefaultsVersion: 2,
       pointAliases: loadedAliases,
       pointNameScripts: {
         kanji: hasCurrentVoiceDefaults && loadedScripts.kanji === true,
@@ -448,7 +448,7 @@ if (
   Number(storedProject.settings?.tableScaleDefaultsVersion) < 2 ||
   Number(storedProject.settings?.distanceVisibilityDefaultsVersion) < 1 ||
   Number(storedProject.settings?.columnVisibilityDefaultsVersion) < 3 ||
-  (Number(storedProject.settings?.sampleDataDefaultsVersion) || 0) < 1
+  (Number(storedProject.settings?.sampleDataDefaultsVersion) || 0) < 2
 ) {
   project = saveProject(project);
 }
