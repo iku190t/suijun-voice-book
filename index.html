@@ -16,10 +16,10 @@
   <meta name="apple-mobile-web-app-title" content="水準ボイス">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <title>水準ボイス</title>
-  <link rel="manifest" href="./manifest.json?v=180">
-  <link rel="icon" href="./icons/icon-192.png?v=180">
-  <link rel="apple-touch-icon" href="./icons/icon-192.png?v=180">
-  <link rel="stylesheet" href="./css/style.css?v=180">
+  <link rel="manifest" href="./manifest.json?v=181">
+  <link rel="icon" href="./icons/icon-192.png?v=181">
+  <link rel="apple-touch-icon" href="./icons/icon-192.png?v=181">
+  <link rel="stylesheet" href="./css/style.css?v=181">
 </head>
 <body class="voice-mode-active">
   <header class="app-header">
@@ -157,9 +157,9 @@
   </div>
 
   <div class="voice-dock">
-    <section id="pointNameKeyboard" class="point-name-keyboard" aria-label="点名専用キーボード" hidden>
+    <section id="pointNameKeyboard" class="point-name-keyboard" data-keyboard-layout="text" aria-label="独自入力キーボード" hidden>
       <div class="point-name-keyboard-display">
-        <strong>点名入力</strong>
+        <strong id="customKeyboardLabel">点名入力</strong>
         <output id="pointNameKeyboardValue" aria-live="polite"></output>
         <button class="point-name-native-keyboard" type="button" data-point-keyboard-action="native">純正⌨</button>
       </div>
@@ -169,8 +169,23 @@
         <button type="button" data-point-keyboard-action="right" aria-label="カーソルを右へ">→</button>
         <button type="button" data-point-keyboard-action="backspace" aria-label="一文字削除">⌫</button>
         <button class="point-name-keyboard-space" type="button" data-point-keyboard-action="space">空白</button>
+        <button class="custom-keyboard-voice" type="button" data-point-keyboard-action="voice" aria-label="音声入力へ切り替え">🎤</button>
         <button class="point-name-keyboard-clear" type="button" data-point-keyboard-action="clear">クリア</button>
         <button class="point-name-keyboard-done" type="button" data-point-keyboard-action="done">確定</button>
+      </div>
+      <div id="numericKeyboardKeys" class="numeric-keyboard-keys" aria-label="数値テンキー">
+        <button type="button" data-point-keyboard-key="7">7</button>
+        <button type="button" data-point-keyboard-key="8">8</button>
+        <button type="button" data-point-keyboard-key="9">9</button>
+        <button type="button" data-point-keyboard-key="4">4</button>
+        <button type="button" data-point-keyboard-key="5">5</button>
+        <button type="button" data-point-keyboard-key="6">6</button>
+        <button type="button" data-point-keyboard-key="1">1</button>
+        <button type="button" data-point-keyboard-key="2">2</button>
+        <button type="button" data-point-keyboard-key="3">3</button>
+        <button type="button" data-point-keyboard-key=".">.</button>
+        <button type="button" data-point-keyboard-key="0">0</button>
+        <button id="numericKeyboardSign" class="numeric-keyboard-sign" type="button" data-point-keyboard-action="sign" aria-label="プラスとマイナスを切り替え">±</button>
       </div>
     </section>
     <section id="pointSuggestions" class="point-suggestions" aria-label="測点名の優先候補" hidden>
@@ -358,6 +373,6 @@
   </dialog>
 
   <noscript>このアプリの利用にはJavaScriptを有効にしてください。</noscript>
-  <script type="module" src="./js/app.js?v=180"></script>
+  <script type="module" src="./js/app.js?v=181"></script>
 </body>
 </html>

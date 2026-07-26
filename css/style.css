@@ -831,6 +831,7 @@ body.external-ui-recovery .voice-dock {
 .point-name-keyboard {
   display: grid;
   width: min(100%, 560px);
+  height: 213px;
   gap: 3px;
   padding: 5px;
   border: 1px solid #9fd5f1;
@@ -915,6 +916,7 @@ body.external-ui-recovery .voice-dock {
   grid-template-columns:
     repeat(3, minmax(0, .55fr))
     minmax(0, 1.05fr)
+    minmax(0, .55fr)
     minmax(0, .9fr)
     minmax(0, 1.1fr);
   gap: 2px;
@@ -938,10 +940,66 @@ body.external-ui-recovery .voice-dock {
   color: #942222;
   background: #fff1f1;
 }
+.voice-dock .point-name-keyboard-actions .custom-keyboard-voice {
+  color: #fff;
+  border-color: #b82e29;
+  background: #d9473f;
+  font-size: 1rem;
+}
 .voice-dock .point-name-keyboard-actions .point-name-keyboard-done {
   border-color: #087ec0;
   color: #fff;
   background: #168dcc;
+}
+.numeric-keyboard-keys {
+  display: none;
+}
+.point-name-keyboard[data-keyboard-layout="numeric"] {
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  grid-template-rows: 41px minmax(0, 1fr);
+}
+.point-name-keyboard[data-keyboard-layout="numeric"] .point-name-keyboard-display {
+  grid-column: 1;
+  grid-row: 1;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+}
+.point-name-keyboard[data-keyboard-layout="numeric"] .point-name-keyboard-display strong {
+  font-size: .7rem;
+}
+.point-name-keyboard[data-keyboard-layout="numeric"] .point-name-native-keyboard {
+  width: 30px;
+  padding-inline: 2px;
+  font-size: .82rem;
+}
+.point-name-keyboard[data-keyboard-layout="numeric"] .point-name-keyboard-keys {
+  display: none;
+}
+.point-name-keyboard[data-keyboard-layout="numeric"] .point-name-keyboard-actions {
+  grid-column: 1;
+  grid-row: 2;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  align-content: end;
+}
+.point-name-keyboard[data-keyboard-layout="numeric"] .point-name-keyboard-space {
+  display: none;
+}
+.point-name-keyboard[data-keyboard-layout="numeric"] .numeric-keyboard-keys {
+  display: grid;
+  grid-column: 2;
+  grid-row: 1 / 3;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-rows: repeat(4, minmax(0, 1fr));
+  gap: 3px;
+}
+.voice-dock .point-name-keyboard[data-keyboard-layout="numeric"] .numeric-keyboard-keys button {
+  min-height: 0;
+  font-size: 1.3rem;
+}
+.voice-dock .point-name-keyboard[data-keyboard-layout="numeric"] .numeric-keyboard-sign {
+  color: #fff;
+  border-color: #087ec0;
+  background: #168dcc;
+  font-size: 1.05rem;
 }
 body.point-keyboard-active .voice-dock {
   grid-template-columns: minmax(280px, 560px);
