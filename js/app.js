@@ -7,7 +7,7 @@ import {
   LEVELING_TOLERANCE_PRESETS,
   resolveToleranceDistanceMeters,
   toNumber
-} from "./calculation.js?v=147";
+} from "./calculation.js?v=148";
 import {
   chooseLevelReading,
   createVoiceController,
@@ -15,15 +15,15 @@ import {
   normalizeSpokenNumber,
   prepareSpeechSynthesis,
   speakBack
-} from "./voice.js?v=147";
-import { clearProject, loadProject, saveProject } from "./storage.js?v=147";
-import { exportNotebookCsv } from "./export.js?v=147";
+} from "./voice.js?v=148";
+import { clearProject, loadProject, saveProject } from "./storage.js?v=148";
+import { exportNotebookCsv } from "./export.js?v=148";
 import {
   alignSheetsWithCurrentLabels,
   isValidStaffReading,
   rowHasLevelObservationData,
   reversePointNamesWithinUsedRows
-} from "./rules.js?v=147";
+} from "./rules.js?v=148";
 import {
   choosePointName,
   composePointNameSuggestionCandidates,
@@ -33,8 +33,8 @@ import {
   normalizePointName,
   pointNameToSpeech,
   recordPointNameUsage
-} from "./point-names.js?v=147";
-import { initializeAnalytics, trackEvent } from "./analytics.js?v=147";
+} from "./point-names.js?v=148";
+import { initializeAnalytics, trackEvent } from "./analytics.js?v=148";
 
 initializeAnalytics();
 
@@ -267,7 +267,10 @@ function createBlankProject() {
       showDistance: false,
       distanceVisibilityDefaultsVersion: 1,
       visibleColumns: Object.fromEntries(
-        COLUMN_DEFINITIONS.map(({ key }) => [key, key !== "distance"])
+        COLUMN_DEFINITIONS.map(({ key }) => [
+          key,
+          key !== "distance" && key !== "note"
+        ])
       ),
       columnVisibilityDefaultsVersion: 3,
       voiceRate: 1.2,
