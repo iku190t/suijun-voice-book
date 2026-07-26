@@ -7,7 +7,7 @@ import {
   LEVELING_TOLERANCE_PRESETS,
   resolveToleranceDistanceMeters,
   toNumber
-} from "./calculation.js?v=115";
+} from "./calculation.js?v=116";
 import {
   chooseLevelReading,
   createVoiceController,
@@ -15,14 +15,14 @@ import {
   normalizeSpokenNumber,
   prepareSpeechSynthesis,
   speakBack
-} from "./voice.js?v=115";
-import { clearProject, loadProject, saveProject } from "./storage.js?v=115";
-import { exportSheetCsv } from "./export.js?v=115";
+} from "./voice.js?v=116";
+import { clearProject, loadProject, saveProject } from "./storage.js?v=116";
+import { exportSheetCsv } from "./export.js?v=116";
 import {
   alignSheetsWithCurrentLabels,
   isValidStaffReading,
   reversePointNamesWithinUsedRows
-} from "./rules.js?v=115";
+} from "./rules.js?v=116";
 import {
   choosePointName,
   getRankedPointNameCandidates,
@@ -30,8 +30,8 @@ import {
   normalizePointName,
   pointNameToSpeech,
   recordPointNameUsage
-} from "./point-names.js?v=115";
-import { initializeAnalytics, trackEvent } from "./analytics.js?v=115";
+} from "./point-names.js?v=116";
+import { initializeAnalytics, trackEvent } from "./analytics.js?v=116";
 
 initializeAnalytics();
 
@@ -2011,6 +2011,69 @@ shareAppButton.addEventListener("click", async () => {
   }
 });
 copyShareUrlButton.addEventListener("click", copyAppShareUrl);
+
+const installAppButton = document.querySelector("#installAppBtn");
+const installDialog = document.querySelector("#installDialog");
+const installDialogMessage = document.querySelector("#installDialogMessage");
+const installDialogSteps = document.querySelector("#installDialogSteps");
+let deferredInstallPrompt = null;
+
+function isAppStandalone() {
+  return window.matchMedia("(display-mode: standalone)").matches ||
+    window.navigator.standalone === true;
+}
+
+function isIosDevice() {
+  return /iPad|iPhone|iPod/.test(navigator.userAgent) ||
+    (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+}
+
+function showInstallInstructions() {
+  const ios = isIosDevice();
+  installDialogMessage.textContent = ios
+    ? "iPhoneではSafariの共有メニューからホーム画面へ追加します。"
+    : "ブラウザのメニューから、このWebアプリを端末へ追加できます。";
+  const steps = ios
+    ? ["Safariでこのページを開く", "共有ボタンを押す", "「ホーム画面に追加」を選ぶ"]
+    : ["Chromeの右上にある「︙」を押す", "「アプリをインストール」または「ホーム画面に追加」を選ぶ"];
+  installDialogSteps.replaceChildren(...steps.map((step) => {
+    const item = document.createElement("li");
+    item.textContent = step;
+    return item;
+  }));
+  installDialog.showModal();
+  trackEvent("open_install_guide", { platform: ios ? "ios" : "other" });
+}
+
+window.addEventListener("beforeinstallprompt", (event) => {
+  event.preventDefault();
+  deferredInstallPrompt = event;
+  if (!isAppStandalone()) installAppButton.hidden = false;
+});
+
+window.addEventListener("appinstalled", () => {
+  deferredInstallPrompt = null;
+  installAppButton.hidden = true;
+  trackEvent("install_app");
+});
+
+if (isAppStandalone()) installAppButton.hidden = true;
+
+installAppButton.addEventListener("click", async () => {
+  if (isAppStandalone()) {
+    installAppButton.hidden = true;
+    return;
+  }
+  if (!deferredInstallPrompt) {
+    showInstallInstructions();
+    return;
+  }
+  deferredInstallPrompt.prompt();
+  const choice = await deferredInstallPrompt.userChoice;
+  trackEvent("install_prompt_result", { outcome: choice.outcome });
+  if (choice.outcome === "accepted") installAppButton.hidden = true;
+  deferredInstallPrompt = null;
+});
 
 const voiceRateInput = document.querySelector("#voiceRate");
 const voiceRateValue = document.querySelector("#voiceRateValue");

@@ -53,7 +53,7 @@ a { color: #0d5d74; }
 .eyebrow { margin: 0 0 2px; color: #d9f2ff; font-size: .68rem; font-weight: var(--weight-bold); letter-spacing: .1em; text-transform: uppercase; }
 .brand-links {
   display: grid;
-  grid-template-columns: max-content;
+  grid-template-columns: repeat(2, max-content);
   align-items: center;
   justify-content: end;
   gap: 3px 6px;
@@ -91,21 +91,42 @@ a { color: #0d5d74; }
   stroke-linecap: round;
   stroke-linejoin: round;
 }
-.bottom-share-button {
+.bottom-install-button {
   position: fixed;
   z-index: 56;
   bottom: max(8px, env(safe-area-inset-bottom));
   left: 50%;
-  width: 40px;
-  min-width: 40px;
+  display: flex;
+  width: auto;
+  min-width: 142px;
   min-height: 40px;
-  padding: 5px;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  padding: 5px 10px;
+  border: 0;
+  color: #fff;
+  background: transparent;
+  box-shadow: none;
+  font-size: .78rem;
+  font-weight: var(--weight-bold);
   transform: translateX(-50%);
 }
-.bottom-share-button:active {
+.bottom-install-button svg {
+  width: 25px;
+  height: 25px;
+}
+.bottom-install-button path {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2.2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.bottom-install-button:active {
   transform: translateX(-50%) translateY(1px);
 }
-body.software-keyboard-open .bottom-share-button {
+body.software-keyboard-open .bottom-install-button {
   display: none;
 }
 
@@ -738,6 +759,19 @@ dialog .eyebrow { color: var(--brand-2); }
   border-color: var(--brand);
   background: var(--brand);
 }
+.install-dialog > form {
+  display: grid;
+  gap: 12px;
+}
+.install-dialog h2,
+.install-dialog p {
+  margin: 0;
+}
+.install-steps {
+  margin: 0;
+  padding-left: 1.5em;
+  line-height: 1.65;
+}
 .clear-confirmation {
   margin-top: 14px;
 }
@@ -898,9 +932,15 @@ dialog .eyebrow { color: var(--brand-2); }
 @media (max-width: 430px) {
   .brand-links { max-width: 52%; }
   .brand-links a { font-size: .65rem; }
+  .brand-links .share-button,
   .brand-links .support-button {
     min-height: 34px;
     padding: 4px 7px;
+  }
+  .brand-links .share-button {
+    width: 34px;
+    min-width: 34px;
+    padding: 4px;
   }
   .summary-card, .tolerance-card { padding: 7px 8px; }
   .toolbar {
