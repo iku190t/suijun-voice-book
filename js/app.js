@@ -7,7 +7,7 @@ import {
   LEVELING_TOLERANCE_PRESETS,
   resolveToleranceDistanceMeters,
   toNumber
-} from "./calculation.js?v=156";
+} from "./calculation.js?v=157";
 import {
   chooseLevelReading,
   createVoiceController,
@@ -15,15 +15,15 @@ import {
   normalizeSpokenNumber,
   prepareSpeechSynthesis,
   speakBack
-} from "./voice.js?v=156";
-import { clearProject, loadProject, saveProject } from "./storage.js?v=156";
-import { exportNotebookCsv } from "./export.js?v=156";
+} from "./voice.js?v=157";
+import { clearProject, loadProject, saveProject } from "./storage.js?v=157";
+import { exportNotebookCsv } from "./export.js?v=157";
 import {
   alignSheetsWithCurrentLabels,
   isValidStaffReading,
   rowHasLevelObservationData,
   reversePointNamesWithinUsedRows
-} from "./rules.js?v=156";
+} from "./rules.js?v=157";
 import {
   choosePointName,
   composePointNameSuggestionCandidates,
@@ -36,8 +36,8 @@ import {
   normalizePointName,
   pointNameToSpeech,
   recordPointNameUsage
-} from "./point-names.js?v=156";
-import { initializeAnalytics, trackEvent } from "./analytics.js?v=156";
+} from "./point-names.js?v=157";
+import { initializeAnalytics, trackEvent } from "./analytics.js?v=157";
 
 initializeAnalytics();
 
@@ -277,7 +277,7 @@ function createBlankProject() {
           key !== "distance" && key !== "note"
         ])
       ),
-      columnVisibilityDefaultsVersion: 3,
+      columnVisibilityDefaultsVersion: 4,
       voiceRate: 1.2,
       pointNameFinalizeDelayMs: 1000,
       voiceSettingsVersion: 3,
@@ -428,8 +428,8 @@ function normalizeLoadedProject(loaded) {
       const { key } = definition;
       const visible = definition.toggleable === false
         ? true
-        : key === "note" && columnVisibilityDefaultsVersion < 3
-          ? true
+        : key === "note" && columnVisibilityDefaultsVersion < 4
+          ? false
         : hasSavedColumnVisibility
           ? loadedVisibleColumns[key] !== false
           : key === "distance"
@@ -473,7 +473,7 @@ function normalizeLoadedProject(loaded) {
       showDistance: visibleColumns.distance,
       distanceVisibilityDefaultsVersion: 1,
       visibleColumns,
-      columnVisibilityDefaultsVersion: 3,
+      columnVisibilityDefaultsVersion: 4,
       tableScale: hasCurrentTableScaleDefaults
         ? clamp(loadedTableScale || 0.44, 0.4, 1.8)
         : Number.isFinite(loadedTableScale) && loadedTableScale !== 1 && loadedTableScale !== 0.5
@@ -501,7 +501,7 @@ if (
   Number(storedProject.settings?.toleranceDefaultsVersion) < 1 ||
   Number(storedProject.settings?.tableScaleDefaultsVersion) < 2 ||
   Number(storedProject.settings?.distanceVisibilityDefaultsVersion) < 1 ||
-  Number(storedProject.settings?.columnVisibilityDefaultsVersion) < 3 ||
+  Number(storedProject.settings?.columnVisibilityDefaultsVersion) < 4 ||
   (Number(storedProject.settings?.sampleDataDefaultsVersion) || 0) < 5
 ) {
   project = saveProject(project);
