@@ -13,9 +13,9 @@
   <meta name="description" content="水準測量の観測値を音声やキーボードで入力できる、無料の現場向けWeb野帳です。">
   <title>水準ボイス野帳</title>
   <link rel="manifest" href="./manifest.json">
-  <link rel="icon" href="./icons/icon-192.png?v=113">
-  <link rel="apple-touch-icon" href="./icons/icon-192.png?v=113">
-  <link rel="stylesheet" href="./css/style.css?v=113">
+  <link rel="icon" href="./icons/icon-192.png?v=115">
+  <link rel="apple-touch-icon" href="./icons/icon-192.png?v=115">
+  <link rel="stylesheet" href="./css/style.css?v=115">
 </head>
 <body>
   <header class="app-header">
@@ -26,11 +26,6 @@
       </div>
       <div class="brand-links">
         <a href="https://ez-survey.sakura.ne.jp/" target="_blank" rel="noopener noreferrer">株式会社アイズ測量</a>
-        <button id="shareAppBtn" class="share-button" type="button" aria-label="共有" title="共有">
-          <svg viewBox="0 0 32 32" aria-hidden="true">
-            <path d="M16 20V3m0 0-6 6m6-6 6 6M10 12H7.5A3.5 3.5 0 0 0 4 15.5v9A3.5 3.5 0 0 0 7.5 28h17a3.5 3.5 0 0 0 3.5-3.5v-9a3.5 3.5 0 0 0-3.5-3.5H22"/>
-          </svg>
-        </button>
         <button id="supportOpenBtn" class="support-button" type="button">♡ 応援</button>
       </div>
     </div>
@@ -171,6 +166,12 @@
     <div id="voiceStatus" class="sr-only" aria-live="polite"></div>
   </div>
 
+  <button id="shareAppBtn" class="share-button bottom-share-button" type="button" aria-label="共有" title="共有">
+    <svg viewBox="0 0 32 32" aria-hidden="true">
+      <path d="M16 20V3m0 0-6 6m6-6 6 6M10 12H7.5A3.5 3.5 0 0 0 4 15.5v9A3.5 3.5 0 0 0 7.5 28h17a3.5 3.5 0 0 0 3.5-3.5v-9a3.5 3.5 0 0 0-3.5-3.5H22"/>
+    </svg>
+  </button>
+
   <dialog id="settingsDialog" class="voice-settings-dialog" aria-labelledby="settingsDialogTitle">
     <form method="dialog">
       <button class="dialog-close" value="cancel" aria-label="閉じる">×</button>
@@ -279,6 +280,6 @@
   </dialog>
 
   <noscript>このアプリの利用にはJavaScriptを有効にしてください。</noscript>
-  <script type="module" src="./js/app.js?v=113"></script>
+  <script type="module" src="./js/app.js?v=115"></script>
 </body>
 </html>

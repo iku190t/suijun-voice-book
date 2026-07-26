@@ -22,7 +22,7 @@
 html, body { touch-action: pan-x pan-y; }
 body {
   margin: 0;
-  padding-bottom: 144px;
+  padding-bottom: 184px;
   color: var(--ink);
   background: var(--paper);
   font-family: var(--app-font);
@@ -53,7 +53,7 @@ a { color: #0d5d74; }
 .eyebrow { margin: 0 0 2px; color: #d9f2ff; font-size: .68rem; font-weight: var(--weight-bold); letter-spacing: .1em; text-transform: uppercase; }
 .brand-links {
   display: grid;
-  grid-template-columns: repeat(2, max-content);
+  grid-template-columns: max-content;
   align-items: center;
   justify-content: end;
   gap: 3px 6px;
@@ -90,6 +90,23 @@ a { color: #0d5d74; }
   stroke-width: 2.4;
   stroke-linecap: round;
   stroke-linejoin: round;
+}
+.bottom-share-button {
+  position: fixed;
+  z-index: 56;
+  bottom: max(8px, env(safe-area-inset-bottom));
+  left: 50%;
+  width: 40px;
+  min-width: 40px;
+  min-height: 40px;
+  padding: 5px;
+  transform: translateX(-50%);
+}
+.bottom-share-button:active {
+  transform: translateX(-50%) translateY(1px);
+}
+body.software-keyboard-open .bottom-share-button {
+  display: none;
 }
 
 .history-buttons { display: flex; align-items: center; gap: 8px; margin-left: auto; }
@@ -559,7 +576,7 @@ tr.row-action-selected .row-selector {
   justify-content: center;
   align-items: center;
   gap: 10px;
-  padding: 8px max(10px, env(safe-area-inset-right)) calc(8px + env(safe-area-inset-bottom)) max(10px, env(safe-area-inset-left));
+  padding: 8px max(10px, env(safe-area-inset-right)) max(52px, calc(8px + env(safe-area-inset-bottom))) max(10px, env(safe-area-inset-left));
   border-top: 1px solid #7eb9dc;
   color: #fff;
   background: rgba(13, 101, 157, .97);
@@ -881,15 +898,9 @@ dialog .eyebrow { color: var(--brand-2); }
 @media (max-width: 430px) {
   .brand-links { max-width: 52%; }
   .brand-links a { font-size: .65rem; }
-  .brand-links .share-button,
   .brand-links .support-button {
     min-height: 34px;
     padding: 4px 7px;
-  }
-  .brand-links .share-button {
-    width: 34px;
-    min-width: 34px;
-    padding: 4px;
   }
   .summary-card, .tolerance-card { padding: 7px 8px; }
   .toolbar {
@@ -903,7 +914,7 @@ dialog .eyebrow { color: var(--brand-2); }
   }
   .voice-dock { grid-template-columns: 1fr; gap: 3px; }
   .voice-dock button { min-height: 116px; }
-  body { padding-bottom: 144px; }
+  body { padding-bottom: 184px; }
   .history-buttons { gap: 5px; margin-left: auto; }
   .history-buttons button { width: 42px; min-width: 42px; }
   .history-buttons svg { width: 36px; }
