@@ -7,7 +7,7 @@ import {
   LEVELING_TOLERANCE_PRESETS,
   resolveToleranceDistanceMeters,
   toNumber
-} from "./calculation.js?v=158";
+} from "./calculation.js?v=159";
 import {
   chooseLevelReading,
   createVoiceController,
@@ -15,15 +15,15 @@ import {
   normalizeSpokenNumber,
   prepareSpeechSynthesis,
   speakBack
-} from "./voice.js?v=158";
-import { clearProject, loadProject, saveProject } from "./storage.js?v=158";
-import { exportNotebookCsv } from "./export.js?v=158";
+} from "./voice.js?v=159";
+import { clearProject, loadProject, saveProject } from "./storage.js?v=159";
+import { exportNotebookCsv } from "./export.js?v=159";
 import {
   alignSheetsWithCurrentLabels,
   isValidStaffReading,
   rowHasLevelObservationData,
   reversePointNamesWithinUsedRows
-} from "./rules.js?v=158";
+} from "./rules.js?v=159";
 import {
   choosePointName,
   composePointNameSuggestionCandidates,
@@ -36,8 +36,8 @@ import {
   normalizePointName,
   pointNameToSpeech,
   recordPointNameUsage
-} from "./point-names.js?v=158";
-import { initializeAnalytics, trackEvent } from "./analytics.js?v=158";
+} from "./point-names.js?v=159";
+import { initializeAnalytics, trackEvent } from "./analytics.js?v=159";
 
 initializeAnalytics();
 
@@ -167,6 +167,7 @@ let planHeightRangeStart = null;
 let planHeightBulkReturnState = null;
 let keyboardViewportBaseline = window.visualViewport?.height || window.innerHeight;
 let externalUiRestoreTimer = null;
+let externalUiRestoreUntil = 0;
 let keyboardCellScrollTimer = null;
 let keyboardCellScrollTarget = null;
 let textMeasureContext = null;
@@ -1511,6 +1512,10 @@ function getRenderedTranslateY(element) {
 }
 
 function updateSuggestionPosition() {
+  if (Date.now() < externalUiRestoreUntil) {
+    clearVoiceDockViewportOffset();
+    return;
+  }
   const normalSuggestionVisible = (
     !voiceModeActive &&
     !voiceSessionActive &&
@@ -1606,13 +1611,13 @@ function clearVoiceDockViewportOffset() {
 
 function restoreVoiceDockAfterExternalUi() {
   const resetDockPosition = () => {
-    const focusedInput = document.activeElement?.matches?.(
-      "#notebookBody input, .point-suggestion-editor input"
-    );
-    if (focusedInput) return;
     document.body.classList.remove("software-keyboard-open");
     document.body.style.removeProperty("--keyboard-row-clearance");
-    keyboardViewportBaseline = window.visualViewport?.height || window.innerHeight;
+    keyboardViewportBaseline = Math.max(
+      keyboardViewportBaseline,
+      window.visualViewport?.height || 0,
+      window.innerHeight
+    );
     clearVoiceDockViewportOffset();
     requestAnimationFrame(() => {
       updateSuggestionPosition();
@@ -1621,12 +1626,19 @@ function restoreVoiceDockAfterExternalUi() {
     });
   };
 
+  externalUiRestoreUntil = Date.now() + 2000;
   resetDockPosition();
-  clearTimeout(externalUiRestoreTimer);
-  externalUiRestoreTimer = setTimeout(() => {
-    externalUiRestoreTimer = null;
+  clearInterval(externalUiRestoreTimer);
+  let remainingResets = 8;
+  externalUiRestoreTimer = setInterval(() => {
     resetDockPosition();
-  }, 500);
+    remainingResets -= 1;
+    if (remainingResets > 0) return;
+    clearInterval(externalUiRestoreTimer);
+    externalUiRestoreTimer = null;
+    externalUiRestoreUntil = 0;
+    resetDockPosition();
+  }, 250);
 }
 
 document.addEventListener("visibilitychange", () => {
@@ -1962,8 +1974,9 @@ function syncStickyHeaderColumns() {
 
 function updateStickyTableHeader() {
   const wrapRect = tableWrap.getBoundingClientRect();
-  const sheetHeadingRect = sheetHeading.getBoundingClientRect();
   const viewportTop = window.visualViewport?.offsetTop || 0;
+  sheetHeading.style.top = `${Math.round(viewportTop)}px`;
+  const sheetHeadingRect = sheetHeading.getBoundingClientRect();
   const sheetHeadingIsStuck =
     sheetHeadingRect.top <= viewportTop + 1 &&
     wrapRect.bottom > sheetHeadingRect.bottom;
@@ -2522,7 +2535,11 @@ function showNotice(message, type = "") {
   notice.className = `notice ${type}`.trim();
   notice.hidden = false;
   clearTimeout(showNotice.timer);
-  showNotice.timer = setTimeout(() => { notice.hidden = true; }, 3800);
+  scheduleStickyTableHeader();
+  showNotice.timer = setTimeout(() => {
+    notice.hidden = true;
+    scheduleStickyTableHeader();
+  }, 3800);
 }
 
 function scheduleAutosave() {
@@ -2668,6 +2685,11 @@ function createFreshCsvRows() {
 }
 
 document.querySelector("#csvBtn").addEventListener("click", async () => {
+  if (document.activeElement?.matches?.(
+    "#notebookBody input, .point-suggestion-editor input"
+  )) {
+    document.activeElement.blur();
+  }
   clearVoiceDockViewportOffset();
   let result;
   try {

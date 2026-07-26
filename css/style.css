@@ -420,7 +420,23 @@ a { color: #0d5d74; }
 }
 
 main { max-width: 1540px; margin: 0 auto; padding: 9px 8px 28px; }
-.notice { margin: 0 0 8px; padding: 9px 12px; border: 1px solid #e6a15d; border-radius: 9px; color: #693500; background: #fff3df; font-weight: var(--weight-strong); }
+.notice {
+  position: fixed;
+  z-index: 110;
+  top: max(8px, env(safe-area-inset-top));
+  left: 50%;
+  width: min(520px, calc(100vw - 20px));
+  margin: 0;
+  padding: 9px 12px;
+  border: 1px solid #e6a15d;
+  border-radius: 9px;
+  color: #693500;
+  background: #fff3df;
+  box-shadow: 0 5px 16px rgba(10, 70, 110, .22);
+  font-weight: var(--weight-strong);
+  pointer-events: none;
+  transform: translateX(-50%);
+}
 .notice.error { border-color: #dc7c7c; color: #7f1717; background: #fff0f0; }
 .notice.success { border-color: #70b893; color: #155c39; background: #ecfff4; }
 .sheet-heading {
