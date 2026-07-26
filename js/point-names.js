@@ -1,4 +1,4 @@
-import { normalizeAliasKey, resolvePointAlias } from "./rules.js?v=155";
+import { normalizeAliasKey, resolvePointAlias } from "./rules.js?v=156";
 
 const BASE_PRIORITY_POINT_NAMES = [...new Set(`
 BM,KBM,TBM,仮BM,水準点,仮水準点,既知点,未知点,固定点,既設点,新設点,閉合点,確認点,チェック点,
@@ -491,6 +491,40 @@ export function getBaseNoOffsetCandidates(pointName, manualAliases = []) {
 
   const base = `${match[1].toUpperCase()}${match[2]}`;
   return [`${base}+5`, `${base}+10`];
+}
+
+export function getCurveSequenceCandidates(pointNamesAbove, manualAliases = []) {
+  const normalizedNames = (Array.isArray(pointNamesAbove) ? pointNamesAbove : [])
+    .map((pointName) => normalizePointName(pointName, manualAliases))
+    .filter(Boolean);
+  const previousPointName = normalizedNames.at(-1) || "";
+  const match = previousPointName.match(/^(BC|SP|EC)\.?(\d+)$/i);
+  if (!match) return { preferred: [], suppressed: [] };
+
+  const curveType = match[1].toUpperCase();
+  const curveNumber = Number(match[2]);
+  const point = (prefix, number) => normalizePointName(
+    `${prefix}${number}`,
+    manualAliases
+  );
+  const nextBc = point("BC", curveNumber + 1);
+
+  if (curveType === "BC") {
+    return {
+      preferred: [point("SP", curveNumber), point("EC", curveNumber)],
+      suppressed: [nextBc]
+    };
+  }
+  if (curveType === "SP") {
+    return {
+      preferred: [point("EC", curveNumber)],
+      suppressed: [point("SP", curveNumber + 1), nextBc]
+    };
+  }
+  return {
+    preferred: [nextBc],
+    suppressed: [point("EC", curveNumber + 1)]
+  };
 }
 
 export function incrementPointNameOrCopy(pointName, manualAliases = []) {

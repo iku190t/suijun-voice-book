@@ -7,7 +7,7 @@ import {
   LEVELING_TOLERANCE_PRESETS,
   resolveToleranceDistanceMeters,
   toNumber
-} from "./calculation.js?v=155";
+} from "./calculation.js?v=156";
 import {
   chooseLevelReading,
   createVoiceController,
@@ -15,19 +15,20 @@ import {
   normalizeSpokenNumber,
   prepareSpeechSynthesis,
   speakBack
-} from "./voice.js?v=155";
-import { clearProject, loadProject, saveProject } from "./storage.js?v=155";
-import { exportNotebookCsv } from "./export.js?v=155";
+} from "./voice.js?v=156";
+import { clearProject, loadProject, saveProject } from "./storage.js?v=156";
+import { exportNotebookCsv } from "./export.js?v=156";
 import {
   alignSheetsWithCurrentLabels,
   isValidStaffReading,
   rowHasLevelObservationData,
   reversePointNamesWithinUsedRows
-} from "./rules.js?v=155";
+} from "./rules.js?v=156";
 import {
   choosePointName,
   composePointNameSuggestionCandidates,
   getBaseNoOffsetCandidates,
+  getCurveSequenceCandidates,
   getPointNameConfusionCandidates,
   getOffsetPointNameCandidates,
   getRankedPointNameCandidates,
@@ -35,8 +36,8 @@ import {
   normalizePointName,
   pointNameToSpeech,
   recordPointNameUsage
-} from "./point-names.js?v=155";
-import { initializeAnalytics, trackEvent } from "./analytics.js?v=155";
+} from "./point-names.js?v=156";
+import { initializeAnalytics, trackEvent } from "./analytics.js?v=156";
 
 initializeAnalytics();
 
@@ -164,6 +165,7 @@ let planHeightRangeMode = false;
 let planHeightRangeStart = null;
 let planHeightBulkReturnState = null;
 let keyboardViewportBaseline = window.visualViewport?.height || window.innerHeight;
+let externalUiRestoreTimer = null;
 let keyboardCellScrollTimer = null;
 let keyboardCellScrollTarget = null;
 let textMeasureContext = null;
@@ -1266,7 +1268,7 @@ function showPointNameSuggestions(input) {
     input.value,
     project.settings.pointAliases
   );
-  const incrementedCandidate = incrementPointNameOrCopy(
+  let incrementedCandidate = incrementPointNameOrCopy(
     namesAboveCurrentRow.at(-1),
     project.settings.pointAliases
   );
@@ -1278,17 +1280,35 @@ function showPointNameSuggestions(input) {
     namesAboveCurrentRow.at(-1),
     project.settings.pointAliases
   );
+  const curveSequence = getCurveSequenceCandidates(
+    namesAboveCurrentRow,
+    project.settings.pointAliases
+  );
+  if (curveSequence.preferred.length) incrementedCandidate = "";
+  const curveSequenceSuppressed = new Set(
+    curveSequence.suppressed.map((pointName) => normalizePointName(
+      pointName,
+      project.settings.pointAliases
+    ))
+  );
   const offsetPatternBase = normalizePointName(
     namesAboveCurrentRow.at(-1),
     project.settings.pointAliases
   ).match(/^(NO\.?\d+)\+\d+$/i)?.[1] || "";
   const rankedCandidatesWithOffsetPatterns = [
+    ...curveSequence.preferred,
     ...baseNoOffsetCandidates,
     ...offsetPatternCandidates.slice(1),
     ...rankedCandidates.filter((pointName) => (
-      !offsetPatternCandidates.length ||
-      !pointName.startsWith(`${offsetPatternBase}+`) ||
-      offsetPatternCandidates.includes(pointName)
+      !curveSequenceSuppressed.has(normalizePointName(
+        pointName,
+        project.settings.pointAliases
+      )) &&
+      (
+        !offsetPatternCandidates.length ||
+        !pointName.startsWith(`${offsetPatternBase}+`) ||
+        offsetPatternCandidates.includes(pointName)
+      )
     ))
   ];
   const confusionCandidates = currentPointName
@@ -1535,11 +1555,9 @@ function updateSuggestionPosition() {
   lastNormalSuggestionMaxHeight = Number.NaN;
   cachedSuggestionPanelHeight = 0;
   cachedSuggestionEditing = null;
-  const visibleSuggestionPanel = !pointSuggestions.hidden && pointSuggestions.isConnected
-    ? pointSuggestions
+  const keyboardAvoidanceTarget = suggestionEditInput?.isConnected
+    ? suggestionEditInput
     : null;
-  const keyboardAvoidanceTarget = visibleSuggestionPanel ||
-    (suggestionEditInput?.isConnected ? suggestionEditInput : null);
   if (!keyboardAvoidanceTarget) {
     voiceDock.style.removeProperty("--suggestion-keyboard-shift");
     lastVoiceSuggestionShift = Number.NaN;
@@ -1586,20 +1604,28 @@ function clearVoiceDockViewportOffset() {
 }
 
 function restoreVoiceDockAfterExternalUi() {
-  const focusedInput = document.activeElement?.matches?.(
-    "#notebookBody input, .point-suggestion-editor input"
-  );
-  if (!focusedInput) {
+  const resetDockPosition = () => {
+    const focusedInput = document.activeElement?.matches?.(
+      "#notebookBody input, .point-suggestion-editor input"
+    );
+    if (focusedInput) return;
     document.body.classList.remove("software-keyboard-open");
     document.body.style.removeProperty("--keyboard-row-clearance");
     keyboardViewportBaseline = window.visualViewport?.height || window.innerHeight;
     clearVoiceDockViewportOffset();
-  }
-  requestAnimationFrame(() => {
-    updateSuggestionPosition();
-    schedulePointClipboardPosition();
-    scheduleStickyTableHeader();
-  });
+    requestAnimationFrame(() => {
+      updateSuggestionPosition();
+      schedulePointClipboardPosition();
+      scheduleStickyTableHeader();
+    });
+  };
+
+  resetDockPosition();
+  clearTimeout(externalUiRestoreTimer);
+  externalUiRestoreTimer = setTimeout(() => {
+    externalUiRestoreTimer = null;
+    resetDockPosition();
+  }, 500);
 }
 
 document.addEventListener("visibilitychange", () => {
