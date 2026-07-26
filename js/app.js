@@ -7,7 +7,7 @@ import {
   LEVELING_TOLERANCE_PRESETS,
   resolveToleranceDistanceMeters,
   toNumber
-} from "./calculation.js?v=139";
+} from "./calculation.js?v=140";
 import {
   chooseLevelReading,
   createVoiceController,
@@ -15,15 +15,15 @@ import {
   normalizeSpokenNumber,
   prepareSpeechSynthesis,
   speakBack
-} from "./voice.js?v=139";
-import { clearProject, loadProject, saveProject } from "./storage.js?v=139";
-import { exportNotebookCsv } from "./export.js?v=139";
+} from "./voice.js?v=140";
+import { clearProject, loadProject, saveProject } from "./storage.js?v=140";
+import { exportNotebookCsv } from "./export.js?v=140";
 import {
   alignSheetsWithCurrentLabels,
   isValidStaffReading,
   rowHasLevelObservationData,
   reversePointNamesWithinUsedRows
-} from "./rules.js?v=139";
+} from "./rules.js?v=140";
 import {
   choosePointName,
   getPointNameConfusionCandidates,
@@ -32,8 +32,8 @@ import {
   normalizePointName,
   pointNameToSpeech,
   recordPointNameUsage
-} from "./point-names.js?v=139";
-import { initializeAnalytics, trackEvent } from "./analytics.js?v=139";
+} from "./point-names.js?v=140";
+import { initializeAnalytics, trackEvent } from "./analytics.js?v=140";
 
 initializeAnalytics();
 
@@ -256,6 +256,7 @@ function createBlankProject() {
       columnVisibilityDefaultsVersion: 3,
       voiceRate: 1.2,
       voiceSettingsVersion: 2,
+      autoVoiceCursorMove: true,
       sheetMeaningVersion: 2,
       tableScale: 0.44,
       tableScaleDefaultsVersion: 2,
@@ -422,6 +423,7 @@ function normalizeLoadedProject(loaded) {
         ? clamp(Number(loaded.settings?.voiceRate) || 1.2, 0.5, 1.5)
         : 1.2,
       voiceSettingsVersion: 2,
+      autoVoiceCursorMove: loaded.settings?.autoVoiceCursorMove !== false,
       sheetMeaningVersion: 2,
       tolerancePreset: hasCurrentToleranceDefaults &&
         LEVELING_TOLERANCE_PRESETS[loaded.settings?.tolerancePreset]
@@ -1205,29 +1207,34 @@ function showPointNameSuggestions(input) {
     input.value,
     project.settings.pointAliases
   );
-  const strongestCandidate = rankedCandidates[0] || currentPointName;
-  const confusionSource = currentPointName || strongestCandidate;
-  const confusionCandidates = getPointNameConfusionCandidates(
-    confusionSource,
-    project.settings.pointAliases,
-    namesAboveCurrentRow,
-    project.settings.pointNameHistory,
-    3
-  );
-  const candidates = [
-    strongestCandidate,
-    currentPointName,
-    ...confusionCandidates,
-    ...rankedCandidates.slice(1)
-  ]
+  const confusionCandidates = currentPointName
+    ? getPointNameConfusionCandidates(
+      currentPointName,
+      project.settings.pointAliases,
+      namesAboveCurrentRow,
+      project.settings.pointNameHistory,
+      POINT_SUGGESTION_LIMIT - 1
+    )
+    : [];
+  const strongestCandidate = currentPointName
+    ? confusionCandidates[0] || currentPointName
+    : rankedCandidates[0];
+  const candidates = currentPointName
+    ? [
+      strongestCandidate,
+      currentPointName,
+      ...confusionCandidates.slice(1)
+    ]
+    : rankedCandidates;
+  const uniqueCandidates = candidates
     .filter(Boolean)
     .filter((pointName, index, all) => all.indexOf(pointName) === index)
     .slice(0, POINT_SUGGESTION_LIMIT);
-  if (!candidates.length) {
+  if (!uniqueCandidates.length) {
     hidePointSuggestions();
     return;
   }
-  const buttons = candidates.map((pointName) => {
+  const buttons = uniqueCandidates.map((pointName) => {
     const button = document.createElement("button");
     button.type = "button";
     button.dataset.pointSuggestion = pointName;
@@ -2377,10 +2384,12 @@ installAppButton.addEventListener("click", async () => {
 
 const voiceRateInput = document.querySelector("#voiceRate");
 const voiceRateValue = document.querySelector("#voiceRateValue");
+const autoVoiceCursorMoveInput = document.querySelector("#autoVoiceCursorMove");
 const pointAliasList = document.querySelector("#pointAliasList");
 const pointScriptInputs = [...pointScriptControls.querySelectorAll("[data-point-script]")];
 voiceRateInput.value = project.settings.voiceRate.toFixed(1);
 voiceRateValue.textContent = `${project.settings.voiceRate.toFixed(1)}倍`;
+autoVoiceCursorMoveInput.checked = project.settings.autoVoiceCursorMove !== false;
 pointScriptInputs.forEach((input) => {
   input.checked = Boolean(project.settings.pointNameScripts[input.dataset.pointScript]);
 });
@@ -2399,6 +2408,10 @@ settingsDialog.addEventListener("close", () => {
 voiceRateInput.addEventListener("input", () => {
   project.settings.voiceRate = clamp(Number(voiceRateInput.value) || 1.2, 0.5, 1.5);
   voiceRateValue.textContent = `${project.settings.voiceRate.toFixed(1)}倍`;
+  scheduleAutosave();
+});
+autoVoiceCursorMoveInput.addEventListener("change", () => {
+  project.settings.autoVoiceCursorMove = autoVoiceCursorMoveInput.checked;
   scheduleAutosave();
 });
 pointScriptControls.addEventListener("change", (event) => {
@@ -2561,7 +2574,9 @@ const voiceController = createVoiceController({
           : value;
       await speakBack(repeatText, project.settings.voiceRate);
       if (!voiceSessionActive || resultSessionToken !== voiceSessionToken) return;
-      await moveAfterVoiceInput(target);
+      if (project.settings.autoVoiceCursorMove) {
+        await moveAfterVoiceInput(target);
+      }
     } finally {
       if (resultSessionToken === voiceSessionToken) finishVoiceSession();
     }

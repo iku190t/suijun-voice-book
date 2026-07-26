@@ -654,6 +654,38 @@ tr.row-action-selected .row-selector {
 .voice-settings-dialog {
   width: min(500px, calc(100vw - 24px));
 }
+.toggle-setting {
+  display: flex;
+  min-height: 54px;
+  margin-top: 16px;
+  padding: 10px 12px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  border: 1px solid #c9e1ee;
+  border-radius: 10px;
+  background: #f7fcff;
+}
+.toggle-setting span {
+  display: grid;
+  gap: 2px;
+}
+.toggle-setting strong {
+  color: #174f73;
+  font-size: .95rem;
+}
+.toggle-setting small {
+  color: #547188;
+  font-size: .74rem;
+  line-height: 1.35;
+}
+.toggle-setting input {
+  flex: 0 0 auto;
+  width: 28px;
+  height: 28px;
+  margin: 0;
+  accent-color: #1587c7;
+}
 .point-script-description {
   margin: 0;
   color: #547188;

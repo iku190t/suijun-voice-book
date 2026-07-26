@@ -13,9 +13,9 @@
   <meta name="description" content="水準測量の観測値を音声やキーボードで入力できる、無料の現場向けWeb野帳です。">
   <title>水準ボイス野帳</title>
   <link rel="manifest" href="./manifest.json">
-  <link rel="icon" href="./icons/icon-192.png?v=139">
-  <link rel="apple-touch-icon" href="./icons/icon-192.png?v=139">
-  <link rel="stylesheet" href="./css/style.css?v=139">
+  <link rel="icon" href="./icons/icon-192.png?v=140">
+  <link rel="apple-touch-icon" href="./icons/icon-192.png?v=140">
+  <link rel="stylesheet" href="./css/style.css?v=140">
 </head>
 <body>
   <header class="app-header">
@@ -184,6 +184,13 @@
       </label>
       <input id="voiceRate" class="rate-slider" type="range" min="0.5" max="1.5" step="0.1" value="1.2">
       <div class="rate-labels" aria-hidden="true"><span>ゆっくり</span><span>速い</span></div>
+      <label class="toggle-setting" for="autoVoiceCursorMove">
+        <span>
+          <strong>音声入力後の自動カーソル移動</strong>
+          <small>オフにすると、入力後も同じセルに待機します。</small>
+        </span>
+        <input id="autoVoiceCursorMove" type="checkbox" checked>
+      </label>
       <section class="script-settings" aria-labelledby="pointScriptTitle">
         <h3 id="pointScriptTitle">文字認識</h3>
         <p class="point-script-description">点名として認識する文字の種類を選択してください。</p>
@@ -294,6 +301,6 @@
   </dialog>
 
   <noscript>このアプリの利用にはJavaScriptを有効にしてください。</noscript>
-  <script type="module" src="./js/app.js?v=139"></script>
+  <script type="module" src="./js/app.js?v=140"></script>
 </body>
 </html>
