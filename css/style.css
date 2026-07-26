@@ -307,24 +307,6 @@ tr.row-action-selected td input,
 tr.row-action-selected .row-selector {
   background: #e7f6e8 !important;
 }
-tr.row-delete-pending td {
-  background-color: #ffe7e7 !important;
-  box-shadow: inset 0 3px #d33939, inset 0 -3px #d33939;
-}
-tr.row-delete-pending td:first-child {
-  box-shadow: inset 3px 0 #d33939, inset 0 3px #d33939, inset 0 -3px #d33939;
-}
-tr.row-delete-pending td:last-child {
-  box-shadow: inset -3px 0 #d33939, inset 0 3px #d33939, inset 0 -3px #d33939;
-}
-tr.row-delete-pending td input {
-  background: rgba(255, 231, 231, .72) !important;
-}
-tr.row-delete-pending .row-selector {
-  color: #942222;
-  background: #ffe7e7 !important;
-}
-
 .row-selector {
   width: 100%;
   min-width: 0;
