@@ -1,6 +1,6 @@
 const GA_MEASUREMENT_ID = "G-88B9YPJXWP";
 const APP_NAME = "suijun_voice_book";
-const APP_VERSION = "95";
+const APP_VERSION = "96";
 
 function getGtag() {
   return typeof window.gtag === "function" ? window.gtag : null;
@@ -43,4 +43,3 @@ export function initializeAnalytics() {
   });
   trackEvent("page_access");
 }
-

@@ -6,7 +6,7 @@ import {
   LEVELING_TOLERANCE_PRESETS,
   sumObservationDistanceMeters,
   toNumber
-} from "./calculation.js?v=95";
+} from "./calculation.js?v=96";
 import {
   chooseLevelReading,
   createVoiceController,
@@ -14,14 +14,14 @@ import {
   normalizeSpokenNumber,
   prepareSpeechSynthesis,
   speakBack
-} from "./voice.js?v=95";
-import { clearProject, loadProject, saveProject } from "./storage.js?v=95";
-import { exportSheetCsv } from "./export.js?v=95";
+} from "./voice.js?v=96";
+import { clearProject, loadProject, saveProject } from "./storage.js?v=96";
+import { exportSheetCsv } from "./export.js?v=96";
 import {
   alignSheetsWithCurrentLabels,
   isValidStaffReading,
   reversePointNamesWithinUsedRows
-} from "./rules.js?v=95";
+} from "./rules.js?v=96";
 import {
   choosePointName,
   getRankedPointNameCandidates,
@@ -29,8 +29,8 @@ import {
   normalizePointName,
   pointNameToSpeech,
   recordPointNameUsage
-} from "./point-names.js?v=95";
-import { initializeAnalytics, trackEvent } from "./analytics.js?v=95";
+} from "./point-names.js?v=96";
+import { initializeAnalytics, trackEvent } from "./analytics.js?v=96";
 
 initializeAnalytics();
 
@@ -347,7 +347,7 @@ function rowTemplate(row, index) {
     <td><input data-field="fs" inputmode="decimal" pattern="[0-9]*[.]?[0-9]*" autocomplete="off" spellcheck="false" aria-label="${index + 1}行目 前視 FS"></td>
     <td class="calc round-trip-diff"></td>
     <td class="calc diff"></td>
-    <td class="elevation-cell calculated"><input data-field="elevation" inputmode="decimal" autocomplete="off" aria-label="${index + 1}行目 既知標高または仮標高"></td>
+    <td class="elevation-cell calculated${index === 0 ? " starting-elevation-cell" : ""}"><input data-field="elevation" inputmode="decimal" autocomplete="off" aria-label="${index + 1}行目 既知標高または仮標高"></td>
     <td><input data-field="note" inputmode="text" autocomplete="off" aria-label="${index + 1}行目 備考"></td>`;
   tr.querySelector('[data-field="pointName"]').value = row.pointName || "";
   tr.querySelector('[data-field="bs"]').value = displayValue(row.bs, row.bs !== null ? 3 : null);
@@ -376,6 +376,9 @@ function renderSheet() {
   });
   tbody.querySelectorAll("tr.row-delete-pending").forEach((row) => {
     row.classList.remove("row-delete-pending");
+  });
+  tbody.querySelectorAll("tr.row-action-selected").forEach((row) => {
+    row.classList.remove("row-action-selected");
   });
   hidePointSuggestions();
   const fragment = document.createDocumentFragment();
@@ -651,6 +654,9 @@ function closeRowActionPopover() {
   tbody.querySelectorAll("tr.row-delete-pending").forEach((row) => {
     row.classList.remove("row-delete-pending");
   });
+  tbody.querySelectorAll("tr.row-action-selected").forEach((row) => {
+    row.classList.remove("row-action-selected");
+  });
   selectedRowIndex = null;
   updateRowSelectorIndicators();
   updatePointClipboardButtons();
@@ -662,6 +668,7 @@ function openRowActionPopover(selector) {
   closeRowActionPopover();
   selectedRowIndex = rowIndex;
   updateRowSelectorIndicators(rowIndex);
+  tbody.rows[rowIndex]?.classList.add("row-action-selected");
   pointClipboardPopover.hidden = true;
   pointClipboardPopover.parentElement?.classList.remove("point-clipboard-anchor");
   const anchorCell = selector.closest("td");
