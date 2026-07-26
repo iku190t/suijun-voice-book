@@ -342,6 +342,12 @@ export function calculateNotebook(sourceRows, toleranceMm = 10, options = {}) {
   return calculateNotebookDownward(sourceRows, toleranceMm, options);
 }
 
+export function formatSignedMillimeters(value) {
+  if (!Number.isFinite(value)) return "";
+  const rounded = Math.round(value);
+  return rounded > 0 ? `+${rounded}` : String(rounded);
+}
+
 export function applyRoundTripDifferences(outRows, backRows) {
   const maximumLength = Math.max(outRows.length, backRows.length);
   let lastUsedIndex = -1;
@@ -370,7 +376,7 @@ export function applyRoundTripDifferences(outRows, backRows) {
     }
 
     const differenceMm =
-      Math.abs(Math.abs(outDifference) - Math.abs(backDifference)) * 1000;
+      (Math.abs(outDifference) - Math.abs(backDifference)) * 1000;
     outRows[outIndex]._roundTripDifferenceMm = differenceMm;
     backRows[backIndex]._roundTripDifferenceMm = differenceMm;
   }

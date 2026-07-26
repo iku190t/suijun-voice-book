@@ -2,11 +2,12 @@ import {
   applyRoundTripDifferences,
   calculateNotebook,
   calculateToleranceMm,
+  formatSignedMillimeters,
   formatMeters,
   LEVELING_TOLERANCE_PRESETS,
   resolveToleranceDistanceMeters,
   toNumber
-} from "./calculation.js?v=112";
+} from "./calculation.js?v=113";
 import {
   chooseLevelReading,
   createVoiceController,
@@ -14,14 +15,14 @@ import {
   normalizeSpokenNumber,
   prepareSpeechSynthesis,
   speakBack
-} from "./voice.js?v=112";
-import { clearProject, loadProject, saveProject } from "./storage.js?v=112";
-import { exportSheetCsv } from "./export.js?v=112";
+} from "./voice.js?v=113";
+import { clearProject, loadProject, saveProject } from "./storage.js?v=113";
+import { exportSheetCsv } from "./export.js?v=113";
 import {
   alignSheetsWithCurrentLabels,
   isValidStaffReading,
   reversePointNamesWithinUsedRows
-} from "./rules.js?v=112";
+} from "./rules.js?v=113";
 import {
   choosePointName,
   getRankedPointNameCandidates,
@@ -29,8 +30,8 @@ import {
   normalizePointName,
   pointNameToSpeech,
   recordPointNameUsage
-} from "./point-names.js?v=112";
-import { initializeAnalytics, trackEvent } from "./analytics.js?v=112";
+} from "./point-names.js?v=113";
+import { initializeAnalytics, trackEvent } from "./analytics.js?v=113";
 
 initializeAnalytics();
 
@@ -549,7 +550,7 @@ function recalculateAndRender() {
       ? row._difference.toFixed(3)
       : "";
     tr.querySelector(".round-trip-diff").textContent = Number.isFinite(row._roundTripDifferenceMm)
-      ? String(Math.round(row._roundTripDifferenceMm))
+      ? formatSignedMillimeters(row._roundTripDifferenceMm)
       : "";
     const elevationInput = tr.querySelector('[data-field="elevation"]');
     if (document.activeElement !== elevationInput || row.elevationType === "calculated") {
