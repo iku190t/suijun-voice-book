@@ -539,13 +539,11 @@ tr.row-action-selected .row-selector {
 .row-action-popover [hidden] {
   display: none;
 }
-.row-action-buttons,
-.row-delete-confirm {
+.row-action-buttons {
   display: flex;
   align-items: stretch;
 }
-.row-action-popover button,
-.row-delete-confirm > span {
+.row-action-popover button {
   min-height: 44px;
   padding: 7px 11px;
   border: 2px solid #168bd1;
@@ -557,16 +555,13 @@ tr.row-action-selected .row-selector {
   line-height: 1;
   white-space: nowrap;
 }
-.row-action-buttons > :first-child,
-.row-delete-confirm > :first-child {
+.row-action-buttons > :first-child {
   border-radius: 10px 0 0 10px;
 }
-.row-action-buttons > :last-child,
-.row-delete-confirm > :last-child {
+.row-action-buttons > :last-child {
   border-radius: 0 10px 10px 0;
 }
-.row-action-buttons > :not(:first-child),
-.row-delete-confirm > :not(:first-child) {
+.row-action-buttons > :not(:first-child) {
   border-left-width: 0;
 }
 .row-action-popover .row-delete-button {
@@ -574,11 +569,6 @@ tr.row-action-selected .row-selector {
   color: #942222;
   background: rgba(255, 237, 237, .96);
 }
-.row-delete-confirm > span {
-  display: flex;
-  align-items: center;
-}
-
 .elevation-cell { position: relative; }
 
 .voice-dock {

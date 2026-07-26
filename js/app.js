@@ -7,7 +7,7 @@ import {
   LEVELING_TOLERANCE_PRESETS,
   resolveToleranceDistanceMeters,
   toNumber
-} from "./calculation.js?v=133";
+} from "./calculation.js?v=134";
 import {
   chooseLevelReading,
   createVoiceController,
@@ -15,15 +15,15 @@ import {
   normalizeSpokenNumber,
   prepareSpeechSynthesis,
   speakBack
-} from "./voice.js?v=133";
-import { clearProject, loadProject, saveProject } from "./storage.js?v=133";
-import { exportSheetCsv } from "./export.js?v=133";
+} from "./voice.js?v=134";
+import { clearProject, loadProject, saveProject } from "./storage.js?v=134";
+import { exportSheetCsv } from "./export.js?v=134";
 import {
   alignSheetsWithCurrentLabels,
   isValidStaffReading,
   rowHasLevelObservationData,
   reversePointNamesWithinUsedRows
-} from "./rules.js?v=133";
+} from "./rules.js?v=134";
 import {
   choosePointName,
   getRankedPointNameCandidates,
@@ -31,8 +31,8 @@ import {
   normalizePointName,
   pointNameToSpeech,
   recordPointNameUsage
-} from "./point-names.js?v=133";
-import { initializeAnalytics, trackEvent } from "./analytics.js?v=133";
+} from "./point-names.js?v=134";
+import { initializeAnalytics, trackEvent } from "./analytics.js?v=134";
 
 initializeAnalytics();
 
@@ -98,11 +98,8 @@ const pointIncrementPasteButton = document.querySelector("#pointIncrementPasteBt
 const pointClearButton = document.querySelector("#pointClearBtn");
 const rowActionPopover = document.querySelector("#rowActionPopover");
 const rowActionButtons = document.querySelector("#rowActionButtons");
-const rowDeleteConfirm = document.querySelector("#rowDeleteConfirm");
 const insertRowButton = document.querySelector("#insertRowBtn");
 const deleteSelectedRowButton = document.querySelector("#deleteSelectedRowBtn");
-const confirmDeleteRowButton = document.querySelector("#confirmDeleteRowBtn");
-const cancelDeleteRowButton = document.querySelector("#cancelDeleteRowBtn");
 const undoButton = document.querySelector("#undoBtn");
 const redoButton = document.querySelector("#redoBtn");
 const sheetToggleButton = document.querySelector("#sheetToggleBtn");
@@ -562,15 +559,11 @@ function renderSheet() {
   document.body.append(rowActionPopover);
   rowActionPopover.hidden = true;
   rowActionButtons.hidden = false;
-  rowDeleteConfirm.hidden = true;
   tbody.querySelectorAll(".point-clipboard-anchor").forEach((cell) => {
     cell.classList.remove("point-clipboard-anchor");
   });
   tbody.querySelectorAll(".row-action-anchor").forEach((cell) => {
     cell.classList.remove("row-action-anchor");
-  });
-  tbody.querySelectorAll("tr.row-delete-pending").forEach((row) => {
-    row.classList.remove("row-delete-pending");
   });
   tbody.querySelectorAll("tr.row-action-selected").forEach((row) => {
     row.classList.remove("row-action-selected");
@@ -955,11 +948,7 @@ function updateRowSelectorIndicators(activeIndex = null) {
 function closeRowActionPopover() {
   rowActionPopover.hidden = true;
   rowActionButtons.hidden = false;
-  rowDeleteConfirm.hidden = true;
   rowActionPopover.parentElement?.classList.remove("row-action-anchor");
-  tbody.querySelectorAll("tr.row-delete-pending").forEach((row) => {
-    row.classList.remove("row-delete-pending");
-  });
   tbody.querySelectorAll("tr.row-action-selected").forEach((row) => {
     row.classList.remove("row-action-selected");
   });
@@ -981,7 +970,6 @@ function openRowActionPopover(selector) {
   anchorCell.classList.add("row-action-anchor");
   anchorCell.append(rowActionPopover);
   rowActionButtons.hidden = false;
-  rowDeleteConfirm.hidden = true;
   rowActionPopover.hidden = false;
 }
 
@@ -2086,12 +2074,6 @@ deleteSelectedRowButton.addEventListener("click", () => {
     showNotice("最後の1行は削除できません。", "error");
     return;
   }
-  rowActionButtons.hidden = true;
-  rowDeleteConfirm.hidden = false;
-  tbody.rows[selectedRowIndex]?.classList.add("row-delete-pending");
-});
-confirmDeleteRowButton.addEventListener("click", () => {
-  if (selectedRowIndex === null) return;
   recordUndoSnapshot(activeSheet, "row-delete", true);
   project.sheets.out.splice(selectedRowIndex, 1);
   project.sheets.back.splice(selectedRowIndex, 1);
@@ -2099,9 +2081,6 @@ confirmDeleteRowButton.addEventListener("click", () => {
   renderSheet();
   scheduleAutosave();
   trackEvent("delete_row", { sheet: activeSheet });
-});
-cancelDeleteRowButton.addEventListener("click", () => {
-  closeRowActionPopover();
 });
 document.addEventListener("pointerdown", (event) => {
   if (
