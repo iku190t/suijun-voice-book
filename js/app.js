@@ -7,7 +7,7 @@ import {
   LEVELING_TOLERANCE_PRESETS,
   resolveToleranceDistanceMeters,
   toNumber
-} from "./calculation.js?v=120";
+} from "./calculation.js?v=122";
 import {
   chooseLevelReading,
   createVoiceController,
@@ -15,14 +15,14 @@ import {
   normalizeSpokenNumber,
   prepareSpeechSynthesis,
   speakBack
-} from "./voice.js?v=120";
-import { clearProject, loadProject, saveProject } from "./storage.js?v=120";
-import { exportSheetCsv } from "./export.js?v=120";
+} from "./voice.js?v=122";
+import { clearProject, loadProject, saveProject } from "./storage.js?v=122";
+import { exportSheetCsv } from "./export.js?v=122";
 import {
   alignSheetsWithCurrentLabels,
   isValidStaffReading,
   reversePointNamesWithinUsedRows
-} from "./rules.js?v=120";
+} from "./rules.js?v=122";
 import {
   choosePointName,
   getRankedPointNameCandidates,
@@ -30,8 +30,8 @@ import {
   normalizePointName,
   pointNameToSpeech,
   recordPointNameUsage
-} from "./point-names.js?v=120";
-import { initializeAnalytics, trackEvent } from "./analytics.js?v=120";
+} from "./point-names.js?v=122";
+import { initializeAnalytics, trackEvent } from "./analytics.js?v=122";
 
 initializeAnalytics();
 
@@ -169,7 +169,7 @@ function recordUndoSnapshot(sheet = activeSheet, groupKey = "", force = false) {
 function restoreProjectSnapshot(snapshot) {
   project = normalizeLoadedProject(JSON.parse(snapshot));
   project.settings.voiceRate = clamp(Number(project.settings.voiceRate) || 1.2, 0.5, 1.5);
-  project.settings.tableScale = clamp(Number(project.settings.tableScale) || 1, 0.5, 1.8);
+  project.settings.tableScale = clamp(Number(project.settings.tableScale) || 0.5, 0.5, 1.8);
   endHistoryGroup();
   renderSheet();
   project = saveProject(project);
@@ -226,10 +226,12 @@ function createBlankProject() {
       manualToleranceDistance: null,
       toleranceDefaultsVersion: 1,
       showDistance: false,
+      distanceVisibilityDefaultsVersion: 1,
       voiceRate: 1.2,
       voiceSettingsVersion: 2,
       sheetMeaningVersion: 2,
-      tableScale: 1,
+      tableScale: 0.5,
+      tableScaleDefaultsVersion: 1,
       pointAliases: [],
       pointNameScripts: {
         kanji: false,
@@ -303,6 +305,10 @@ function normalizeLoadedProject(loaded) {
     : {};
   const hasCurrentVoiceDefaults = Number(loaded.settings?.voiceSettingsVersion) >= 2;
   const hasCurrentToleranceDefaults = Number(loaded.settings?.toleranceDefaultsVersion) >= 1;
+  const hasCurrentTableScaleDefaults = Number(loaded.settings?.tableScaleDefaultsVersion) >= 1;
+  const hasCurrentDistanceVisibilityDefaults =
+    Number(loaded.settings?.distanceVisibilityDefaultsVersion) >= 1;
+  const loadedTableScale = Number(loaded.settings?.tableScale);
 
   return {
     version: 5,
@@ -329,6 +335,16 @@ function normalizeLoadedProject(loaded) {
         return value !== null && value > 0 ? value : null;
       })(),
       toleranceDefaultsVersion: 1,
+      showDistance: hasCurrentDistanceVisibilityDefaults
+        ? loaded.settings?.showDistance === true
+        : false,
+      distanceVisibilityDefaultsVersion: 1,
+      tableScale: hasCurrentTableScaleDefaults
+        ? clamp(loadedTableScale || 0.5, 0.5, 1.8)
+        : Number.isFinite(loadedTableScale) && loadedTableScale !== 1
+          ? clamp(loadedTableScale, 0.5, 1.8)
+          : 0.5,
+      tableScaleDefaultsVersion: 1,
       pointAliases: loadedAliases,
       pointNameScripts: {
         kanji: hasCurrentVoiceDefaults && loadedScripts.kanji === true,
@@ -344,11 +360,16 @@ function normalizeLoadedProject(loaded) {
 
 const storedProject = loadProject();
 let project = normalizeLoadedProject(storedProject);
-if (!storedProject || Number(storedProject.settings?.toleranceDefaultsVersion) < 1) {
+if (
+  !storedProject ||
+  Number(storedProject.settings?.toleranceDefaultsVersion) < 1 ||
+  Number(storedProject.settings?.tableScaleDefaultsVersion) < 1 ||
+  Number(storedProject.settings?.distanceVisibilityDefaultsVersion) < 1
+) {
   project = saveProject(project);
 }
 project.settings.voiceRate = clamp(Number(project.settings.voiceRate) || 1.2, 0.5, 1.5);
-project.settings.tableScale = clamp(Number(project.settings.tableScale) || 1, 0.5, 1.8);
+project.settings.tableScale = clamp(Number(project.settings.tableScale) || 0.5, 0.5, 1.8);
 if (!LEVELING_TOLERANCE_PRESETS[project.settings.tolerancePreset]) {
   project.settings.tolerancePreset = "grade4";
 }
