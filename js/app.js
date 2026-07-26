@@ -7,7 +7,7 @@ import {
   LEVELING_TOLERANCE_PRESETS,
   resolveToleranceDistanceMeters,
   toNumber
-} from "./calculation.js?v=143";
+} from "./calculation.js?v=144";
 import {
   chooseLevelReading,
   createVoiceController,
@@ -15,15 +15,15 @@ import {
   normalizeSpokenNumber,
   prepareSpeechSynthesis,
   speakBack
-} from "./voice.js?v=143";
-import { clearProject, loadProject, saveProject } from "./storage.js?v=143";
-import { exportNotebookCsv } from "./export.js?v=143";
+} from "./voice.js?v=144";
+import { clearProject, loadProject, saveProject } from "./storage.js?v=144";
+import { exportNotebookCsv } from "./export.js?v=144";
 import {
   alignSheetsWithCurrentLabels,
   isValidStaffReading,
   rowHasLevelObservationData,
   reversePointNamesWithinUsedRows
-} from "./rules.js?v=143";
+} from "./rules.js?v=144";
 import {
   choosePointName,
   composePointNameSuggestionCandidates,
@@ -33,8 +33,8 @@ import {
   normalizePointName,
   pointNameToSpeech,
   recordPointNameUsage
-} from "./point-names.js?v=143";
-import { initializeAnalytics, trackEvent } from "./analytics.js?v=143";
+} from "./point-names.js?v=144";
+import { initializeAnalytics, trackEvent } from "./analytics.js?v=144";
 
 initializeAnalytics();
 
@@ -563,7 +563,7 @@ function rowTemplate(row, index) {
     <td><input data-field="fs" inputmode="decimal" pattern="[0-9]*[.]?[0-9]*" autocomplete="off" spellcheck="false" aria-label="${index + 1}行目 前視 FS"></td>
     <td class="calc round-trip-diff"></td>
     <td class="calc diff"></td>
-    <td class="elevation-cell calculated${index === 0 ? " starting-elevation-cell" : ""}"><input data-field="elevation" inputmode="decimal" autocomplete="off" aria-label="${index + 1}行目 既知標高または仮標高"></td>
+    <td class="elevation-cell calculated${index === 0 ? " starting-elevation-cell" : " locked-elevation-cell"}"><input data-field="elevation" inputmode="decimal" autocomplete="off" aria-label="${index + 1}行目 既知標高または仮標高"${index > 0 ? ' readonly aria-readonly="true" data-calculated-elevation="" tabindex="-1"' : ""}></td>
     <td><input data-field="planHeight" inputmode="decimal" autocomplete="off" aria-label="${index + 1}行目 計画高"></td>
     <td class="calc plan-difference"></td>
     <td><input data-field="note" inputmode="text" autocomplete="off" aria-label="${index + 1}行目 備考"></td>`;
@@ -769,6 +769,11 @@ tableWrap.addEventListener("touchcancel", () => {
 }, { passive: true });
 
 function recalculateAndRender() {
+  Object.values(project.sheets).forEach((rows) => {
+    rows.forEach((row, index) => {
+      if (index > 0) row.elevationType = "calculated";
+    });
+  });
   const toleranceState = getToleranceState();
   calculations.out = calculateNotebook(project.sheets.out, toleranceState.toleranceMm ?? 10);
   calculations.back = calculateNotebook(project.sheets.back, toleranceState.toleranceMm ?? 10, {
@@ -925,6 +930,10 @@ function formatNumericInput(input) {
 }
 
 function handleFieldChange(input, { recordHistory = true, forceHistory = false } = {}) {
+  if (isCalculatedElevationInput(input)) {
+    recalculateAndRender();
+    return false;
+  }
   const index = findRowIndex(input);
   if (index < 0) return false;
   const field = input.dataset.field;
@@ -1032,7 +1041,8 @@ function incrementClipboardPointName(value) {
 function updatePointClipboardButtons() {
   const cellSelected = Boolean(
     !voiceSessionActive &&
-    selectedInput?.isConnected
+    selectedInput?.isConnected &&
+    !isCalculatedElevationInput(selectedInput)
   );
   const pointSelected = cellSelected && selectedInput.dataset.field === "pointName";
   const noteSelected = cellSelected && selectedInput.dataset.field === "note";
@@ -1107,10 +1117,16 @@ function schedulePointClipboardPosition() {
   });
 }
 
+function isCalculatedElevationInput(input) {
+  return Boolean(input?.matches?.(
+    'input[data-field="elevation"][data-calculated-elevation]'
+  ));
+}
+
 function syncVoiceInputLocks() {
   const locked = voiceModeActive || voiceSessionActive;
   tbody.querySelectorAll("input").forEach((input) => {
-    input.readOnly = locked;
+    input.readOnly = locked || isCalculatedElevationInput(input);
   });
   if (locked) document.activeElement?.blur();
 }
@@ -1172,6 +1188,13 @@ function finishVoiceSession() {
 
 function selectVoiceTargetWithoutKeyboard(input) {
   if ((!voiceModeActive && !voiceSessionActive) || !input?.matches("input")) return;
+  if (isCalculatedElevationInput(input)) {
+    voiceTarget = null;
+    markSelectedInput(input);
+    input.blur();
+    hidePointSuggestions();
+    return;
+  }
   voiceTarget = input;
   markSelectedInput(input);
   input.blur();
@@ -1646,7 +1669,10 @@ function selectMovedInput(target, focusTarget = false) {
 function getVoiceRowInputs(row) {
   if (!row) return [];
   return Array.from(row.querySelectorAll("input"))
-    .filter((input) => isFieldColumnVisible(input.dataset.field));
+    .filter((input) => (
+      isFieldColumnVisible(input.dataset.field) &&
+      !isCalculatedElevationInput(input)
+    ));
 }
 
 function getFieldBelowPreviousReading(rowIndex) {
@@ -1725,6 +1751,11 @@ async function moveAfterVoiceInput(current) {
 
 tbody.addEventListener("focusin", (event) => {
   if (!event.target.matches("input")) return;
+  if (isCalculatedElevationInput(event.target)) {
+    markSelectedInput(event.target);
+    event.target.blur();
+    return;
+  }
   if (voiceModeActive || voiceSessionActive) {
     selectVoiceTargetWithoutKeyboard(event.target);
     return;
@@ -1750,7 +1781,12 @@ tbody.addEventListener("pointerdown", (event) => {
   pointerTapStartY = event.clientY;
   pointerTapMoved = false;
   suppressNextCellClick = false;
-  if (event.pointerType === "touch" && !voiceModeActive && !voiceSessionActive) {
+  if (
+    event.pointerType === "touch" &&
+    !voiceModeActive &&
+    !voiceSessionActive &&
+    !isCalculatedElevationInput(input)
+  ) {
     input.readOnly = true;
     input.dataset.touchTapLock = "";
   }
@@ -1770,10 +1806,19 @@ function finishPointerGesture(event, cancelled = false) {
   const isTap = !cancelled && !pointerTapMoved;
   if (input?.hasAttribute("data-touch-tap-lock")) {
     delete input.dataset.touchTapLock;
-    input.readOnly = voiceModeActive || voiceSessionActive;
+    input.readOnly = (
+      voiceModeActive ||
+      voiceSessionActive ||
+      isCalculatedElevationInput(input)
+    );
   }
   if (isTap && input?.isConnected) {
-    if (voiceModeActive || voiceSessionActive) {
+    if (isCalculatedElevationInput(input)) {
+      voiceTarget = null;
+      markSelectedInput(input);
+      input.blur();
+      hidePointSuggestions();
+    } else if (voiceModeActive || voiceSessionActive) {
       selectVoiceTargetWithoutKeyboard(input);
     } else {
       markSelectedInput(input);

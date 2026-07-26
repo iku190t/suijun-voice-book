@@ -677,6 +677,16 @@ td.starting-elevation-cell,
 td.starting-elevation-cell input {
   background-color: #fff4cf !important;
 }
+td.elevation-cell.locked-elevation-cell,
+td.elevation-cell.locked-elevation-cell input {
+  background-color: #eaf6fc !important;
+}
+td.elevation-cell.locked-elevation-cell input {
+  color: #173f56;
+  cursor: default;
+  user-select: none;
+  -webkit-user-select: none;
+}
 tbody td,
 tbody td input,
 tbody .row-selector,
