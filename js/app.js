@@ -6,7 +6,7 @@ import {
   LEVELING_TOLERANCE_PRESETS,
   resolveToleranceDistanceMeters,
   toNumber
-} from "./calculation.js?v=105";
+} from "./calculation.js?v=106";
 import {
   chooseLevelReading,
   createVoiceController,
@@ -14,14 +14,14 @@ import {
   normalizeSpokenNumber,
   prepareSpeechSynthesis,
   speakBack
-} from "./voice.js?v=105";
-import { clearProject, loadProject, saveProject } from "./storage.js?v=105";
-import { exportSheetCsv } from "./export.js?v=105";
+} from "./voice.js?v=106";
+import { clearProject, loadProject, saveProject } from "./storage.js?v=106";
+import { exportSheetCsv } from "./export.js?v=106";
 import {
   alignSheetsWithCurrentLabels,
   isValidStaffReading,
   reversePointNamesWithinUsedRows
-} from "./rules.js?v=105";
+} from "./rules.js?v=106";
 import {
   choosePointName,
   getRankedPointNameCandidates,
@@ -29,8 +29,8 @@ import {
   normalizePointName,
   pointNameToSpeech,
   recordPointNameUsage
-} from "./point-names.js?v=105";
-import { initializeAnalytics, trackEvent } from "./analytics.js?v=105";
+} from "./point-names.js?v=106";
+import { initializeAnalytics, trackEvent } from "./analytics.js?v=106";
 
 initializeAnalytics();
 
@@ -52,6 +52,10 @@ const tolerancePresetSelect = document.querySelector("#tolerancePreset");
 const toleranceDistanceModeSelect = document.querySelector("#toleranceDistanceMode");
 const manualToleranceDistanceField = document.querySelector("#manualToleranceDistanceField");
 const manualToleranceDistanceInput = document.querySelector("#manualToleranceDistance");
+const toleranceSettingsDialog = document.querySelector("#toleranceSettingsDialog");
+const toleranceSettingsButton = document.querySelector("#toleranceSettingsBtn");
+const tolerancePresetSummary = document.querySelector("#tolerancePresetSummary");
+const toleranceDistanceSummary = document.querySelector("#toleranceDistanceSummary");
 const voiceButton = document.querySelector("#voiceBtn");
 const voiceButtonLabel = document.querySelector("#voiceButtonLabel");
 const keyboardModeButton = document.querySelector("#keyboardModeBtn");
@@ -589,6 +593,10 @@ function getToleranceState() {
 function updateToleranceDisplay(toleranceState) {
   tolerancePresetSelect.value = toleranceState.presetKey;
   toleranceDistanceModeSelect.value = toleranceState.distanceMode;
+  tolerancePresetSummary.textContent = toleranceState.preset.label;
+  toleranceDistanceSummary.textContent = toleranceState.distanceMeters === null
+    ? "距離待ち"
+    : `${toleranceState.distanceMode === "manual" ? "手入力" : "シート"} ${Number(toleranceState.distanceMeters.toFixed(3))}m`;
   manualToleranceDistanceField.hidden = toleranceState.distanceMode !== "manual";
   if (document.activeElement !== manualToleranceDistanceInput) {
     const manualDistance = toNumber(project.settings.manualToleranceDistance);
@@ -1824,6 +1832,15 @@ tolerancePresetSelect.addEventListener("change", (event) => {
     : "grade3";
   recalculateAndRender();
   scheduleAutosave();
+});
+toleranceSettingsButton.addEventListener("click", () => {
+  if (toleranceSettingsDialog.open) return;
+  toleranceSettingsDialog.showModal();
+  toleranceSettingsButton.setAttribute("aria-expanded", "true");
+  trackEvent("open_tolerance_settings");
+});
+toleranceSettingsDialog.addEventListener("close", () => {
+  toleranceSettingsButton.setAttribute("aria-expanded", "false");
 });
 toleranceDistanceModeSelect.addEventListener("change", (event) => {
   project.settings.toleranceDistanceMode = event.target.value === "manual"

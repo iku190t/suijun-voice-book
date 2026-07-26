@@ -15,7 +15,7 @@
   <link rel="manifest" href="./manifest.json">
   <link rel="icon" href="./icons/icon-192.png">
   <link rel="apple-touch-icon" href="./icons/icon-192.png">
-  <link rel="stylesheet" href="./css/style.css?v=105">
+  <link rel="stylesheet" href="./css/style.css?v=106">
 </head>
 <body>
   <header class="app-header">
@@ -45,27 +45,15 @@
         <em id="closureJudgement">判定待ち</em>
       </div>
       <div class="tolerance-card">
-        <label for="tolerancePreset">精度区分</label>
-        <select id="tolerancePreset" aria-label="水準測量の精度区分">
-          <option value="grade1">1級</option>
-          <option value="grade2">2級</option>
-          <option value="grade3">3級</option>
-          <option value="grade4">4級</option>
-        </select>
-        <label for="toleranceDistanceMode">距離設定</label>
-        <select id="toleranceDistanceMode" aria-label="許容値に使用する距離">
-          <option value="sheet">シートから計算</option>
-          <option value="manual">手入力</option>
-        </select>
-        <label id="manualToleranceDistanceField" class="manual-tolerance-distance" for="manualToleranceDistance" hidden>
-          <span>距離</span>
-          <span class="manual-distance-entry">
-            <input id="manualToleranceDistance" type="text" inputmode="decimal" pattern="[0-9]*[.]?[0-9]*" autocomplete="off" aria-label="許容値計算用の手入力距離">
-            <b>m</b>
-          </span>
-        </label>
-        <span id="toleranceFormula" class="tolerance-formula">10mm√S</span>
-        <strong id="calculatedTolerance" class="calculated-tolerance">距離待ち</strong>
+        <button id="toleranceSettingsBtn" class="tolerance-summary-button" type="button" aria-controls="toleranceSettingsDialog" aria-expanded="false">
+          <span>精度区分</span>
+          <strong id="tolerancePresetSummary">3級</strong>
+          <span class="tolerance-settings-mark">設定</span>
+        </button>
+        <div class="tolerance-result-row">
+          <span id="toleranceDistanceSummary">距離待ち</span>
+          <strong id="calculatedTolerance" class="calculated-tolerance">距離待ち</strong>
+        </div>
       </div>
     </section>
 
@@ -210,6 +198,40 @@
     </form>
   </dialog>
 
+  <dialog id="toleranceSettingsDialog" class="action-dialog tolerance-settings-dialog" aria-labelledby="toleranceSettingsDialogTitle">
+    <form method="dialog">
+      <button class="dialog-close" value="cancel" aria-label="閉じる">×</button>
+      <h2 id="toleranceSettingsDialogTitle">精度・距離設定</h2>
+      <label class="tolerance-dialog-field" for="tolerancePreset">
+        <span>精度区分</span>
+        <select id="tolerancePreset" aria-label="水準測量の精度区分">
+          <option value="grade1">1級</option>
+          <option value="grade2">2級</option>
+          <option value="grade3">3級</option>
+          <option value="grade4">4級</option>
+        </select>
+      </label>
+      <label class="tolerance-dialog-field" for="toleranceDistanceMode">
+        <span>距離設定</span>
+        <select id="toleranceDistanceMode" aria-label="許容値に使用する距離">
+          <option value="sheet">シートから計算</option>
+          <option value="manual">手入力</option>
+        </select>
+      </label>
+      <label id="manualToleranceDistanceField" class="tolerance-dialog-field manual-tolerance-distance" for="manualToleranceDistance" hidden>
+        <span>距離（m）</span>
+        <input id="manualToleranceDistance" type="text" inputmode="decimal" pattern="[0-9]*[.]?[0-9]*" autocomplete="off" aria-label="許容値計算用の手入力距離">
+      </label>
+      <div class="tolerance-dialog-formula">
+        <span>許容式</span>
+        <strong id="toleranceFormula">10mm√S</strong>
+      </div>
+      <div class="dialog-actions">
+        <button type="submit" value="close">閉じる</button>
+      </div>
+    </form>
+  </dialog>
+
   <dialog id="clearDialog" class="action-dialog clear-dialog" aria-labelledby="clearDialogTitle">
     <form method="dialog">
       <button class="dialog-close" value="cancel" aria-label="閉じる">×</button>
@@ -244,6 +266,6 @@
   </dialog>
 
   <noscript>このアプリの利用にはJavaScriptを有効にしてください。</noscript>
-  <script type="module" src="./js/app.js?v=105"></script>
+  <script type="module" src="./js/app.js?v=106"></script>
 </body>
 </html>
