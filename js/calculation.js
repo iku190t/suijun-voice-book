@@ -72,6 +72,14 @@ function rowHasPairingData(row) {
   );
 }
 
+function rowHasRoundTripExtentData(row) {
+  return Boolean(
+    toNumber(row.bs) !== null ||
+    toNumber(row.fs) !== null ||
+    Number.isFinite(row._difference)
+  );
+}
+
 function safeTolerance(toleranceMm) {
   return Number.isFinite(Number(toleranceMm)) && Number(toleranceMm) >= 0
     ? Number(toleranceMm)
@@ -382,8 +390,8 @@ export function applyRoundTripDifferences(outRows, backRows) {
 
   for (let index = 0; index < maximumLength; index += 1) {
     if (
-      rowHasPairingData(outRows[index] || {}) ||
-      rowHasPairingData(backRows[index] || {})
+      rowHasRoundTripExtentData(outRows[index] || {}) ||
+      rowHasRoundTripExtentData(backRows[index] || {})
     ) {
       lastUsedIndex = index;
     }
