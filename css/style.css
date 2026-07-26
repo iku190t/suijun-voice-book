@@ -664,6 +664,10 @@ td.starting-elevation-cell,
 td.starting-elevation-cell input {
   background-color: #fff4cf !important;
 }
+body.back-sheet-active td.starting-elevation-cell,
+body.back-sheet-active td.starting-elevation-cell input {
+  background-color: #eaf6fc !important;
+}
 td.elevation-cell.locked-elevation-cell,
 td.elevation-cell.locked-elevation-cell input {
   background-color: #eaf6fc !important;

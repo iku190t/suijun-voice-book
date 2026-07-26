@@ -7,7 +7,7 @@ import {
   LEVELING_TOLERANCE_PRESETS,
   resolveToleranceDistanceMeters,
   toNumber
-} from "./calculation.js?v=151";
+} from "./calculation.js?v=152";
 import {
   chooseLevelReading,
   createVoiceController,
@@ -15,15 +15,15 @@ import {
   normalizeSpokenNumber,
   prepareSpeechSynthesis,
   speakBack
-} from "./voice.js?v=151";
-import { clearProject, loadProject, saveProject } from "./storage.js?v=151";
-import { exportNotebookCsv } from "./export.js?v=151";
+} from "./voice.js?v=152";
+import { clearProject, loadProject, saveProject } from "./storage.js?v=152";
+import { exportNotebookCsv } from "./export.js?v=152";
 import {
   alignSheetsWithCurrentLabels,
   isValidStaffReading,
   rowHasLevelObservationData,
   reversePointNamesWithinUsedRows
-} from "./rules.js?v=151";
+} from "./rules.js?v=152";
 import {
   choosePointName,
   composePointNameSuggestionCandidates,
@@ -34,8 +34,8 @@ import {
   normalizePointName,
   pointNameToSpeech,
   recordPointNameUsage
-} from "./point-names.js?v=151";
-import { initializeAnalytics, trackEvent } from "./analytics.js?v=151";
+} from "./point-names.js?v=152";
+import { initializeAnalytics, trackEvent } from "./analytics.js?v=152";
 
 initializeAnalytics();
 
@@ -614,6 +614,7 @@ function renderSheet() {
   syncVoiceInputLocks();
   const currentName = activeSheet === "out" ? "往路" : "復路";
   const destinationName = activeSheet === "out" ? "復路" : "往路";
+  document.body.classList.toggle("back-sheet-active", activeSheet === "back");
   sheetToggleButton.textContent = currentName;
   sheetToggleButton.setAttribute(
     "aria-label",
@@ -1568,6 +1569,42 @@ function keepSuggestionEditorAboveKeyboard() {
 
 window.visualViewport?.addEventListener("resize", keepSuggestionEditorAboveKeyboard);
 window.visualViewport?.addEventListener("scroll", keepSuggestionEditorAboveKeyboard);
+
+function clearVoiceDockViewportOffset() {
+  voiceDock.style.removeProperty("--suggestion-keyboard-shift");
+  voiceDock.style.removeProperty("--normal-suggestion-y");
+  voiceDock.style.removeProperty("--normal-suggestion-max-height");
+  lastVoiceSuggestionShift = Number.NaN;
+  lastNormalSuggestionY = Number.NaN;
+  lastNormalSuggestionMaxHeight = Number.NaN;
+}
+
+function restoreVoiceDockAfterExternalUi() {
+  const focusedInput = document.activeElement?.matches?.(
+    "#notebookBody input, .point-suggestion-editor input"
+  );
+  if (!focusedInput) {
+    document.body.classList.remove("software-keyboard-open");
+    document.body.style.removeProperty("--keyboard-row-clearance");
+    keyboardViewportBaseline = window.visualViewport?.height || window.innerHeight;
+    clearVoiceDockViewportOffset();
+  }
+  requestAnimationFrame(() => {
+    updateSuggestionPosition();
+    schedulePointClipboardPosition();
+    scheduleStickyTableHeader();
+  });
+}
+
+document.addEventListener("visibilitychange", () => {
+  if (document.visibilityState === "hidden") {
+    clearVoiceDockViewportOffset();
+    return;
+  }
+  restoreVoiceDockAfterExternalUi();
+});
+window.addEventListener("pageshow", restoreVoiceDockAfterExternalUi);
+window.addEventListener("focus", restoreVoiceDockAfterExternalUi);
 
 function ensureFocusedCellAboveKeyboard(input) {
   if (
@@ -2560,11 +2597,36 @@ document.querySelector("#saveBtn").addEventListener("click", () => {
   showNotice("上書き保存しました。", "success");
   trackEvent("save_notebook", { sheet: activeSheet });
 });
+
+function createFreshCsvRows() {
+  const toleranceState = getToleranceState();
+  const outCalculation = calculateNotebook(
+    project.sheets.out,
+    toleranceState.toleranceMm ?? 10
+  );
+  const backCalculation = calculateNotebook(
+    project.sheets.back,
+    toleranceState.toleranceMm ?? 10,
+    {
+      direction: "up",
+      initialElevation: outCalculation.startElevation ?? 0
+    }
+  );
+  applyRoundTripDifferences(outCalculation.rows, backCalculation.rows);
+  return {
+    outRows: outCalculation.rows,
+    backRows: backCalculation.rows
+  };
+}
+
 document.querySelector("#csvBtn").addEventListener("click", async () => {
-  const result = await exportNotebookCsv({
-    outRows: calculations.out.rows,
-    backRows: calculations.back.rows
-  });
+  clearVoiceDockViewportOffset();
+  let result;
+  try {
+    result = await exportNotebookCsv(createFreshCsvRows());
+  } finally {
+    restoreVoiceDockAfterExternalUi();
+  }
   if (result) trackEvent("export_csv", { sheet: "both", result });
   if (result === "shared") {
     showNotice("CSVを共有しました。Gmailなどで送信できます。", "success");
