@@ -811,7 +811,14 @@ tr.row-action-selected .row-selector {
   color: #fff;
   background: rgba(13, 101, 157, .97);
   box-shadow: 0 -4px 18px rgba(0,0,0,.18);
+  transform: none;
+}
+body.suggestion-keyboard-active .voice-dock {
   transform: translateY(calc(var(--suggestion-keyboard-shift, 0px) * -1));
+}
+body.external-ui-recovery .voice-dock {
+  transform: translate3d(0, 0, 0) !important;
+  transition: none !important;
 }
 .voice-dock button { width: 100%; min-height: 116px; border: 2px solid #d9f4ff; color: #07334f; background: var(--accent); font-size: 1.12rem; }
 .voice-dock button.voice-mode { color: #fff; background: #d9473f; }

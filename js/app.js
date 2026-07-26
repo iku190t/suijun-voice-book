@@ -7,7 +7,7 @@ import {
   LEVELING_TOLERANCE_PRESETS,
   resolveToleranceDistanceMeters,
   toNumber
-} from "./calculation.js?v=159";
+} from "./calculation.js?v=160";
 import {
   chooseLevelReading,
   createVoiceController,
@@ -15,15 +15,15 @@ import {
   normalizeSpokenNumber,
   prepareSpeechSynthesis,
   speakBack
-} from "./voice.js?v=159";
-import { clearProject, loadProject, saveProject } from "./storage.js?v=159";
-import { exportNotebookCsv } from "./export.js?v=159";
+} from "./voice.js?v=160";
+import { clearProject, loadProject, saveProject } from "./storage.js?v=160";
+import { exportNotebookCsv } from "./export.js?v=160";
 import {
   alignSheetsWithCurrentLabels,
   isValidStaffReading,
   rowHasLevelObservationData,
   reversePointNamesWithinUsedRows
-} from "./rules.js?v=159";
+} from "./rules.js?v=160";
 import {
   choosePointName,
   composePointNameSuggestionCandidates,
@@ -36,8 +36,8 @@ import {
   normalizePointName,
   pointNameToSpeech,
   recordPointNameUsage
-} from "./point-names.js?v=159";
-import { initializeAnalytics, trackEvent } from "./analytics.js?v=159";
+} from "./point-names.js?v=160";
+import { initializeAnalytics, trackEvent } from "./analytics.js?v=160";
 
 initializeAnalytics();
 
@@ -166,8 +166,13 @@ let planHeightRangeMode = false;
 let planHeightRangeStart = null;
 let planHeightBulkReturnState = null;
 let keyboardViewportBaseline = window.visualViewport?.height || window.innerHeight;
-let externalUiRestoreTimer = null;
-let externalUiRestoreUntil = 0;
+let externalUiRecoveryTimer = null;
+let externalUiRecoveryActive = false;
+let externalUiOperationPending = false;
+let externalUiRecoverySamplingStartedAt = 0;
+let externalUiRecoveryStableSamples = 0;
+let externalUiRecoveryMetrics = null;
+let externalUiReturnScroll = null;
 let keyboardCellScrollTimer = null;
 let keyboardCellScrollTarget = null;
 let textMeasureContext = null;
@@ -1512,7 +1517,7 @@ function getRenderedTranslateY(element) {
 }
 
 function updateSuggestionPosition() {
-  if (Date.now() < externalUiRestoreUntil) {
+  if (externalUiRecoveryActive) {
     clearVoiceDockViewportOffset();
     return;
   }
@@ -1522,6 +1527,7 @@ function updateSuggestionPosition() {
     !pointSuggestions.hidden
   );
   if (normalSuggestionVisible) {
+    document.body.classList.remove("suggestion-keyboard-active");
     voiceDock.style.removeProperty("--suggestion-keyboard-shift");
     const viewport = window.visualViewport;
     const visibleTop = viewport ? viewport.offsetTop : 0;
@@ -1564,13 +1570,20 @@ function updateSuggestionPosition() {
   const keyboardAvoidanceTarget = suggestionEditInput?.isConnected
     ? suggestionEditInput
     : null;
-  if (!keyboardAvoidanceTarget) {
+  const viewport = window.visualViewport;
+  const viewportHeight = viewport?.height || window.innerHeight;
+  const keyboardOpen = Boolean(
+    keyboardAvoidanceTarget &&
+    document.activeElement === keyboardAvoidanceTarget &&
+    Math.max(keyboardViewportBaseline, window.innerHeight) - viewportHeight > 120
+  );
+  if (!keyboardOpen) {
+    document.body.classList.remove("suggestion-keyboard-active");
     voiceDock.style.removeProperty("--suggestion-keyboard-shift");
     lastVoiceSuggestionShift = Number.NaN;
     return;
   }
-  if (!keyboardAvoidanceTarget?.isConnected) return;
-  const viewport = window.visualViewport;
+  document.body.classList.add("suggestion-keyboard-active");
   const visibleBottom = viewport
     ? viewport.offsetTop + viewport.height
     : window.innerHeight;
@@ -1601,6 +1614,7 @@ window.visualViewport?.addEventListener("resize", keepSuggestionEditorAboveKeybo
 window.visualViewport?.addEventListener("scroll", keepSuggestionEditorAboveKeyboard);
 
 function clearVoiceDockViewportOffset() {
+  document.body.classList.remove("suggestion-keyboard-active");
   voiceDock.style.removeProperty("--suggestion-keyboard-shift");
   voiceDock.style.removeProperty("--normal-suggestion-y");
   voiceDock.style.removeProperty("--normal-suggestion-max-height");
@@ -1609,47 +1623,129 @@ function clearVoiceDockViewportOffset() {
   lastNormalSuggestionMaxHeight = Number.NaN;
 }
 
-function restoreVoiceDockAfterExternalUi() {
-  const resetDockPosition = () => {
-    document.body.classList.remove("software-keyboard-open");
-    document.body.style.removeProperty("--keyboard-row-clearance");
-    keyboardViewportBaseline = Math.max(
-      keyboardViewportBaseline,
-      window.visualViewport?.height || 0,
-      window.innerHeight
-    );
-    clearVoiceDockViewportOffset();
-    requestAnimationFrame(() => {
-      updateSuggestionPosition();
-      schedulePointClipboardPosition();
-      scheduleStickyTableHeader();
-    });
-  };
+function readExternalUiViewportMetrics() {
+  const viewport = window.visualViewport;
+  return [
+    viewport?.width || window.innerWidth,
+    viewport?.height || window.innerHeight,
+    viewport?.offsetTop || 0,
+    viewport?.offsetLeft || 0,
+    window.innerWidth,
+    window.innerHeight,
+  ].map((value) => Math.round(value));
+}
 
-  externalUiRestoreUntil = Date.now() + 2000;
-  resetDockPosition();
-  clearInterval(externalUiRestoreTimer);
-  let remainingResets = 8;
-  externalUiRestoreTimer = setInterval(() => {
-    resetDockPosition();
-    remainingResets -= 1;
-    if (remainingResets > 0) return;
-    clearInterval(externalUiRestoreTimer);
-    externalUiRestoreTimer = null;
-    externalUiRestoreUntil = 0;
-    resetDockPosition();
-  }, 250);
+function externalUiViewportIsStable(previous, current) {
+  return Boolean(
+    previous &&
+    previous.length === current.length &&
+    current.every((value, index) => Math.abs(value - previous[index]) <= 1)
+  );
+}
+
+function forceVoiceDockToViewportBottom() {
+  document.body.classList.remove("software-keyboard-open", "suggestion-keyboard-active");
+  document.body.style.removeProperty("--keyboard-row-clearance");
+  clearVoiceDockViewportOffset();
+  voiceDock.style.setProperty("transform", "translate3d(0, 0, 0)", "important");
+}
+
+function beginExternalUiRecovery({ rememberScroll = true } = {}) {
+  if (!externalUiRecoveryActive && rememberScroll) {
+    externalUiReturnScroll = {
+      left: window.scrollX,
+      top: window.scrollY,
+    };
+  }
+  externalUiRecoveryActive = true;
+  externalUiRecoverySamplingStartedAt = 0;
+  externalUiRecoveryStableSamples = 0;
+  externalUiRecoveryMetrics = null;
+  clearTimeout(externalUiRecoveryTimer);
+  externalUiRecoveryTimer = null;
+  document.body.classList.add("external-ui-recovery");
+  forceVoiceDockToViewportBottom();
+}
+
+function finishExternalUiRecovery() {
+  clearTimeout(externalUiRecoveryTimer);
+  externalUiRecoveryTimer = null;
+  forceVoiceDockToViewportBottom();
+  voiceDock.getBoundingClientRect();
+  voiceDock.style.removeProperty("transform");
+  document.body.classList.remove("external-ui-recovery");
+  externalUiRecoveryActive = false;
+  externalUiRecoverySamplingStartedAt = 0;
+  keyboardViewportBaseline = Math.max(
+    keyboardViewportBaseline,
+    window.visualViewport?.height || 0,
+    window.innerHeight
+  );
+  const returnScroll = externalUiReturnScroll;
+  externalUiReturnScroll = null;
+  if (returnScroll) {
+    window.scrollTo({
+      left: returnScroll.left,
+      top: returnScroll.top,
+      behavior: "auto",
+    });
+  }
+  requestAnimationFrame(() => {
+    clearVoiceDockViewportOffset();
+    updateSuggestionPosition();
+    schedulePointClipboardPosition();
+    scheduleStickyTableHeader();
+  });
+}
+
+function scheduleExternalUiRecovery() {
+  if (!externalUiRecoveryActive || document.visibilityState !== "visible") return;
+  clearTimeout(externalUiRecoveryTimer);
+  if (!externalUiRecoverySamplingStartedAt) {
+    externalUiRecoverySamplingStartedAt = Date.now();
+  }
+  const sampleViewport = () => {
+    if (!externalUiRecoveryActive || document.visibilityState !== "visible") return;
+    forceVoiceDockToViewportBottom();
+    if (externalUiOperationPending) {
+      externalUiRecoveryStableSamples = 0;
+      externalUiRecoveryMetrics = null;
+      externalUiRecoveryTimer = setTimeout(sampleViewport, 100);
+      return;
+    }
+    const metrics = readExternalUiViewportMetrics();
+    if (externalUiViewportIsStable(externalUiRecoveryMetrics, metrics)) {
+      externalUiRecoveryStableSamples += 1;
+    } else {
+      externalUiRecoveryStableSamples = 0;
+    }
+    externalUiRecoveryMetrics = metrics;
+    const timedOut = Date.now() - externalUiRecoverySamplingStartedAt >= 5000;
+    if (externalUiRecoveryStableSamples >= 4 || timedOut) {
+      finishExternalUiRecovery();
+      return;
+    }
+    externalUiRecoveryTimer = setTimeout(sampleViewport, 100);
+  };
+  externalUiRecoveryTimer = setTimeout(sampleViewport, 0);
 }
 
 document.addEventListener("visibilitychange", () => {
   if (document.visibilityState === "hidden") {
-    clearVoiceDockViewportOffset();
+    if (!externalUiRecoveryActive) beginExternalUiRecovery();
+    externalUiRecoverySamplingStartedAt = 0;
+    externalUiRecoveryStableSamples = 0;
+    externalUiRecoveryMetrics = null;
     return;
   }
-  restoreVoiceDockAfterExternalUi();
+  scheduleExternalUiRecovery();
 });
-window.addEventListener("pageshow", restoreVoiceDockAfterExternalUi);
-window.addEventListener("focus", restoreVoiceDockAfterExternalUi);
+window.addEventListener("pageshow", () => {
+  if (externalUiRecoveryActive) scheduleExternalUiRecovery();
+});
+window.addEventListener("focus", () => {
+  if (externalUiRecoveryActive) scheduleExternalUiRecovery();
+});
 
 function ensureFocusedCellAboveKeyboard(input) {
   if (
@@ -2410,7 +2506,6 @@ pointCopyButton.addEventListener("click", () => {
     noteClipboard = value;
   }
   updatePointClipboardButtons();
-  showNotice(`「${value}」をコピーしました。`, "success");
 });
 
 pointClearButton.addEventListener("click", () => {
@@ -2685,6 +2780,8 @@ function createFreshCsvRows() {
 }
 
 document.querySelector("#csvBtn").addEventListener("click", async () => {
+  externalUiOperationPending = true;
+  beginExternalUiRecovery();
   if (document.activeElement?.matches?.(
     "#notebookBody input, .point-suggestion-editor input"
   )) {
@@ -2695,7 +2792,8 @@ document.querySelector("#csvBtn").addEventListener("click", async () => {
   try {
     result = await exportNotebookCsv(createFreshCsvRows());
   } finally {
-    restoreVoiceDockAfterExternalUi();
+    externalUiOperationPending = false;
+    scheduleExternalUiRecovery();
   }
   if (result) trackEvent("export_csv", { sheet: "both", result });
   if (result === "shared") {
