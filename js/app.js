@@ -6,7 +6,7 @@ import {
   LEVELING_TOLERANCE_PRESETS,
   sumObservationDistanceMeters,
   toNumber
-} from "./calculation.js?v=93";
+} from "./calculation.js?v=94";
 import {
   chooseLevelReading,
   createVoiceController,
@@ -14,14 +14,14 @@ import {
   normalizeSpokenNumber,
   prepareSpeechSynthesis,
   speakBack
-} from "./voice.js?v=93";
-import { clearProject, loadProject, saveProject } from "./storage.js?v=93";
-import { exportSheetCsv } from "./export.js?v=93";
+} from "./voice.js?v=94";
+import { clearProject, loadProject, saveProject } from "./storage.js?v=94";
+import { exportSheetCsv } from "./export.js?v=94";
 import {
   alignSheetsWithCurrentLabels,
   isValidStaffReading,
   reversePointNamesWithinUsedRows
-} from "./rules.js?v=93";
+} from "./rules.js?v=94";
 import {
   choosePointName,
   getRankedPointNameCandidates,
@@ -29,7 +29,7 @@ import {
   normalizePointName,
   pointNameToSpeech,
   recordPointNameUsage
-} from "./point-names.js?v=93";
+} from "./point-names.js?v=94";
 
 const DEFAULT_ROW_COUNT = 200;
 const POINT_SUGGESTION_LIMIT = 10;
