@@ -7,7 +7,7 @@ import {
   LEVELING_TOLERANCE_PRESETS,
   resolveToleranceDistanceMeters,
   toNumber
-} from "./calculation.js?v=132";
+} from "./calculation.js?v=133";
 import {
   chooseLevelReading,
   createVoiceController,
@@ -15,15 +15,15 @@ import {
   normalizeSpokenNumber,
   prepareSpeechSynthesis,
   speakBack
-} from "./voice.js?v=132";
-import { clearProject, loadProject, saveProject } from "./storage.js?v=132";
-import { exportSheetCsv } from "./export.js?v=132";
+} from "./voice.js?v=133";
+import { clearProject, loadProject, saveProject } from "./storage.js?v=133";
+import { exportSheetCsv } from "./export.js?v=133";
 import {
   alignSheetsWithCurrentLabels,
   isValidStaffReading,
   rowHasLevelObservationData,
   reversePointNamesWithinUsedRows
-} from "./rules.js?v=132";
+} from "./rules.js?v=133";
 import {
   choosePointName,
   getRankedPointNameCandidates,
@@ -31,8 +31,8 @@ import {
   normalizePointName,
   pointNameToSpeech,
   recordPointNameUsage
-} from "./point-names.js?v=132";
-import { initializeAnalytics, trackEvent } from "./analytics.js?v=132";
+} from "./point-names.js?v=133";
+import { initializeAnalytics, trackEvent } from "./analytics.js?v=133";
 
 initializeAnalytics();
 
@@ -256,7 +256,7 @@ function createBlankProject() {
       sheetMeaningVersion: 2,
       tableScale: 0.44,
       tableScaleDefaultsVersion: 2,
-      sampleDataDefaultsVersion: 4,
+      sampleDataDefaultsVersion: 5,
       pointAliases: [],
       pointNameScripts: {
         kanji: false,
@@ -300,6 +300,21 @@ function createSampleProject() {
   return sample;
 }
 
+function isKnownLegacyDemoProject(outRows, backRows) {
+  const expectedBackBs = [1.336, 2.003, 1.553, 3.005, 2.005];
+  const outHasObservations = outRows.some(rowHasLevelObservationData);
+  const backHasUnexpectedObservations = backRows.some((row, index) => {
+    if (index < expectedBackBs.length) {
+      return row.bs !== expectedBackBs[index] ||
+        row.fs !== null ||
+        row.distance !== null ||
+        row.elevationType === "manual";
+    }
+    return rowHasLevelObservationData(row);
+  });
+  return !outHasObservations && !backHasUnexpectedObservations;
+}
+
 function normalizeRow(row, route) {
   const bs = toNumber(row?.bs);
   const fs = toNumber(row?.fs);
@@ -338,9 +353,12 @@ function normalizeLoadedProject(loaded) {
   outRows = outRows.map((row) => normalizeRow(row, "out"));
   backRows = backRows.map((row) => normalizeRow(row, "back"));
   const shouldAddInitialSample =
-    (Number(loaded.settings?.sampleDataDefaultsVersion) || 0) < 4 &&
-    !outRows.some(rowHasLevelObservationData) &&
-    !backRows.some(rowHasLevelObservationData);
+    (Number(loaded.settings?.sampleDataDefaultsVersion) || 0) < 5 &&
+    (
+      !outRows.some(rowHasLevelObservationData) &&
+        !backRows.some(rowHasLevelObservationData) ||
+      isKnownLegacyDemoProject(outRows, backRows)
+    );
   if (shouldAddInitialSample) {
     const sample = createSampleProject();
     outRows = sample.sheets.out;
@@ -426,7 +444,7 @@ function normalizeLoadedProject(loaded) {
           ? clamp(loadedTableScale, 0.4, 1.8)
           : 0.44,
       tableScaleDefaultsVersion: 2,
-      sampleDataDefaultsVersion: 4,
+      sampleDataDefaultsVersion: 5,
       pointAliases: loadedAliases,
       pointNameScripts: {
         kanji: hasCurrentVoiceDefaults && loadedScripts.kanji === true,
@@ -448,7 +466,7 @@ if (
   Number(storedProject.settings?.tableScaleDefaultsVersion) < 2 ||
   Number(storedProject.settings?.distanceVisibilityDefaultsVersion) < 1 ||
   Number(storedProject.settings?.columnVisibilityDefaultsVersion) < 3 ||
-  (Number(storedProject.settings?.sampleDataDefaultsVersion) || 0) < 4
+  (Number(storedProject.settings?.sampleDataDefaultsVersion) || 0) < 5
 ) {
   project = saveProject(project);
 }
