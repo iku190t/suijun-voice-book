@@ -899,8 +899,17 @@ body.external-ui-recovery .voice-dock {
 }
 .point-name-keyboard-actions {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, .65fr)) minmax(0, 1fr) minmax(0, 1.25fr);
+  grid-template-columns:
+    repeat(3, minmax(0, .55fr))
+    minmax(0, 1.05fr)
+    minmax(0, .9fr)
+    minmax(0, 1.1fr);
   gap: 2px;
+}
+.voice-dock .point-name-keyboard-actions .point-name-keyboard-space {
+  color: #0d527b;
+  background: #f7fcff;
+  font-size: .78rem;
 }
 .voice-dock .point-name-keyboard-display .point-name-native-keyboard {
   width: auto;

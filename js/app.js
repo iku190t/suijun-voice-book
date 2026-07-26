@@ -7,7 +7,7 @@ import {
   LEVELING_TOLERANCE_PRESETS,
   resolveToleranceDistanceMeters,
   toNumber
-} from "./calculation.js?v=177";
+} from "./calculation.js?v=178";
 import {
   chooseLevelReading,
   createVoiceController,
@@ -15,15 +15,15 @@ import {
   normalizeSpokenNumber,
   prepareSpeechSynthesis,
   speakBack
-} from "./voice.js?v=177";
-import { clearProject, loadProject, saveProject } from "./storage.js?v=177";
-import { exportNotebookCsv } from "./export.js?v=177";
+} from "./voice.js?v=178";
+import { clearProject, loadProject, saveProject } from "./storage.js?v=178";
+import { exportNotebookCsv } from "./export.js?v=178";
 import {
   alignSheetsWithCurrentLabels,
   isValidStaffReading,
   rowHasLevelObservationData,
   reversePointNamesWithinUsedRows
-} from "./rules.js?v=177";
+} from "./rules.js?v=178";
 import {
   choosePointName,
   composePointNameSuggestionCandidates,
@@ -36,8 +36,8 @@ import {
   normalizePointName,
   pointNameToSpeech,
   recordPointNameUsage
-} from "./point-names.js?v=177";
-import { initializeAnalytics, trackEvent } from "./analytics.js?v=177";
+} from "./point-names.js?v=178";
+import { initializeAnalytics, trackEvent } from "./analytics.js?v=178";
 
 initializeAnalytics();
 
@@ -45,7 +45,7 @@ const DEFAULT_ROW_COUNT = 200;
 const APP_SHARE_URL = "https://iku190t.github.io/suijun-voice-book/";
 const APP_SHARE_TITLE = "水準ボイス";
 const APP_SHARE_TEXT = "水準測量の音声入力Web野帳です。";
-const APP_RELEASE_VERSION = new URL(import.meta.url).searchParams.get("v") || "177";
+const APP_RELEASE_VERSION = new URL(import.meta.url).searchParams.get("v") || "178";
 const FEEDBACK_EMAIL = "ez.survey2023@gmail.com";
 const POINT_SUGGESTION_LIMIT = 6;
 const POINT_SUGGESTION_SEEDS = ["NO.0", "TP0", "KBM0", "T-0", "BC.0", "SP.0"];
@@ -971,7 +971,14 @@ function formatNumericInput(input) {
   input.value = displayValue(value, value !== null ? 3 : null);
 }
 
-function handleFieldChange(input, { recordHistory = true, forceHistory = false } = {}) {
+function handleFieldChange(
+  input,
+  {
+    recordHistory = true,
+    forceHistory = false,
+    normalizePointNameValue = true
+  } = {}
+) {
   if (isCalculatedElevationInput(input)) {
     recalculateAndRender();
     return false;
@@ -992,7 +999,7 @@ function handleFieldChange(input, { recordHistory = true, forceHistory = false }
     input.setAttribute("aria-invalid", "true");
     return false;
   }
-  if (field === "pointName" && parsed) {
+  if (field === "pointName" && parsed && normalizePointNameValue) {
     const normalizedPointName = normalizePointName(parsed, project.settings.pointAliases);
     if (normalizedPointName) {
       parsed = normalizedPointName;
@@ -1278,7 +1285,7 @@ function updatePointNameFromKeyboard(nextValue, nextCaretIndex) {
   const target = pointNameKeyboardTarget;
   if (!target?.isConnected || target.dataset.field !== "pointName") return;
   target.value = String(nextValue || "").toUpperCase();
-  if (!handleFieldChange(target)) return;
+  if (!handleFieldChange(target, { normalizePointNameValue: false })) return;
   pointNameKeyboardCaretIndex = Math.max(
     0,
     Math.min(nextCaretIndex, target.value.length)
@@ -1295,10 +1302,15 @@ async function finishPointNameKeyboardInput() {
     hidePointNameKeyboard();
     return;
   }
-  const normalized = recordPointName(target.value);
+  const hasIntentionalSpace = /\s/.test(target.value);
+  const normalized = hasIntentionalSpace
+    ? target.value.trim().replace(/\s+/g, " ").toUpperCase()
+    : recordPointName(target.value);
   if (normalized && normalized !== target.value) {
     target.value = normalized;
-    handleFieldChange(target);
+    handleFieldChange(target, {
+      normalizePointNameValue: !hasIntentionalSpace
+    });
   }
   hidePointNameKeyboard();
   endHistoryGroup();
@@ -1340,6 +1352,12 @@ pointNameKeyboard.addEventListener("click", (event) => {
           pointNameKeyboardCaretIndex - 1
         );
       }
+      break;
+    case "space":
+      updatePointNameFromKeyboard(
+        `${value.slice(0, pointNameKeyboardCaretIndex)} ${value.slice(pointNameKeyboardCaretIndex)}`,
+        pointNameKeyboardCaretIndex + 1
+      );
       break;
     case "clear":
       updatePointNameFromKeyboard("", 0);
