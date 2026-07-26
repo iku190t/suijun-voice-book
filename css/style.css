@@ -313,9 +313,6 @@ main { max-width: 1540px; margin: 0 auto; padding: 9px 8px 28px; }
   position: static;
   box-shadow: 0 2px 0 #8fc4e2;
 }
-.sticky-table-header thead th.column-heading {
-  position: relative;
-}
 
 table { width: 100%; min-width: var(--table-min-width, 790px); border-collapse: separate; border-spacing: 0; table-layout: fixed; }
 th, td { height: var(--row-height, 48px); padding: 0; border-right: 1px solid var(--line); border-bottom: 1px solid var(--line); text-align: center; }
@@ -334,25 +331,27 @@ th:nth-child(6), td:nth-child(6) { width: var(--round-trip-width, 104px); }
 th:nth-child(7), td:nth-child(7) { width: var(--difference-width, 100px); }
 th:nth-child(8), td:nth-child(8) { width: var(--elevation-width, 134px); }
 th:nth-child(9), td:nth-child(9) { width: var(--note-width, 180px); }
-.column-heading {
-  overflow: visible;
-}
 .column-heading-label {
   display: block;
   overflow: hidden;
   text-overflow: clip;
 }
+.column-toggle-layer {
+  position: absolute;
+  z-index: 46;
+  inset: 0;
+  overflow: visible;
+  pointer-events: none;
+}
 .column-toggle-button {
   position: absolute;
   z-index: 24;
-  top: 0;
-  right: 0;
   width: 18px;
   min-width: 18px;
   height: 18px;
   min-height: 18px;
   padding: 0;
-  transform: translate(50%, -50%);
+  transform: translate(-50%, -50%);
   border: 1px solid #bfe8ff;
   border-radius: 50%;
   color: #176d9f;
@@ -361,9 +360,10 @@ th:nth-child(9), td:nth-child(9) { width: var(--note-width, 180px); }
   font-size: 13px;
   font-weight: var(--weight-bold);
   line-height: 1;
+  pointer-events: auto;
 }
 .column-toggle-button:active {
-  transform: translate(50%, calc(-50% + 1px));
+  transform: translate(-50%, calc(-50% + 1px));
 }
 th.column-collapsed,
 td.column-collapsed {
@@ -376,10 +376,6 @@ th.column-collapsed .column-heading-label,
 td.column-collapsed > * {
   visibility: hidden !important;
   pointer-events: none !important;
-}
-th.column-collapsed .column-toggle-button {
-  visibility: visible !important;
-  pointer-events: auto !important;
 }
 .table-wrap thead th.point-heading { position: sticky; z-index: 20; }
 .distance-inline-toggle {

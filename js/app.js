@@ -7,7 +7,7 @@ import {
   LEVELING_TOLERANCE_PRESETS,
   resolveToleranceDistanceMeters,
   toNumber
-} from "./calculation.js?v=124";
+} from "./calculation.js?v=125";
 import {
   chooseLevelReading,
   createVoiceController,
@@ -15,14 +15,14 @@ import {
   normalizeSpokenNumber,
   prepareSpeechSynthesis,
   speakBack
-} from "./voice.js?v=124";
-import { clearProject, loadProject, saveProject } from "./storage.js?v=124";
-import { exportSheetCsv } from "./export.js?v=124";
+} from "./voice.js?v=125";
+import { clearProject, loadProject, saveProject } from "./storage.js?v=125";
+import { exportSheetCsv } from "./export.js?v=125";
 import {
   alignSheetsWithCurrentLabels,
   isValidStaffReading,
   reversePointNamesWithinUsedRows
-} from "./rules.js?v=124";
+} from "./rules.js?v=125";
 import {
   choosePointName,
   getRankedPointNameCandidates,
@@ -30,8 +30,8 @@ import {
   normalizePointName,
   pointNameToSpeech,
   recordPointNameUsage
-} from "./point-names.js?v=124";
-import { initializeAnalytics, trackEvent } from "./analytics.js?v=124";
+} from "./point-names.js?v=125";
+import { initializeAnalytics, trackEvent } from "./analytics.js?v=125";
 
 initializeAnalytics();
 
@@ -44,7 +44,7 @@ const POINT_SUGGESTION_SEEDS = ["NO.0", "TP0", "KBM0", "T-0", "BC.0", "SP.0"];
 const NUMERIC_FIELDS = new Set(["bs", "fs", "elevation", "distance"]);
 const UNSIGNED_DECIMAL_FIELDS = new Set(["bs", "fs", "distance"]);
 const COLUMN_DEFINITIONS = [
-  { key: "number", label: "No.", baseWidth: 42 },
+  { key: "number", label: "No.", baseWidth: 42, toggleable: false },
   { key: "pointName", label: "点名", baseWidth: 116 },
   { key: "distance", label: "距離", baseWidth: 112 },
   { key: "bs", label: "後視", baseWidth: 112 },
@@ -52,7 +52,7 @@ const COLUMN_DEFINITIONS = [
   { key: "roundTrip", label: "往復差", baseWidth: 112 },
   { key: "difference", label: "高低差", baseWidth: 112 },
   { key: "elevation", label: "標高", baseWidth: 112 },
-  { key: "note", label: "備考", baseWidth: 180 }
+  { key: "note", label: "備考", baseWidth: 180, toggleable: false }
 ];
 const FIELD_COLUMN_KEYS = {
   pointName: "pointName",
@@ -72,6 +72,8 @@ const distanceToggleButton = document.querySelector("#distanceToggleBtn");
 const stickyTableHeader = document.querySelector("#stickyTableHeader");
 const stickyNotebookHeader = document.querySelector("#stickyNotebookHeader");
 const stickyDistanceToggleButton = document.querySelector("#stickyDistanceToggleBtn");
+const columnToggleLayer = document.createElement("div");
+const stickyColumnToggleLayer = document.createElement("div");
 const tolerancePresetSelect = document.querySelector("#tolerancePreset");
 const toleranceDistanceModeSelect = document.querySelector("#toleranceDistanceMode");
 const manualToleranceDistanceField = document.querySelector("#manualToleranceDistanceField");
@@ -250,7 +252,7 @@ function createBlankProject() {
       visibleColumns: Object.fromEntries(
         COLUMN_DEFINITIONS.map(({ key }) => [key, key !== "distance"])
       ),
-      columnVisibilityDefaultsVersion: 1,
+      columnVisibilityDefaultsVersion: 2,
       voiceRate: 1.2,
       voiceSettingsVersion: 2,
       sheetMeaningVersion: 2,
@@ -331,21 +333,24 @@ function normalizeLoadedProject(loaded) {
   const hasCurrentToleranceDefaults = Number(loaded.settings?.toleranceDefaultsVersion) >= 1;
   const hasCurrentTableScaleDefaults = Number(loaded.settings?.tableScaleDefaultsVersion) >= 2;
   const loadedTableScale = Number(loaded.settings?.tableScale);
-  const hasCurrentColumnVisibilityDefaults =
+  const hasSavedColumnVisibility =
     Number(loaded.settings?.columnVisibilityDefaultsVersion) >= 1;
   const loadedVisibleColumns =
     loaded.settings?.visibleColumns && typeof loaded.settings.visibleColumns === "object"
       ? loaded.settings.visibleColumns
       : {};
   const visibleColumns = Object.fromEntries(
-    COLUMN_DEFINITIONS.map(({ key }) => [
-      key,
-      hasCurrentColumnVisibilityDefaults
-        ? loadedVisibleColumns[key] !== false
-        : key === "distance"
-          ? loaded.settings?.showDistance === true
-          : true
-    ])
+    COLUMN_DEFINITIONS.map((definition) => {
+      const { key } = definition;
+      const visible = definition.toggleable === false
+        ? true
+        : hasSavedColumnVisibility
+          ? loadedVisibleColumns[key] !== false
+          : key === "distance"
+            ? loaded.settings?.showDistance === true
+            : true;
+      return [key, visible];
+    })
   );
 
   return {
@@ -376,7 +381,7 @@ function normalizeLoadedProject(loaded) {
       showDistance: visibleColumns.distance,
       distanceVisibilityDefaultsVersion: 1,
       visibleColumns,
-      columnVisibilityDefaultsVersion: 1,
+      columnVisibilityDefaultsVersion: 2,
       tableScale: hasCurrentTableScaleDefaults
         ? clamp(loadedTableScale || 0.44, 0.4, 1.8)
         : Number.isFinite(loadedTableScale) && loadedTableScale !== 1 && loadedTableScale !== 0.5
@@ -403,7 +408,7 @@ if (
   Number(storedProject.settings?.toleranceDefaultsVersion) < 1 ||
   Number(storedProject.settings?.tableScaleDefaultsVersion) < 2 ||
   Number(storedProject.settings?.distanceVisibilityDefaultsVersion) < 1 ||
-  Number(storedProject.settings?.columnVisibilityDefaultsVersion) < 1
+  Number(storedProject.settings?.columnVisibilityDefaultsVersion) < 2
 ) {
   project = saveProject(project);
 }
@@ -551,12 +556,24 @@ function initializeColumnToggleButtons() {
       const label = document.createElement("span");
       label.className = "column-heading-label";
       label.textContent = definition.label;
+      cell.replaceChildren(label);
+    });
+  });
+  [
+    [columnToggleLayer, tableShell],
+    [stickyColumnToggleLayer, stickyTableHeader]
+  ].forEach(([layer, container]) => {
+    layer.className = "column-toggle-layer";
+    layer.replaceChildren();
+    COLUMN_DEFINITIONS.forEach((definition) => {
+      if (definition.toggleable === false) return;
       const button = document.createElement("button");
       button.className = "column-toggle-button";
       button.type = "button";
       button.dataset.columnToggle = definition.key;
-      cell.replaceChildren(label, button);
+      layer.appendChild(button);
     });
+    container.appendChild(layer);
   });
   distanceToggleButton.hidden = true;
   stickyDistanceToggleButton.hidden = true;
@@ -571,9 +588,12 @@ function applyColumnVisibility() {
       rows.forEach((row) => {
         row.cells[index]?.classList.toggle("column-collapsed", !visible);
       });
-      const button = table.tHead?.querySelector(
-        `[data-column-toggle="${definition.key}"]`
-      );
+    });
+  });
+  [columnToggleLayer, stickyColumnToggleLayer].forEach((layer) => {
+    COLUMN_DEFINITIONS.forEach((definition) => {
+      const visible = isColumnVisible(definition.key);
+      const button = layer.querySelector(`[data-column-toggle="${definition.key}"]`);
       if (!button) return;
       button.textContent = visible ? "－" : "＋";
       button.setAttribute(
@@ -1654,26 +1674,32 @@ function syncStickyHeaderColumns() {
   });
 }
 
-function placeDistanceToggle(button, pointHeading, container, visibleRect) {
-  if (!button || !pointHeading || !container) return;
-  const headingRect = pointHeading.getBoundingClientRect();
+function placeColumnToggleLayer(layer, sourceTable, container, visibleRect) {
+  if (!layer || !sourceTable || !container) return;
+  const sourceCells = [...(sourceTable.tHead?.rows[0]?.cells || [])];
   const containerRect = container.getBoundingClientRect();
   const containingBlockLeft = containerRect.left + container.clientLeft;
   const containingBlockTop = containerRect.top + container.clientTop;
-  const boundaryX = headingRect.right;
-  const boundaryVisible = (
-    boundaryX >= visibleRect.left - 1 &&
-    boundaryX <= visibleRect.right + 1
-  );
-  button.style.left = `${boundaryX - containingBlockLeft}px`;
-  button.style.top = `${headingRect.top - containingBlockTop}px`;
-  button.style.visibility = boundaryVisible ? "visible" : "hidden";
+  COLUMN_DEFINITIONS.forEach((definition, index) => {
+    if (definition.toggleable === false) return;
+    const heading = sourceCells[index];
+    const button = layer.querySelector(`[data-column-toggle="${definition.key}"]`);
+    if (!heading || !button) return;
+    const headingRect = heading.getBoundingClientRect();
+    const boundaryX = headingRect.right;
+    const boundaryVisible = (
+      boundaryX >= visibleRect.left - 1 &&
+      boundaryX <= visibleRect.right + 1
+    );
+    button.style.left = `${boundaryX - containingBlockLeft}px`;
+    button.style.top = `${headingRect.top - containingBlockTop}px`;
+    button.style.visibility = boundaryVisible ? "visible" : "hidden";
+  });
 }
 
 function updateStickyTableHeader() {
   const wrapRect = tableWrap.getBoundingClientRect();
-  const sourcePointHeading = notebook.tHead?.querySelector(".point-heading");
-  placeDistanceToggle(distanceToggleButton, sourcePointHeading, tableShell, wrapRect);
+  placeColumnToggleLayer(columnToggleLayer, notebook, tableShell, wrapRect);
 
   const headerHeight = notebook.tHead?.getBoundingClientRect().height || 0;
   const visible = wrapRect.top < 0 && wrapRect.bottom > headerHeight;
@@ -1696,11 +1722,10 @@ function updateStickyTableHeader() {
     stickyNotebookHeader.style.transform = `translateX(${translateX}px)`;
   }
 
-  const stickyPointHeading = stickyNotebookHeader.tHead?.querySelector(".point-heading");
   const stickyViewportRect = stickyTableHeader.getBoundingClientRect();
-  placeDistanceToggle(
-    stickyDistanceToggleButton,
-    stickyPointHeading,
+  placeColumnToggleLayer(
+    stickyColumnToggleLayer,
+    stickyNotebookHeader,
     stickyTableHeader,
     stickyViewportRect
   );
@@ -2055,7 +2080,8 @@ document.addEventListener("pointerdown", (event) => {
   closeRowActionPopover();
 }, { capture: true });
 function toggleColumn(key) {
-  if (!COLUMN_DEFINITIONS.some((definition) => definition.key === key)) return;
+  const definition = COLUMN_DEFINITIONS.find((item) => item.key === key);
+  if (!definition || definition.toggleable === false) return;
   project.settings.visibleColumns[key] = !isColumnVisible(key);
   applyColumnVisibility();
   applyTableScale(project.settings.tableScale);
@@ -2074,8 +2100,8 @@ function handleColumnToggle(event) {
   toggleColumn(button.dataset.columnToggle);
 }
 
-notebook.tHead?.addEventListener("click", handleColumnToggle);
-stickyNotebookHeader.tHead?.addEventListener("click", handleColumnToggle);
+columnToggleLayer.addEventListener("click", handleColumnToggle);
+stickyColumnToggleLayer.addEventListener("click", handleColumnToggle);
 document.querySelector("#saveBtn").addEventListener("click", () => {
   project = saveProject(project);
   showNotice("上書き保存しました。", "success");
