@@ -4,9 +4,9 @@ import {
   calculateToleranceMm,
   formatMeters,
   LEVELING_TOLERANCE_PRESETS,
-  sumObservationDistanceMeters,
+  resolveToleranceDistanceMeters,
   toNumber
-} from "./calculation.js?v=104";
+} from "./calculation.js?v=105";
 import {
   chooseLevelReading,
   createVoiceController,
@@ -14,14 +14,14 @@ import {
   normalizeSpokenNumber,
   prepareSpeechSynthesis,
   speakBack
-} from "./voice.js?v=104";
-import { clearProject, loadProject, saveProject } from "./storage.js?v=104";
-import { exportSheetCsv } from "./export.js?v=104";
+} from "./voice.js?v=105";
+import { clearProject, loadProject, saveProject } from "./storage.js?v=105";
+import { exportSheetCsv } from "./export.js?v=105";
 import {
   alignSheetsWithCurrentLabels,
   isValidStaffReading,
   reversePointNamesWithinUsedRows
-} from "./rules.js?v=104";
+} from "./rules.js?v=105";
 import {
   choosePointName,
   getRankedPointNameCandidates,
@@ -29,8 +29,8 @@ import {
   normalizePointName,
   pointNameToSpeech,
   recordPointNameUsage
-} from "./point-names.js?v=104";
-import { initializeAnalytics, trackEvent } from "./analytics.js?v=104";
+} from "./point-names.js?v=105";
+import { initializeAnalytics, trackEvent } from "./analytics.js?v=105";
 
 initializeAnalytics();
 
@@ -49,6 +49,9 @@ const stickyTableHeader = document.querySelector("#stickyTableHeader");
 const stickyNotebookHeader = document.querySelector("#stickyNotebookHeader");
 const stickyDistanceToggleButton = document.querySelector("#stickyDistanceToggleBtn");
 const tolerancePresetSelect = document.querySelector("#tolerancePreset");
+const toleranceDistanceModeSelect = document.querySelector("#toleranceDistanceMode");
+const manualToleranceDistanceField = document.querySelector("#manualToleranceDistanceField");
+const manualToleranceDistanceInput = document.querySelector("#manualToleranceDistance");
 const voiceButton = document.querySelector("#voiceBtn");
 const voiceButtonLabel = document.querySelector("#voiceButtonLabel");
 const keyboardModeButton = document.querySelector("#keyboardModeBtn");
@@ -211,6 +214,8 @@ function createBlankProject() {
     version: 5,
     settings: {
       tolerancePreset: "grade3",
+      toleranceDistanceMode: "sheet",
+      manualToleranceDistance: null,
       showDistance: false,
       voiceRate: 1.2,
       voiceSettingsVersion: 2,
@@ -299,6 +304,13 @@ function normalizeLoadedProject(loaded) {
         : 1.2,
       voiceSettingsVersion: 2,
       sheetMeaningVersion: 2,
+      toleranceDistanceMode: loaded.settings?.toleranceDistanceMode === "manual"
+        ? "manual"
+        : "sheet",
+      manualToleranceDistance: (() => {
+        const value = toNumber(loaded.settings?.manualToleranceDistance);
+        return value !== null && value > 0 ? value : null;
+      })(),
       pointAliases: loadedAliases,
       pointNameScripts: {
         kanji: hasCurrentVoiceDefaults && loadedScripts.kanji === true,
@@ -556,12 +568,19 @@ function stripCalculatedFields(rows) {
 function getToleranceState() {
   const presetKey = project.settings.tolerancePreset;
   const preset = LEVELING_TOLERANCE_PRESETS[presetKey] || LEVELING_TOLERANCE_PRESETS.grade3;
-  const outDistanceMeters = sumObservationDistanceMeters(project.sheets.out);
-  const backDistanceMeters = sumObservationDistanceMeters(project.sheets.back);
-  const distanceMeters = outDistanceMeters > 0 ? outDistanceMeters : backDistanceMeters;
+  const distanceMode = project.settings.toleranceDistanceMode === "manual"
+    ? "manual"
+    : "sheet";
+  const distanceMeters = resolveToleranceDistanceMeters({
+    mode: distanceMode,
+    manualDistanceMeters: project.settings.manualToleranceDistance,
+    outRows: project.sheets.out,
+    backRows: project.sheets.back
+  });
   return {
     presetKey,
     preset,
+    distanceMode,
     distanceMeters,
     toleranceMm: calculateToleranceMm(presetKey, distanceMeters)
   };
@@ -569,6 +588,14 @@ function getToleranceState() {
 
 function updateToleranceDisplay(toleranceState) {
   tolerancePresetSelect.value = toleranceState.presetKey;
+  toleranceDistanceModeSelect.value = toleranceState.distanceMode;
+  manualToleranceDistanceField.hidden = toleranceState.distanceMode !== "manual";
+  if (document.activeElement !== manualToleranceDistanceInput) {
+    const manualDistance = toNumber(project.settings.manualToleranceDistance);
+    manualToleranceDistanceInput.value = manualDistance !== null && manualDistance > 0
+      ? String(manualDistance)
+      : "";
+  }
   document.querySelector("#toleranceFormula").textContent = `${toleranceState.preset.coefficient}mm√S`;
   document.querySelector("#calculatedTolerance").textContent = toleranceState.toleranceMm === null
     ? "距離待ち"
@@ -1795,6 +1822,26 @@ tolerancePresetSelect.addEventListener("change", (event) => {
   project.settings.tolerancePreset = LEVELING_TOLERANCE_PRESETS[event.target.value]
     ? event.target.value
     : "grade3";
+  recalculateAndRender();
+  scheduleAutosave();
+});
+toleranceDistanceModeSelect.addEventListener("change", (event) => {
+  project.settings.toleranceDistanceMode = event.target.value === "manual"
+    ? "manual"
+    : "sheet";
+  recalculateAndRender();
+  scheduleAutosave();
+  trackEvent("change_tolerance_distance_mode", {
+    mode: project.settings.toleranceDistanceMode
+  });
+});
+manualToleranceDistanceInput.addEventListener("input", (event) => {
+  const sanitized = sanitizeUnsignedDecimal(event.target.value);
+  if (event.target.value !== sanitized) event.target.value = sanitized;
+  const distance = toNumber(sanitized);
+  project.settings.manualToleranceDistance = distance !== null && distance > 0
+    ? distance
+    : null;
   recalculateAndRender();
   scheduleAutosave();
 });

@@ -87,13 +87,61 @@ a { color: #0d5d74; }
   color: #fff;
   background: rgba(0,0,0,.18);
 }
-.summary-card span, .tolerance-card > span:first-child { color: #d8f2ff; font-size: .73rem; font-weight: var(--weight-strong); }
+.summary-card span,
+.tolerance-card > label {
+  color: #d8f2ff;
+  font-size: .73rem;
+  font-weight: var(--weight-strong);
+}
 .summary-card strong { font-size: clamp(1rem, 2.5vw, 1.4rem); font-variant-numeric: tabular-nums; }
 .summary-card em { grid-column: 1 / -1; justify-self: end; padding: 1px 7px; border-radius: 999px; font-size: .68rem; font-style: normal; font-weight: var(--weight-bold); }
 .closure.pass em { background: #b8f0d1; color: #0c5434; }
 .closure.fail em { background: #ffd1cc; color: #7a1818; }
 .closure.pending em { background: #dae2df; color: #46514e; }
-.tolerance-card select { min-height: 38px; padding: 5px 25px 5px 8px; font-size: 16px; font-weight: var(--weight-bold); }
+.tolerance-card {
+  grid-template-columns: minmax(46px, .7fr) minmax(96px, 1.3fr);
+  column-gap: 5px;
+  row-gap: 4px;
+}
+.tolerance-card select {
+  width: 100%;
+  min-width: 0;
+  min-height: 36px;
+  justify-self: end;
+  padding: 4px 24px 4px 7px;
+  font-size: 13px;
+  font-weight: var(--weight-bold);
+}
+.manual-tolerance-distance {
+  display: grid;
+  grid-column: 1 / -1;
+  grid-template-columns: minmax(46px, .7fr) minmax(96px, 1.3fr);
+  align-items: center;
+  gap: 5px;
+}
+.manual-tolerance-distance[hidden] { display: none; }
+.manual-distance-entry {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+}
+.manual-distance-entry input {
+  width: 100%;
+  min-width: 0;
+  min-height: 36px;
+  padding: 4px 7px;
+  border: 1px solid #a9cfe5;
+  border-radius: 8px;
+  background: #fff;
+  text-align: right;
+  font-size: 16px;
+  font-variant-numeric: tabular-nums;
+}
+.manual-distance-entry b {
+  color: #d8f2ff;
+  font-size: .73rem;
+}
 .tolerance-formula { grid-column: 1; color: #d8f2ff; font-size: .68rem; font-weight: var(--weight-strong); }
 .calculated-tolerance { grid-column: 2; justify-self: end; font-size: .78rem; font-variant-numeric: tabular-nums; }
 

@@ -15,7 +15,7 @@
   <link rel="manifest" href="./manifest.json">
   <link rel="icon" href="./icons/icon-192.png">
   <link rel="apple-touch-icon" href="./icons/icon-192.png">
-  <link rel="stylesheet" href="./css/style.css?v=104">
+  <link rel="stylesheet" href="./css/style.css?v=105">
 </head>
 <body>
   <header class="app-header">
@@ -44,17 +44,29 @@
         <strong id="closure">—</strong>
         <em id="closureJudgement">判定待ち</em>
       </div>
-      <label class="tolerance-card" for="tolerancePreset">
-        <span>精度区分</span>
+      <div class="tolerance-card">
+        <label for="tolerancePreset">精度区分</label>
         <select id="tolerancePreset" aria-label="水準測量の精度区分">
           <option value="grade1">1級</option>
           <option value="grade2">2級</option>
           <option value="grade3">3級</option>
           <option value="grade4">4級</option>
         </select>
+        <label for="toleranceDistanceMode">距離設定</label>
+        <select id="toleranceDistanceMode" aria-label="許容値に使用する距離">
+          <option value="sheet">シートから計算</option>
+          <option value="manual">手入力</option>
+        </select>
+        <label id="manualToleranceDistanceField" class="manual-tolerance-distance" for="manualToleranceDistance" hidden>
+          <span>距離</span>
+          <span class="manual-distance-entry">
+            <input id="manualToleranceDistance" type="text" inputmode="decimal" pattern="[0-9]*[.]?[0-9]*" autocomplete="off" aria-label="許容値計算用の手入力距離">
+            <b>m</b>
+          </span>
+        </label>
         <span id="toleranceFormula" class="tolerance-formula">10mm√S</span>
         <strong id="calculatedTolerance" class="calculated-tolerance">距離待ち</strong>
-      </label>
+      </div>
     </section>
 
     <div class="toolbar" aria-label="操作">
@@ -232,6 +244,6 @@
   </dialog>
 
   <noscript>このアプリの利用にはJavaScriptを有効にしてください。</noscript>
-  <script type="module" src="./js/app.js?v=104"></script>
+  <script type="module" src="./js/app.js?v=105"></script>
 </body>
 </html>

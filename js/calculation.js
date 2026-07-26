@@ -24,6 +24,24 @@ export function sumObservationDistanceMeters(rows) {
   }, 0);
 }
 
+export function resolveToleranceDistanceMeters({
+  mode = "sheet",
+  manualDistanceMeters = null,
+  outRows = [],
+  backRows = []
+} = {}) {
+  if (mode === "manual") {
+    const manualDistance = toNumber(manualDistanceMeters);
+    return manualDistance !== null && manualDistance > 0
+      ? manualDistance
+      : null;
+  }
+  const outDistance = sumObservationDistanceMeters(outRows);
+  if (outDistance > 0) return outDistance;
+  const backDistance = sumObservationDistanceMeters(backRows);
+  return backDistance > 0 ? backDistance : null;
+}
+
 export function calculateToleranceMm(presetKey, distanceMeters) {
   const preset =
     LEVELING_TOLERANCE_PRESETS[presetKey] || LEVELING_TOLERANCE_PRESETS.grade3;
