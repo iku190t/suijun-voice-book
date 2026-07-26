@@ -7,7 +7,7 @@ import {
   LEVELING_TOLERANCE_PRESETS,
   resolveToleranceDistanceMeters,
   toNumber
-} from "./calculation.js?v=142";
+} from "./calculation.js?v=143";
 import {
   chooseLevelReading,
   createVoiceController,
@@ -15,15 +15,15 @@ import {
   normalizeSpokenNumber,
   prepareSpeechSynthesis,
   speakBack
-} from "./voice.js?v=142";
-import { clearProject, loadProject, saveProject } from "./storage.js?v=142";
-import { exportNotebookCsv } from "./export.js?v=142";
+} from "./voice.js?v=143";
+import { clearProject, loadProject, saveProject } from "./storage.js?v=143";
+import { exportNotebookCsv } from "./export.js?v=143";
 import {
   alignSheetsWithCurrentLabels,
   isValidStaffReading,
   rowHasLevelObservationData,
   reversePointNamesWithinUsedRows
-} from "./rules.js?v=142";
+} from "./rules.js?v=143";
 import {
   choosePointName,
   composePointNameSuggestionCandidates,
@@ -33,8 +33,8 @@ import {
   normalizePointName,
   pointNameToSpeech,
   recordPointNameUsage
-} from "./point-names.js?v=142";
-import { initializeAnalytics, trackEvent } from "./analytics.js?v=142";
+} from "./point-names.js?v=143";
+import { initializeAnalytics, trackEvent } from "./analytics.js?v=143";
 
 initializeAnalytics();
 
@@ -1229,6 +1229,10 @@ function showPointNameSuggestions(input) {
     input.value,
     project.settings.pointAliases
   );
+  const incrementedCandidate = incrementPointNameOrCopy(
+    namesAboveCurrentRow.at(-1),
+    project.settings.pointAliases
+  );
   const confusionCandidates = currentPointName
     ? getPointNameConfusionCandidates(
       currentPointName,
@@ -1238,12 +1242,16 @@ function showPointNameSuggestions(input) {
       POINT_SUGGESTION_LIMIT - 1
     )
     : [];
-  const strongestCandidate = rankedCandidates[0] || currentPointName;
+  const candidate = rankedCandidates.find((pointName) => (
+    pointName !== incrementedCandidate &&
+    pointName !== currentPointName
+  ));
   const uniqueCandidates = composePointNameSuggestionCandidates(
     rankedCandidates,
     currentPointName,
     confusionCandidates,
-    POINT_SUGGESTION_LIMIT
+    POINT_SUGGESTION_LIMIT,
+    incrementedCandidate
   );
   if (!uniqueCandidates.length) {
     hidePointSuggestions();
@@ -1253,9 +1261,14 @@ function showPointNameSuggestions(input) {
     const button = document.createElement("button");
     button.type = "button";
     button.dataset.pointSuggestion = pointName;
-    if (pointName === strongestCandidate) {
+    if (pointName === incrementedCandidate) {
+      button.classList.add("increment-point-suggestion");
+      button.dataset.suggestionRole = "increment";
+      button.setAttribute("aria-label", `増番 ${pointName}`);
+    } else if (pointName === candidate) {
       button.classList.add("primary-point-suggestion");
-      button.dataset.suggestionRole = "strongest";
+      button.dataset.suggestionRole = "candidate";
+      button.setAttribute("aria-label", `候補 ${pointName}`);
     }
     if (pointName === currentPointName) {
       button.classList.add("current-point-suggestion");
@@ -1995,7 +2008,13 @@ function renderPlanHeightPointList() {
     button.className = "plan-height-point-option";
     button.dataset.planHeightRow = String(rowIndex);
     button.setAttribute("aria-pressed", String(selected));
-    button.setAttribute("aria-label", `No.${rowIndex + 1} ${row.pointName}`);
+    const elevationText = Number.isFinite(row.elevation)
+      ? `標高 ${row.elevation.toFixed(3)}`
+      : "標高 未設定";
+    button.setAttribute(
+      "aria-label",
+      `No.${rowIndex + 1} ${row.pointName} ${elevationText}`
+    );
     button.classList.toggle("range-start", planHeightRangeStart === rowIndex);
 
     const check = document.createElement("span");
@@ -2011,13 +2030,21 @@ function renderPlanHeightPointList() {
     pointName.className = "plan-height-point-name";
     pointName.textContent = row.pointName;
 
+    const elevation = document.createElement("span");
+    elevation.className = "plan-height-elevation";
+    elevation.textContent = elevationText;
+
+    const pointMain = document.createElement("span");
+    pointMain.className = "plan-height-point-main";
+    pointMain.append(pointName, elevation);
+
     const currentValue = document.createElement("span");
     currentValue.className = "plan-height-current-value";
     currentValue.textContent = Number.isFinite(row.planHeight)
       ? `現在 ${row.planHeight.toFixed(3)}`
       : "未設定";
 
-    button.append(check, number, pointName, currentValue);
+    button.append(check, number, pointMain, currentValue);
     fragment.append(button);
   });
   planHeightPointList.replaceChildren(fragment);
@@ -2048,6 +2075,8 @@ function openPlanHeightBulkDialog() {
   renderPlanHeightPointList();
   planHeightBulkDialog.showModal();
   requestAnimationFrame(() => {
+    planHeightBulkValueInput.focus({ preventScroll: true });
+    planHeightBulkValueInput.select();
     planHeightPointList
       .querySelector(`[data-plan-height-row="${selectedRowIndex}"]`)
       ?.scrollIntoView({ block: "center" });

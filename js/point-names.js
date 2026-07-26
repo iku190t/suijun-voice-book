@@ -1,4 +1,4 @@
-import { normalizeAliasKey, resolvePointAlias } from "./rules.js?v=142";
+import { normalizeAliasKey, resolvePointAlias } from "./rules.js?v=143";
 
 const BASE_PRIORITY_POINT_NAMES = [...new Set(`
 BM,KBM,TBM,仮BM,水準点,仮水準点,既知点,未知点,固定点,既設点,新設点,閉合点,確認点,チェック点,
@@ -744,38 +744,35 @@ export function composePointNameSuggestionCandidates(
   rankedCandidates = [],
   currentPointName = "",
   confusionCandidates = [],
-  limit = 6
+  limit = 6,
+  incrementedCandidate = ""
 ) {
   if (limit <= 0) return [];
   const unique = (values) => values
     .filter(Boolean)
     .filter((value, index, all) => all.indexOf(value) === index);
   const normalCandidates = unique(rankedCandidates);
-  if (!currentPointName) return normalCandidates.slice(0, limit);
-
-  const strongestCandidate = normalCandidates[0] || currentPointName;
+  const candidate = normalCandidates.find((pointName) => (
+    pointName !== incrementedCandidate &&
+    pointName !== currentPointName
+  ));
   const remainingNormalCandidates = normalCandidates.filter((pointName) => (
-    pointName !== strongestCandidate &&
+    pointName !== incrementedCandidate &&
+    pointName !== candidate &&
     pointName !== currentPointName
   ));
   const distinctConfusions = unique(confusionCandidates).filter((pointName) => (
-    pointName !== strongestCandidate &&
+    pointName !== incrementedCandidate &&
+    pointName !== candidate &&
     pointName !== currentPointName
   ));
-  const sixthNormalCandidate = remainingNormalCandidates.shift();
-  const middleCandidates = distinctConfusions.splice(0, 3);
-
-  while (middleCandidates.length < 3 && remainingNormalCandidates.length) {
-    middleCandidates.push(remainingNormalCandidates.shift());
-  }
 
   return unique([
-    strongestCandidate,
+    incrementedCandidate,
+    candidate,
     currentPointName,
-    ...middleCandidates,
-    sixthNormalCandidate,
-    ...remainingNormalCandidates,
-    ...distinctConfusions
+    ...distinctConfusions,
+    ...remainingNormalCandidates
   ]).slice(0, limit);
 }
 

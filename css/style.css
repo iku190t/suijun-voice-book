@@ -287,11 +287,26 @@ a { color: #0d5d74; }
   color: #477086;
   font-size: .82rem;
 }
+.plan-height-point-main {
+  display: flex;
+  min-width: 0;
+  align-items: baseline;
+  gap: 7px;
+  overflow: hidden;
+}
 .plan-height-point-name {
   min-width: 0;
   overflow: hidden;
   font-size: 1rem;
   text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.plan-height-elevation {
+  flex: 0 0 auto;
+  color: #718a99;
+  font-size: .72rem;
+  font-variant-numeric: tabular-nums;
+  font-weight: var(--weight-regular);
   white-space: nowrap;
 }
 .plan-height-current-value {
@@ -1067,7 +1082,24 @@ dialog .eyebrow { color: var(--brand-2); }
   position: absolute;
   top: 2px;
   left: 7px;
-  content: "最有力";
+  content: "候補";
+  color: #46768f;
+  font-size: .56rem;
+  font-weight: var(--weight-strong);
+  line-height: 1;
+}
+.point-suggestion-buttons .increment-point-suggestion {
+  position: relative;
+  padding-top: 13px;
+  border: 3px solid #087ec0;
+  background: #c8edff;
+  font-weight: var(--weight-heavy);
+}
+.point-suggestion-buttons .increment-point-suggestion::before {
+  position: absolute;
+  top: 2px;
+  left: 7px;
+  content: "増番";
   color: #46768f;
   font-size: .56rem;
   font-weight: var(--weight-strong);
@@ -1178,6 +1210,7 @@ body.voice-mode-active .voice-dock .point-suggestion-buttons > .primary-point-su
   min-height: 40px;
 }
 body.voice-mode-active .point-suggestion-buttons .primary-point-suggestion,
+body.voice-mode-active .point-suggestion-buttons .increment-point-suggestion,
 body.voice-mode-active .point-suggestion-buttons .current-point-suggestion {
   display: grid;
   padding: 2px 5px;
