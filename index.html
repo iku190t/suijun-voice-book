@@ -16,10 +16,10 @@
   <meta name="apple-mobile-web-app-title" content="水準ボイス">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <title>水準ボイス</title>
-  <link rel="manifest" href="./manifest.json?v=175">
-  <link rel="icon" href="./icons/icon-192.png?v=175">
-  <link rel="apple-touch-icon" href="./icons/icon-192.png?v=175">
-  <link rel="stylesheet" href="./css/style.css?v=175">
+  <link rel="manifest" href="./manifest.json?v=176">
+  <link rel="icon" href="./icons/icon-192.png?v=176">
+  <link rel="apple-touch-icon" href="./icons/icon-192.png?v=176">
+  <link rel="stylesheet" href="./css/style.css?v=176">
 </head>
 <body class="voice-mode-active">
   <header class="app-header">
@@ -157,6 +157,20 @@
   </div>
 
   <div class="voice-dock">
+    <section id="pointNameKeyboard" class="point-name-keyboard" aria-label="点名専用キーボード" hidden>
+      <div class="point-name-keyboard-display">
+        <strong>点名入力</strong>
+        <output id="pointNameKeyboardValue" aria-live="polite"></output>
+      </div>
+      <div id="pointNameKeyboardKeys" class="point-name-keyboard-keys"></div>
+      <div class="point-name-keyboard-actions">
+        <button type="button" data-point-keyboard-action="left" aria-label="カーソルを左へ">←</button>
+        <button type="button" data-point-keyboard-action="right" aria-label="カーソルを右へ">→</button>
+        <button type="button" data-point-keyboard-action="backspace" aria-label="一文字削除">⌫</button>
+        <button class="point-name-keyboard-clear" type="button" data-point-keyboard-action="clear">クリア</button>
+        <button class="point-name-keyboard-done" type="button" data-point-keyboard-action="done">確定</button>
+      </div>
+    </section>
     <section id="pointSuggestions" class="point-suggestions" aria-label="測点名の優先候補" hidden>
       <div class="point-suggestions-heading">
         <strong>点名候補</strong>
@@ -342,6 +356,6 @@
   </dialog>
 
   <noscript>このアプリの利用にはJavaScriptを有効にしてください。</noscript>
-  <script type="module" src="./js/app.js?v=175"></script>
+  <script type="module" src="./js/app.js?v=176"></script>
 </body>
 </html>

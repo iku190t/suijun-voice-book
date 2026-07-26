@@ -7,7 +7,7 @@ import {
   LEVELING_TOLERANCE_PRESETS,
   resolveToleranceDistanceMeters,
   toNumber
-} from "./calculation.js?v=175";
+} from "./calculation.js?v=176";
 import {
   chooseLevelReading,
   createVoiceController,
@@ -15,15 +15,15 @@ import {
   normalizeSpokenNumber,
   prepareSpeechSynthesis,
   speakBack
-} from "./voice.js?v=175";
-import { clearProject, loadProject, saveProject } from "./storage.js?v=175";
-import { exportNotebookCsv } from "./export.js?v=175";
+} from "./voice.js?v=176";
+import { clearProject, loadProject, saveProject } from "./storage.js?v=176";
+import { exportNotebookCsv } from "./export.js?v=176";
 import {
   alignSheetsWithCurrentLabels,
   isValidStaffReading,
   rowHasLevelObservationData,
   reversePointNamesWithinUsedRows
-} from "./rules.js?v=175";
+} from "./rules.js?v=176";
 import {
   choosePointName,
   composePointNameSuggestionCandidates,
@@ -36,8 +36,8 @@ import {
   normalizePointName,
   pointNameToSpeech,
   recordPointNameUsage
-} from "./point-names.js?v=175";
-import { initializeAnalytics, trackEvent } from "./analytics.js?v=175";
+} from "./point-names.js?v=176";
+import { initializeAnalytics, trackEvent } from "./analytics.js?v=176";
 
 initializeAnalytics();
 
@@ -45,7 +45,7 @@ const DEFAULT_ROW_COUNT = 200;
 const APP_SHARE_URL = "https://iku190t.github.io/suijun-voice-book/";
 const APP_SHARE_TITLE = "水準ボイス";
 const APP_SHARE_TEXT = "水準測量の音声入力Web野帳です。";
-const APP_RELEASE_VERSION = new URL(import.meta.url).searchParams.get("v") || "175";
+const APP_RELEASE_VERSION = new URL(import.meta.url).searchParams.get("v") || "176";
 const FEEDBACK_EMAIL = "ez.survey2023@gmail.com";
 const POINT_SUGGESTION_LIMIT = 6;
 const POINT_SUGGESTION_SEEDS = ["NO.0", "TP0", "KBM0", "T-0", "BC.0", "SP.0"];
@@ -95,6 +95,9 @@ const toleranceDistanceSummary = document.querySelector("#toleranceDistanceSumma
 const voiceButton = document.querySelector("#voiceBtn");
 const voiceButtonLabel = document.querySelector("#voiceButtonLabel");
 const keyboardModeButton = document.querySelector("#keyboardModeBtn");
+const pointNameKeyboard = document.querySelector("#pointNameKeyboard");
+const pointNameKeyboardValue = document.querySelector("#pointNameKeyboardValue");
+const pointNameKeyboardKeys = document.querySelector("#pointNameKeyboardKeys");
 const voiceStatus = document.querySelector("#voiceStatus");
 const lastVoiceValue = document.querySelector("#lastVoiceValue");
 const voiceDock = document.querySelector(".voice-dock");
@@ -132,6 +135,8 @@ let selectedInput = null;
 let voiceTarget = null;
 let voiceModeActive = true;
 let voiceSessionActive = false;
+let pointNameKeyboardTarget = null;
+let pointNameKeyboardCaretIndex = 0;
 let selectedRowIndex = null;
 let autosaveTimer = null;
 let calculations = { out: null, back: null };
@@ -606,6 +611,9 @@ function rowTemplate(row, index) {
 }
 
 function renderSheet() {
+  pointNameKeyboard.hidden = true;
+  pointNameKeyboardTarget = null;
+  document.body.classList.remove("point-keyboard-active");
   selectedInput = null;
   pointClipboardDismissedFor = null;
   voiceTarget = null;
@@ -1188,6 +1196,148 @@ function updateVoiceModeUi() {
   updateLastVoiceValueUi();
 }
 
+const POINT_NAME_KEYBOARD_ROWS = [
+  [..."1234567890"],
+  [..."QWERTYUIOP"],
+  [..."ASDFGHJKL"],
+  [..."ZXCVBNM", "-", ".", "+"]
+];
+
+function initializePointNameKeyboard() {
+  const fragment = document.createDocumentFragment();
+  POINT_NAME_KEYBOARD_ROWS.forEach((keys) => {
+    const row = document.createElement("div");
+    row.className = "point-name-keyboard-row";
+    keys.forEach((key) => {
+      const button = document.createElement("button");
+      button.type = "button";
+      button.dataset.pointKeyboardKey = key;
+      button.textContent = key;
+      button.setAttribute("aria-label", `${key}を入力`);
+      row.append(button);
+    });
+    fragment.append(row);
+  });
+  pointNameKeyboardKeys.replaceChildren(fragment);
+}
+
+function updatePointNameKeyboardDisplay() {
+  const value = String(pointNameKeyboardTarget?.value || "");
+  pointNameKeyboardCaretIndex = Math.max(
+    0,
+    Math.min(pointNameKeyboardCaretIndex, value.length)
+  );
+  const before = document.createTextNode(value.slice(0, pointNameKeyboardCaretIndex));
+  const caret = document.createElement("span");
+  caret.className = "point-name-keyboard-caret";
+  caret.setAttribute("aria-hidden", "true");
+  const after = document.createTextNode(value.slice(pointNameKeyboardCaretIndex));
+  pointNameKeyboardValue.replaceChildren(before, caret, after);
+}
+
+function hidePointNameKeyboard() {
+  pointNameKeyboard.hidden = true;
+  pointNameKeyboardTarget = null;
+  document.body.classList.remove("point-keyboard-active");
+}
+
+function openPointNameKeyboard(target) {
+  if (
+    !target?.isConnected ||
+    target.dataset.field !== "pointName"
+  ) return;
+  if (voiceSessionActive) cancelActiveVoiceSession();
+  setVoiceModeActive(true);
+  pointNameKeyboardTarget = target;
+  pointNameKeyboardCaretIndex = target.value.length;
+  pointNameKeyboard.hidden = false;
+  document.body.classList.add("point-keyboard-active");
+  voiceTarget = target;
+  markSelectedInput(target);
+  target.blur();
+  hidePointSuggestions();
+  updatePointNameKeyboardDisplay();
+  schedulePointClipboardPosition();
+}
+
+function updatePointNameFromKeyboard(nextValue, nextCaretIndex) {
+  const target = pointNameKeyboardTarget;
+  if (!target?.isConnected || target.dataset.field !== "pointName") return;
+  target.value = String(nextValue || "").toUpperCase();
+  if (!handleFieldChange(target)) return;
+  pointNameKeyboardCaretIndex = Math.max(
+    0,
+    Math.min(nextCaretIndex, target.value.length)
+  );
+  markSelectedInput(target);
+  voiceTarget = target;
+  updatePointNameKeyboardDisplay();
+  updatePointClipboardButtons();
+}
+
+async function finishPointNameKeyboardInput() {
+  const target = pointNameKeyboardTarget;
+  if (!target?.isConnected) {
+    hidePointNameKeyboard();
+    return;
+  }
+  const normalized = recordPointName(target.value);
+  if (normalized && normalized !== target.value) {
+    target.value = normalized;
+    handleFieldChange(target);
+  }
+  hidePointNameKeyboard();
+  endHistoryGroup();
+  selectVoiceTargetWithoutKeyboard(target);
+}
+
+pointNameKeyboard.addEventListener("pointerdown", (event) => {
+  if (event.target.closest("button")) event.preventDefault();
+});
+
+pointNameKeyboard.addEventListener("click", (event) => {
+  const keyButton = event.target.closest("[data-point-keyboard-key]");
+  if (keyButton) {
+    const value = String(pointNameKeyboardTarget?.value || "");
+    const key = keyButton.dataset.pointKeyboardKey || "";
+    updatePointNameFromKeyboard(
+      `${value.slice(0, pointNameKeyboardCaretIndex)}${key}${value.slice(pointNameKeyboardCaretIndex)}`,
+      pointNameKeyboardCaretIndex + key.length
+    );
+    return;
+  }
+
+  const actionButton = event.target.closest("[data-point-keyboard-action]");
+  if (!actionButton) return;
+  const value = String(pointNameKeyboardTarget?.value || "");
+  switch (actionButton.dataset.pointKeyboardAction) {
+    case "left":
+      pointNameKeyboardCaretIndex = Math.max(0, pointNameKeyboardCaretIndex - 1);
+      updatePointNameKeyboardDisplay();
+      break;
+    case "right":
+      pointNameKeyboardCaretIndex = Math.min(value.length, pointNameKeyboardCaretIndex + 1);
+      updatePointNameKeyboardDisplay();
+      break;
+    case "backspace":
+      if (pointNameKeyboardCaretIndex > 0) {
+        updatePointNameFromKeyboard(
+          `${value.slice(0, pointNameKeyboardCaretIndex - 1)}${value.slice(pointNameKeyboardCaretIndex)}`,
+          pointNameKeyboardCaretIndex - 1
+        );
+      }
+      break;
+    case "clear":
+      updatePointNameFromKeyboard("", 0);
+      break;
+    case "done":
+      finishPointNameKeyboardInput();
+      break;
+    default:
+      break;
+  }
+});
+
 function setVoiceModeActive(active) {
   const previous = voiceModeActive;
   const activating = Boolean(active) && !voiceModeActive;
@@ -1222,6 +1372,19 @@ function finishVoiceSession() {
 
 function selectVoiceTargetWithoutKeyboard(input) {
   if ((!voiceModeActive && !voiceSessionActive) || !input?.matches("input")) return;
+  if (!pointNameKeyboard.hidden) {
+    if (input.dataset.field === "pointName") {
+      pointNameKeyboardTarget = input;
+      pointNameKeyboardCaretIndex = input.value.length;
+      voiceTarget = input;
+      markSelectedInput(input);
+      input.blur();
+      hidePointSuggestions();
+      updatePointNameKeyboardDisplay();
+      return;
+    }
+    hidePointNameKeyboard();
+  }
   if (isCalculatedElevationInput(input)) {
     voiceTarget = null;
     markSelectedInput(input);
@@ -3341,6 +3504,7 @@ if (!voiceController.supported) {
 }
 
 voiceButton.addEventListener("click", async () => {
+  if (!pointNameKeyboard.hidden) hidePointNameKeyboard();
   if (!voiceModeActive) {
     const target = selectedInput?.isConnected ? selectedInput : null;
     document.activeElement?.blur();
@@ -3380,6 +3544,7 @@ voiceButton.addEventListener("click", async () => {
 
 sheetToggleButton.addEventListener("click", () => {
   if (voiceSessionActive) cancelActiveVoiceSession();
+  hidePointNameKeyboard();
   const targetSheet = activeSheet === "out" ? "back" : "out";
   synchronizePointNames(activeSheet, targetSheet);
   activeSheet = targetSheet;
@@ -3396,6 +3561,11 @@ keyboardModeButton.addEventListener("click", () => {
     ? selectedInput
     : tbody.querySelector("input:not([data-calculated-elevation])");
   if (voiceSessionActive) cancelActiveVoiceSession();
+  if (target?.dataset.field === "pointName") {
+    openPointNameKeyboard(target);
+    return;
+  }
+  hidePointNameKeyboard();
   setVoiceModeActive(false);
   if (!target?.isConnected) return;
   target.readOnly = false;
@@ -3418,6 +3588,7 @@ window.addEventListener("pagehide", () => {
 });
 
 initializeColumnVisibilityControls();
+initializePointNameKeyboard();
 renderSheet();
 updateVoiceModeUi();
 document.fonts?.ready.then(() => scheduleStickyTableHeader());

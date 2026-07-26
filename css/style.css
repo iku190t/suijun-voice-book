@@ -828,6 +828,96 @@ body.external-ui-recovery .voice-dock {
 .voice-dock button.listening { color: #fff; background: #981f1a; animation: pulse 1s infinite; }
 .voice-dock .keyboard-mode-button { min-height: 40px; border-color: #d9f4ff; color: #0d527b; background: #fff; font-size: .82rem; }
 .voice-dock button[hidden] { display: none; }
+.point-name-keyboard {
+  display: grid;
+  width: min(100%, 560px);
+  gap: 5px;
+  padding: 7px;
+  border: 1px solid #9fd5f1;
+  border-radius: 12px;
+  color: #07334f;
+  background: #e9f8ff;
+}
+.point-name-keyboard[hidden] { display: none; }
+.point-name-keyboard-display {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  min-height: 36px;
+  align-items: center;
+  gap: 8px;
+}
+.point-name-keyboard-display strong {
+  font-size: .76rem;
+  white-space: nowrap;
+}
+.point-name-keyboard-display output {
+  min-height: 32px;
+  padding: 4px 9px;
+  overflow: hidden;
+  border: 2px solid #168dcc;
+  border-radius: 7px;
+  background: #fff;
+  font-size: 1.05rem;
+  font-weight: var(--weight-heavy);
+  line-height: 22px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.point-name-keyboard-caret {
+  display: inline-block;
+  width: 2px;
+  height: 1.05em;
+  margin: 0 1px -2px;
+  background: #087ec0;
+  animation: point-keyboard-caret 1s steps(1) infinite;
+}
+.point-name-keyboard-keys {
+  display: grid;
+  gap: 4px;
+}
+.point-name-keyboard-row {
+  display: flex;
+  justify-content: center;
+  gap: 3px;
+}
+.voice-dock .point-name-keyboard button {
+  min-width: 0;
+  min-height: 38px;
+  padding: 2px;
+  border: 1px solid #9ac9e1;
+  border-radius: 6px;
+  color: #07334f;
+  background: #fff;
+  box-shadow: 0 1px 2px rgba(5, 59, 91, .12);
+  font-size: clamp(.72rem, 3.2vw, .95rem);
+  font-weight: var(--weight-bold);
+  line-height: 1;
+}
+.point-name-keyboard-row button {
+  flex: 1 1 0;
+  max-width: 48px;
+}
+.point-name-keyboard-actions {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, .65fr)) minmax(0, 1fr) minmax(0, 1.25fr);
+  gap: 4px;
+}
+.voice-dock .point-name-keyboard-actions .point-name-keyboard-clear {
+  color: #942222;
+  background: #fff1f1;
+}
+.voice-dock .point-name-keyboard-actions .point-name-keyboard-done {
+  border-color: #087ec0;
+  color: #fff;
+  background: #168dcc;
+}
+body.point-keyboard-active .voice-dock {
+  grid-template-columns: minmax(280px, 560px);
+}
+body.point-keyboard-active .voice-dock > :not(.point-name-keyboard) {
+  display: none;
+}
+@keyframes point-keyboard-caret { 50% { opacity: 0; } }
 .voice-action {
   position: relative;
   width: 100%;
@@ -935,6 +1025,9 @@ body.software-keyboard-open:not(.voice-mode-active) .voice-dock {
   display: none;
 }
 body.voice-mode-active { padding-bottom: calc(212px + env(safe-area-inset-bottom)); }
+body.voice-mode-active.point-keyboard-active {
+  padding-bottom: calc(276px + env(safe-area-inset-bottom));
+}
 body.point-suggestions-visible { padding-bottom: calc(322px + env(safe-area-inset-bottom)); }
 @keyframes pulse { 50% { box-shadow: 0 0 0 7px rgba(255,105,97,.2); } }
 .sr-only { position: absolute !important; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0; }
