@@ -7,7 +7,7 @@ import {
   LEVELING_TOLERANCE_PRESETS,
   resolveToleranceDistanceMeters,
   toNumber
-} from "./calculation.js?v=140";
+} from "./calculation.js?v=141";
 import {
   chooseLevelReading,
   createVoiceController,
@@ -15,15 +15,15 @@ import {
   normalizeSpokenNumber,
   prepareSpeechSynthesis,
   speakBack
-} from "./voice.js?v=140";
-import { clearProject, loadProject, saveProject } from "./storage.js?v=140";
-import { exportNotebookCsv } from "./export.js?v=140";
+} from "./voice.js?v=141";
+import { clearProject, loadProject, saveProject } from "./storage.js?v=141";
+import { exportNotebookCsv } from "./export.js?v=141";
 import {
   alignSheetsWithCurrentLabels,
   isValidStaffReading,
   rowHasLevelObservationData,
   reversePointNamesWithinUsedRows
-} from "./rules.js?v=140";
+} from "./rules.js?v=141";
 import {
   choosePointName,
   getPointNameConfusionCandidates,
@@ -32,8 +32,8 @@ import {
   normalizePointName,
   pointNameToSpeech,
   recordPointNameUsage
-} from "./point-names.js?v=140";
-import { initializeAnalytics, trackEvent } from "./analytics.js?v=140";
+} from "./point-names.js?v=141";
+import { initializeAnalytics, trackEvent } from "./analytics.js?v=141";
 
 initializeAnalytics();
 
@@ -99,7 +99,18 @@ const pointClipboardPopover = document.querySelector("#pointClipboardPopover");
 const pointCopyButton = document.querySelector("#pointCopyBtn");
 const pointPasteButton = document.querySelector("#pointPasteBtn");
 const pointIncrementPasteButton = document.querySelector("#pointIncrementPasteBtn");
+const planHeightBulkButton = document.querySelector("#planHeightBulkBtn");
 const pointClearButton = document.querySelector("#pointClearBtn");
+const planHeightBulkDialog = document.querySelector("#planHeightBulkDialog");
+const planHeightBulkSheet = document.querySelector("#planHeightBulkSheet");
+const planHeightPointList = document.querySelector("#planHeightPointList");
+const planHeightSelectAllButton = document.querySelector("#planHeightSelectAllBtn");
+const planHeightClearSelectionButton = document.querySelector("#planHeightClearSelectionBtn");
+const planHeightRangeButton = document.querySelector("#planHeightRangeBtn");
+const planHeightRangeStatus = document.querySelector("#planHeightRangeStatus");
+const planHeightBulkValueInput = document.querySelector("#planHeightBulkValue");
+const planHeightSelectionCount = document.querySelector("#planHeightSelectionCount");
+const applyPlanHeightBulkButton = document.querySelector("#applyPlanHeightBulkBtn");
 const rowActionPopover = document.querySelector("#rowActionPopover");
 const rowActionButtons = document.querySelector("#rowActionButtons");
 const insertRowButton = document.querySelector("#insertRowBtn");
@@ -144,6 +155,9 @@ let noteClipboard = "";
 let lastVoiceValueText = "";
 let pointClipboardPositionFrame = null;
 let pointClipboardDismissedFor = null;
+let planHeightBulkSelectedRows = new Set();
+let planHeightRangeMode = false;
+let planHeightRangeStart = null;
 let keyboardViewportBaseline = window.visualViewport?.height || window.innerHeight;
 let keyboardCellScrollTimer = null;
 let keyboardCellScrollTarget = null;
@@ -1021,19 +1035,24 @@ function updatePointClipboardButtons() {
   );
   const pointSelected = cellSelected && selectedInput.dataset.field === "pointName";
   const noteSelected = cellSelected && selectedInput.dataset.field === "note";
+  const planHeightSelected = cellSelected && selectedInput.dataset.field === "planHeight";
   const textSelected = pointSelected || noteSelected;
   const clearOnlySelected = Boolean(
     cellSelected &&
-    !textSelected
+    !textSelected &&
+    !planHeightSelected
   );
   const dismissed = textSelected && selectedInput === pointClipboardDismissedFor;
-  const popoverAllowed = (textSelected || clearOnlySelected) && !dismissed;
+  const popoverAllowed = (textSelected || planHeightSelected || clearOnlySelected) && !dismissed;
   const clipboardValue = pointSelected ? pointNameClipboard : noteSelected ? noteClipboard : "";
   pointClipboardPopover.classList.toggle("clear-only", clearOnlySelected);
+  pointClipboardPopover.classList.toggle("plan-height-actions", planHeightSelected);
   pointClipboardPopover.hidden = !popoverAllowed;
   pointClipboardPopover.setAttribute(
     "aria-label",
-    noteSelected
+    planHeightSelected
+      ? "選択した計画高の一括設定とクリア"
+      : noteSelected
       ? "選択した備考のコピー、貼り付け、クリア"
       : pointSelected
         ? "選択した点名のコピー、貼り付け、クリア"
@@ -1051,7 +1070,9 @@ function updatePointClipboardButtons() {
   pointIncrementPasteButton.disabled = !pointSelected || !pointNameIncrementClipboard;
   pointIncrementPasteButton.hidden = !pointSelected || !pointNameIncrementClipboard;
   pointIncrementPasteButton.textContent = pointNameIncrementClipboard;
-  pointClearButton.hidden = !textSelected && !clearOnlySelected;
+  planHeightBulkButton.hidden = !planHeightSelected;
+  planHeightBulkButton.disabled = !planHeightSelected;
+  pointClearButton.hidden = !textSelected && !planHeightSelected && !clearOnlySelected;
   pointClearButton.disabled = !cellSelected || !selectedInput.value.trim();
   if (popoverAllowed) {
     const targetCell = selectedInput.closest("td");
@@ -1942,6 +1963,207 @@ pointSuggestionButtons.addEventListener("click", async (event) => {
     return;
   }
   await applyPointSuggestion(button.dataset.pointSuggestion);
+});
+
+function getPlanHeightBulkRows() {
+  return project.sheets[activeSheet]
+    .map((row, rowIndex) => ({ row, rowIndex }))
+    .filter(({ row }) => String(row.pointName || "").trim());
+}
+
+function parsePlanHeightBulkValue() {
+  const raw = planHeightBulkValueInput.value.normalize("NFKC").trim().replace(/,/g, "");
+  if (!raw) return null;
+  return toNumber(raw);
+}
+
+function updatePlanHeightBulkControls() {
+  const selectedCount = planHeightBulkSelectedRows.size;
+  const value = parsePlanHeightBulkValue();
+  planHeightSelectionCount.textContent = `${selectedCount}点を選択`;
+  applyPlanHeightBulkButton.textContent = selectedCount
+    ? `選択した${selectedCount}点に設定`
+    : "選択した点に設定";
+  applyPlanHeightBulkButton.disabled = selectedCount === 0 || value === null;
+  planHeightBulkValueInput.toggleAttribute(
+    "aria-invalid",
+    Boolean(planHeightBulkValueInput.value.trim() && value === null)
+  );
+  planHeightRangeButton.setAttribute("aria-pressed", String(planHeightRangeMode));
+}
+
+function renderPlanHeightPointList() {
+  const fragment = document.createDocumentFragment();
+  getPlanHeightBulkRows().forEach(({ row, rowIndex }) => {
+    const selected = planHeightBulkSelectedRows.has(rowIndex);
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "plan-height-point-option";
+    button.dataset.planHeightRow = String(rowIndex);
+    button.setAttribute("aria-pressed", String(selected));
+    button.setAttribute("aria-label", `No.${rowIndex + 1} ${row.pointName}`);
+    button.classList.toggle("range-start", planHeightRangeStart === rowIndex);
+
+    const check = document.createElement("span");
+    check.className = "plan-height-point-check";
+    check.setAttribute("aria-hidden", "true");
+    check.textContent = "✓";
+
+    const number = document.createElement("span");
+    number.className = "plan-height-point-number";
+    number.textContent = `No.${rowIndex + 1}`;
+
+    const pointName = document.createElement("strong");
+    pointName.className = "plan-height-point-name";
+    pointName.textContent = row.pointName;
+
+    const currentValue = document.createElement("span");
+    currentValue.className = "plan-height-current-value";
+    currentValue.textContent = Number.isFinite(row.planHeight)
+      ? `現在 ${row.planHeight.toFixed(3)}`
+      : "未設定";
+
+    button.append(check, number, pointName, currentValue);
+    fragment.append(button);
+  });
+  planHeightPointList.replaceChildren(fragment);
+  updatePlanHeightBulkControls();
+}
+
+function openPlanHeightBulkDialog() {
+  if (
+    !selectedInput?.isConnected ||
+    selectedInput.dataset.field !== "planHeight"
+  ) return;
+  const selectedRowIndex = findRowIndex(selectedInput);
+  planHeightBulkSelectedRows = new Set();
+  if (
+    selectedRowIndex >= 0 &&
+    String(project.sheets[activeSheet][selectedRowIndex]?.pointName || "").trim()
+  ) {
+    planHeightBulkSelectedRows.add(selectedRowIndex);
+  }
+  planHeightRangeMode = false;
+  planHeightRangeStart = null;
+  planHeightRangeStatus.textContent = "点名を個別に選択できます。";
+  planHeightBulkSheet.textContent = `${activeSheet === "out" ? "往路" : "復路"}の点名`;
+  const currentValue = project.sheets[activeSheet][selectedRowIndex]?.planHeight;
+  planHeightBulkValueInput.value = Number.isFinite(currentValue)
+    ? currentValue.toFixed(3)
+    : "";
+  renderPlanHeightPointList();
+  planHeightBulkDialog.showModal();
+  requestAnimationFrame(() => {
+    planHeightPointList
+      .querySelector(`[data-plan-height-row="${selectedRowIndex}"]`)
+      ?.scrollIntoView({ block: "center" });
+  });
+}
+
+planHeightBulkButton.addEventListener("click", openPlanHeightBulkDialog);
+
+planHeightSelectAllButton.addEventListener("click", () => {
+  planHeightBulkSelectedRows = new Set(
+    getPlanHeightBulkRows().map(({ rowIndex }) => rowIndex)
+  );
+  planHeightRangeMode = false;
+  planHeightRangeStart = null;
+  planHeightRangeStatus.textContent = "点名をすべて選択しました。";
+  renderPlanHeightPointList();
+});
+
+planHeightClearSelectionButton.addEventListener("click", () => {
+  planHeightBulkSelectedRows.clear();
+  planHeightRangeMode = false;
+  planHeightRangeStart = null;
+  planHeightRangeStatus.textContent = "選択を解除しました。";
+  renderPlanHeightPointList();
+});
+
+planHeightRangeButton.addEventListener("click", () => {
+  planHeightRangeMode = !planHeightRangeMode;
+  planHeightRangeStart = null;
+  if (planHeightRangeMode) {
+    planHeightBulkSelectedRows.clear();
+    planHeightRangeStatus.textContent = "範囲の開始点を押してください。";
+  } else {
+    planHeightRangeStatus.textContent = "範囲選択を解除しました。";
+  }
+  renderPlanHeightPointList();
+});
+
+planHeightPointList.addEventListener("click", (event) => {
+  const button = event.target.closest("[data-plan-height-row]");
+  if (!button) return;
+  const rowIndex = Number(button.dataset.planHeightRow);
+  if (!Number.isInteger(rowIndex)) return;
+
+  if (planHeightRangeMode) {
+    if (planHeightRangeStart === null) {
+      planHeightRangeStart = rowIndex;
+      planHeightBulkSelectedRows.add(rowIndex);
+      planHeightRangeStatus.textContent = "範囲の終了点を押してください。";
+    } else {
+      const start = Math.min(planHeightRangeStart, rowIndex);
+      const end = Math.max(planHeightRangeStart, rowIndex);
+      planHeightBulkSelectedRows = new Set(
+        getPlanHeightBulkRows()
+          .map(({ rowIndex: candidateIndex }) => candidateIndex)
+          .filter((candidateIndex) => candidateIndex >= start && candidateIndex <= end)
+      );
+      planHeightRangeMode = false;
+      planHeightRangeStart = null;
+      planHeightRangeStatus.textContent = `No.${start + 1}からNo.${end + 1}まで選択しました。`;
+    }
+  } else if (planHeightBulkSelectedRows.has(rowIndex)) {
+    planHeightBulkSelectedRows.delete(rowIndex);
+  } else {
+    planHeightBulkSelectedRows.add(rowIndex);
+  }
+  renderPlanHeightPointList();
+});
+
+planHeightBulkValueInput.addEventListener("input", updatePlanHeightBulkControls);
+planHeightBulkValueInput.addEventListener("blur", () => {
+  const value = parsePlanHeightBulkValue();
+  if (value !== null) planHeightBulkValueInput.value = value.toFixed(3);
+  updatePlanHeightBulkControls();
+});
+planHeightBulkValueInput.addEventListener("keydown", (event) => {
+  if (event.key !== "Enter" || applyPlanHeightBulkButton.disabled) return;
+  event.preventDefault();
+  applyPlanHeightBulkButton.click();
+});
+
+applyPlanHeightBulkButton.addEventListener("click", () => {
+  const value = parsePlanHeightBulkValue();
+  if (value === null || !planHeightBulkSelectedRows.size) {
+    planHeightBulkValueInput.setAttribute("aria-invalid", "true");
+    return;
+  }
+  const targetRows = [...planHeightBulkSelectedRows]
+    .filter((rowIndex) => project.sheets[activeSheet][rowIndex]);
+  if (!targetRows.length) return;
+
+  recordUndoSnapshot(activeSheet, "plan-height-bulk", true);
+  targetRows.forEach((rowIndex) => {
+    project.sheets[activeSheet][rowIndex].planHeight = value;
+  });
+  planHeightBulkDialog.close("apply");
+  renderSheet();
+  scheduleAutosave();
+  updateHistoryButtons();
+  trackEvent("bulk_plan_height", {
+    sheet: activeSheet,
+    selected_count: targetRows.length
+  });
+  showNotice(`${targetRows.length}点の計画高を${value.toFixed(3)}に設定しました。`, "success");
+});
+
+planHeightBulkDialog.addEventListener("close", () => {
+  planHeightBulkSelectedRows.clear();
+  planHeightRangeMode = false;
+  planHeightRangeStart = null;
 });
 
 pointCopyButton.addEventListener("click", () => {

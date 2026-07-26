@@ -13,9 +13,9 @@
   <meta name="description" content="水準測量の観測値を音声やキーボードで入力できる、無料の現場向けWeb野帳です。">
   <title>水準ボイス野帳</title>
   <link rel="manifest" href="./manifest.json">
-  <link rel="icon" href="./icons/icon-192.png?v=140">
-  <link rel="apple-touch-icon" href="./icons/icon-192.png?v=140">
-  <link rel="stylesheet" href="./css/style.css?v=140">
+  <link rel="icon" href="./icons/icon-192.png?v=141">
+  <link rel="apple-touch-icon" href="./icons/icon-192.png?v=141">
+  <link rel="stylesheet" href="./css/style.css?v=141">
 </head>
 <body>
   <header class="app-header">
@@ -142,6 +142,7 @@
       <button id="pointPasteBtn" type="button" aria-label="コピーした点名を貼り付け" hidden></button>
       <button id="pointIncrementPasteBtn" type="button" aria-label="増番した点名を貼り付け" hidden></button>
     </div>
+    <button id="planHeightBulkBtn" type="button" hidden>一括設定</button>
     <button id="pointClearBtn" type="button" disabled>クリア</button>
   </div>
 
@@ -247,6 +248,29 @@
     </form>
   </dialog>
 
+  <dialog id="planHeightBulkDialog" class="action-dialog plan-height-bulk-dialog" aria-labelledby="planHeightBulkDialogTitle">
+    <form method="dialog">
+      <button class="dialog-close" value="cancel" aria-label="閉じる">×</button>
+      <h2 id="planHeightBulkDialogTitle">計画高の一括設定</h2>
+      <p id="planHeightBulkSheet" class="plan-height-bulk-sheet"></p>
+      <div class="plan-height-bulk-tools" aria-label="点名の選択方法">
+        <button id="planHeightSelectAllBtn" type="button">全選択</button>
+        <button id="planHeightClearSelectionBtn" type="button">選択解除</button>
+        <button id="planHeightRangeBtn" type="button" aria-pressed="false">範囲選択</button>
+      </div>
+      <p id="planHeightRangeStatus" class="plan-height-range-status">点名を個別に選択できます。</p>
+      <div id="planHeightPointList" class="plan-height-point-list" role="group" aria-label="計画高を設定する点名"></div>
+      <label class="plan-height-value-field" for="planHeightBulkValue">
+        <span>設定する計画高</span>
+        <input id="planHeightBulkValue" type="text" inputmode="decimal" autocomplete="off" aria-label="一括設定する計画高">
+      </label>
+      <div class="plan-height-bulk-footer">
+        <output id="planHeightSelectionCount" for="planHeightBulkValue">0点を選択</output>
+        <button id="applyPlanHeightBulkBtn" class="primary-button" type="button" disabled>選択した点に設定</button>
+      </div>
+    </form>
+  </dialog>
+
   <dialog id="clearDialog" class="action-dialog clear-dialog" aria-labelledby="clearDialogTitle">
     <form method="dialog">
       <button class="dialog-close" value="cancel" aria-label="閉じる">×</button>
@@ -301,6 +325,6 @@
   </dialog>
 
   <noscript>このアプリの利用にはJavaScriptを有効にしてください。</noscript>
-  <script type="module" src="./js/app.js?v=140"></script>
+  <script type="module" src="./js/app.js?v=141"></script>
 </body>
 </html>

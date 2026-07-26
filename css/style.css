@@ -188,6 +188,169 @@ a { color: #0d5d74; }
 .tolerance-settings-dialog {
   width: min(360px, calc(100vw - 24px));
 }
+.action-dialog.plan-height-bulk-dialog {
+  width: min(520px, calc(100vw - 18px));
+}
+.plan-height-bulk-dialog > form {
+  display: grid;
+  gap: 10px;
+}
+.plan-height-bulk-sheet {
+  margin: -4px 0 0;
+  color: #41677e;
+  font-size: .86rem;
+  font-weight: var(--weight-strong);
+}
+.plan-height-bulk-tools {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 7px;
+}
+.plan-height-bulk-tools button {
+  min-height: 42px;
+  padding: 7px 5px;
+  border: 1px solid #93c8e3;
+  border-radius: 9px;
+  color: #145979;
+  background: #f4fbff;
+  font-size: .86rem;
+}
+.plan-height-bulk-tools button[aria-pressed="true"] {
+  color: #fff;
+  border-color: #147eb7;
+  background: #147eb7;
+}
+.plan-height-range-status {
+  min-height: 1.4em;
+  margin: 0;
+  color: #547188;
+  font-size: .79rem;
+  line-height: 1.4;
+}
+.plan-height-point-list {
+  display: grid;
+  max-height: min(43dvh, 420px);
+  gap: 6px;
+  padding: 2px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+}
+.plan-height-point-list:empty::before {
+  content: "点名が入力されている行はありません。";
+  padding: 18px 10px;
+  border: 1px dashed #a9c8d9;
+  border-radius: 10px;
+  color: #547188;
+  text-align: center;
+}
+.plan-height-point-option {
+  display: grid;
+  grid-template-columns: 32px 54px minmax(0, 1fr) auto;
+  min-height: 48px;
+  padding: 6px 9px;
+  align-items: center;
+  gap: 7px;
+  border: 1px solid #b5d4e4;
+  border-radius: 11px;
+  color: #173f56;
+  background: #fff;
+  text-align: left;
+}
+.plan-height-point-option[aria-pressed="true"] {
+  border-color: #1595d2;
+  background: #e2f5ff;
+  box-shadow: inset 0 0 0 1px #1595d2;
+}
+.plan-height-point-option.range-start {
+  border-color: #ef9c22;
+  background: #fff4df;
+  box-shadow: inset 0 0 0 1px #ef9c22;
+}
+.plan-height-point-check {
+  display: grid;
+  width: 28px;
+  height: 28px;
+  place-items: center;
+  border: 2px solid #83b8d3;
+  border-radius: 50%;
+  color: transparent;
+  background: #fff;
+  font-weight: var(--weight-bold);
+}
+.plan-height-point-option[aria-pressed="true"] .plan-height-point-check {
+  color: #fff;
+  border-color: #168bc8;
+  background: #168bc8;
+}
+.plan-height-point-number {
+  color: #477086;
+  font-size: .82rem;
+}
+.plan-height-point-name {
+  min-width: 0;
+  overflow: hidden;
+  font-size: 1rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.plan-height-current-value {
+  color: #59798b;
+  font-size: .78rem;
+  font-variant-numeric: tabular-nums;
+}
+.plan-height-value-field {
+  display: grid;
+  grid-template-columns: auto minmax(130px, 1fr);
+  align-items: center;
+  gap: 10px;
+  margin-top: 2px;
+  color: #174f73;
+  font-weight: var(--weight-bold);
+}
+.plan-height-value-field input {
+  width: 100%;
+  min-height: 48px;
+  padding: 8px 10px;
+  border: 2px solid #86bfdc;
+  border-radius: 10px;
+  background: #fff;
+  font-size: 1.15rem;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+.plan-height-value-field input[aria-invalid="true"] {
+  border-color: #d34949;
+  background: #fff3f3;
+}
+.plan-height-bulk-footer {
+  display: grid;
+  grid-template-columns: auto minmax(150px, 1fr);
+  align-items: center;
+  gap: 10px;
+}
+.plan-height-bulk-footer output {
+  color: #315f78;
+  font-size: .83rem;
+  font-weight: var(--weight-strong);
+}
+.plan-height-bulk-footer .primary-button {
+  min-height: 48px;
+  color: #fff;
+  border-color: #137fb9;
+  background: #137fb9;
+}
+@media (max-width: 420px) {
+  .plan-height-point-option {
+    grid-template-columns: 30px 42px minmax(0, 1fr);
+  }
+  .plan-height-current-value {
+    grid-column: 3;
+  }
+  .plan-height-bulk-footer {
+    grid-template-columns: 1fr;
+  }
+}
 .tolerance-dialog-field {
   display: grid;
   grid-template-columns: minmax(82px, .75fr) minmax(0, 1.25fr);
@@ -452,6 +615,12 @@ td.point-clipboard-anchor {
   color: #074f79;
   background: rgba(223, 244, 255, .9);
 }
+#planHeightBulkBtn {
+  border-radius: 10px 0 0 10px;
+  color: #07557f;
+  background: rgba(230, 247, 255, .94);
+  font-weight: var(--weight-bold);
+}
 #pointClearBtn {
   border-left-width: 0;
   border-radius: 0 10px 10px 0;
@@ -463,6 +632,10 @@ td.point-clipboard-anchor {
 .point-clipboard-popover.clear-only #pointClearBtn {
   border-left-width: 2px;
   border-radius: 10px;
+}
+.point-clipboard-popover.plan-height-actions #pointClearBtn {
+  border-left-width: 0;
+  border-radius: 0 10px 10px 0;
 }
 .point-clipboard-popover button:disabled {
   opacity: .42;
