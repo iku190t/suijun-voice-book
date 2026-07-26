@@ -7,7 +7,7 @@ import {
   LEVELING_TOLERANCE_PRESETS,
   resolveToleranceDistanceMeters,
   toNumber
-} from "./calculation.js?v=123";
+} from "./calculation.js?v=124";
 import {
   chooseLevelReading,
   createVoiceController,
@@ -15,14 +15,14 @@ import {
   normalizeSpokenNumber,
   prepareSpeechSynthesis,
   speakBack
-} from "./voice.js?v=123";
-import { clearProject, loadProject, saveProject } from "./storage.js?v=123";
-import { exportSheetCsv } from "./export.js?v=123";
+} from "./voice.js?v=124";
+import { clearProject, loadProject, saveProject } from "./storage.js?v=124";
+import { exportSheetCsv } from "./export.js?v=124";
 import {
   alignSheetsWithCurrentLabels,
   isValidStaffReading,
   reversePointNamesWithinUsedRows
-} from "./rules.js?v=123";
+} from "./rules.js?v=124";
 import {
   choosePointName,
   getRankedPointNameCandidates,
@@ -30,8 +30,8 @@ import {
   normalizePointName,
   pointNameToSpeech,
   recordPointNameUsage
-} from "./point-names.js?v=123";
-import { initializeAnalytics, trackEvent } from "./analytics.js?v=123";
+} from "./point-names.js?v=124";
+import { initializeAnalytics, trackEvent } from "./analytics.js?v=124";
 
 initializeAnalytics();
 
@@ -43,6 +43,26 @@ const POINT_SUGGESTION_LIMIT = 10;
 const POINT_SUGGESTION_SEEDS = ["NO.0", "TP0", "KBM0", "T-0", "BC.0", "SP.0"];
 const NUMERIC_FIELDS = new Set(["bs", "fs", "elevation", "distance"]);
 const UNSIGNED_DECIMAL_FIELDS = new Set(["bs", "fs", "distance"]);
+const COLUMN_DEFINITIONS = [
+  { key: "number", label: "No.", baseWidth: 42 },
+  { key: "pointName", label: "点名", baseWidth: 116 },
+  { key: "distance", label: "距離", baseWidth: 112 },
+  { key: "bs", label: "後視", baseWidth: 112 },
+  { key: "fs", label: "前視", baseWidth: 112 },
+  { key: "roundTrip", label: "往復差", baseWidth: 112 },
+  { key: "difference", label: "高低差", baseWidth: 112 },
+  { key: "elevation", label: "標高", baseWidth: 112 },
+  { key: "note", label: "備考", baseWidth: 180 }
+];
+const FIELD_COLUMN_KEYS = {
+  pointName: "pointName",
+  distance: "distance",
+  bs: "bs",
+  fs: "fs",
+  elevation: "elevation",
+  note: "note"
+};
+const COLLAPSED_COLUMN_BASE_WIDTH = 28;
 const tbody = document.querySelector("#notebookBody");
 const notice = document.querySelector("#notice");
 const notebook = document.querySelector("#notebook");
@@ -227,6 +247,10 @@ function createBlankProject() {
       toleranceDefaultsVersion: 1,
       showDistance: false,
       distanceVisibilityDefaultsVersion: 1,
+      visibleColumns: Object.fromEntries(
+        COLUMN_DEFINITIONS.map(({ key }) => [key, key !== "distance"])
+      ),
+      columnVisibilityDefaultsVersion: 1,
       voiceRate: 1.2,
       voiceSettingsVersion: 2,
       sheetMeaningVersion: 2,
@@ -306,9 +330,23 @@ function normalizeLoadedProject(loaded) {
   const hasCurrentVoiceDefaults = Number(loaded.settings?.voiceSettingsVersion) >= 2;
   const hasCurrentToleranceDefaults = Number(loaded.settings?.toleranceDefaultsVersion) >= 1;
   const hasCurrentTableScaleDefaults = Number(loaded.settings?.tableScaleDefaultsVersion) >= 2;
-  const hasCurrentDistanceVisibilityDefaults =
-    Number(loaded.settings?.distanceVisibilityDefaultsVersion) >= 1;
   const loadedTableScale = Number(loaded.settings?.tableScale);
+  const hasCurrentColumnVisibilityDefaults =
+    Number(loaded.settings?.columnVisibilityDefaultsVersion) >= 1;
+  const loadedVisibleColumns =
+    loaded.settings?.visibleColumns && typeof loaded.settings.visibleColumns === "object"
+      ? loaded.settings.visibleColumns
+      : {};
+  const visibleColumns = Object.fromEntries(
+    COLUMN_DEFINITIONS.map(({ key }) => [
+      key,
+      hasCurrentColumnVisibilityDefaults
+        ? loadedVisibleColumns[key] !== false
+        : key === "distance"
+          ? loaded.settings?.showDistance === true
+          : true
+    ])
+  );
 
   return {
     version: 5,
@@ -335,10 +373,10 @@ function normalizeLoadedProject(loaded) {
         return value !== null && value > 0 ? value : null;
       })(),
       toleranceDefaultsVersion: 1,
-      showDistance: hasCurrentDistanceVisibilityDefaults
-        ? loaded.settings?.showDistance === true
-        : false,
+      showDistance: visibleColumns.distance,
       distanceVisibilityDefaultsVersion: 1,
+      visibleColumns,
+      columnVisibilityDefaultsVersion: 1,
       tableScale: hasCurrentTableScaleDefaults
         ? clamp(loadedTableScale || 0.44, 0.4, 1.8)
         : Number.isFinite(loadedTableScale) && loadedTableScale !== 1 && loadedTableScale !== 0.5
@@ -364,7 +402,8 @@ if (
   !storedProject ||
   Number(storedProject.settings?.toleranceDefaultsVersion) < 1 ||
   Number(storedProject.settings?.tableScaleDefaultsVersion) < 2 ||
-  Number(storedProject.settings?.distanceVisibilityDefaultsVersion) < 1
+  Number(storedProject.settings?.distanceVisibilityDefaultsVersion) < 1 ||
+  Number(storedProject.settings?.columnVisibilityDefaultsVersion) < 1
 ) {
   project = saveProject(project);
 }
@@ -485,30 +524,88 @@ function renderSheet() {
     "aria-label",
     `${currentName}を表示中。押すと${destinationName}に切り替え`
   );
-  applyDistanceVisibility();
+  applyColumnVisibility();
   applyTableScale(project.settings.tableScale);
   recalculateAndRender();
   updateHistoryButtons();
   updatePointClipboardButtons();
 }
 
-function applyDistanceVisibility() {
-  const visible = Boolean(project.settings.showDistance);
-  notebook.classList.toggle("show-distance", visible);
-  stickyNotebookHeader.classList.toggle("show-distance", visible);
-  [distanceToggleButton, stickyDistanceToggleButton].forEach((button) => {
-    button.textContent = visible ? "－" : "＋";
-    button.setAttribute("aria-label", visible ? "距離列を収納" : "距離列を表示");
-    button.setAttribute("aria-pressed", String(visible));
+function isColumnVisible(key) {
+  return project.settings.visibleColumns?.[key] !== false;
+}
+
+function isFieldColumnVisible(field) {
+  const key = FIELD_COLUMN_KEYS[field];
+  return key ? isColumnVisible(key) : true;
+}
+
+function initializeColumnToggleButtons() {
+  [notebook, stickyNotebookHeader].forEach((table) => {
+    const cells = [...(table.tHead?.rows[0]?.cells || [])];
+    COLUMN_DEFINITIONS.forEach((definition, index) => {
+      const cell = cells[index];
+      if (!cell) return;
+      cell.dataset.columnKey = definition.key;
+      cell.classList.add("column-heading");
+      const label = document.createElement("span");
+      label.className = "column-heading-label";
+      label.textContent = definition.label;
+      const button = document.createElement("button");
+      button.className = "column-toggle-button";
+      button.type = "button";
+      button.dataset.columnToggle = definition.key;
+      cell.replaceChildren(label, button);
+    });
   });
+  distanceToggleButton.hidden = true;
+  stickyDistanceToggleButton.hidden = true;
+}
+
+function applyColumnVisibility() {
+  project.settings.showDistance = isColumnVisible("distance");
+  [notebook, stickyNotebookHeader].forEach((table) => {
+    const rows = [...table.rows];
+    COLUMN_DEFINITIONS.forEach((definition, index) => {
+      const visible = isColumnVisible(definition.key);
+      rows.forEach((row) => {
+        row.cells[index]?.classList.toggle("column-collapsed", !visible);
+      });
+      const button = table.tHead?.querySelector(
+        `[data-column-toggle="${definition.key}"]`
+      );
+      if (!button) return;
+      button.textContent = visible ? "－" : "＋";
+      button.setAttribute(
+        "aria-label",
+        visible ? `${definition.label}列を非表示` : `${definition.label}列を表示`
+      );
+      button.setAttribute("aria-pressed", String(visible));
+    });
+  });
+  if (selectedInput && !isFieldColumnVisible(selectedInput.dataset.field)) {
+    selectedInput.blur();
+    selectedInput = null;
+    voiceTarget = null;
+    hidePointSuggestions();
+    hidePointClipboardPopover();
+  }
   scheduleStickyTableHeader();
 }
 
 function applyTableScale(value) {
   const scale = clamp(Number(value) || 1, 0.4, 1.8);
   project.settings.tableScale = scale;
+  const tableMinimumWidth = COLUMN_DEFINITIONS.reduce((total, definition) => {
+    return total + (
+      isColumnVisible(definition.key)
+        ? definition.baseWidth
+        : COLLAPSED_COLUMN_BASE_WIDTH
+    );
+  }, 0);
   const pixels = {
-    "--table-min-width": 1010,
+    "--table-min-width": tableMinimumWidth,
+    "--collapsed-column-width": COLLAPSED_COLUMN_BASE_WIDTH,
     "--row-height": 48,
     "--input-height": 47,
     "--number-width": 42,
@@ -1390,9 +1487,8 @@ function selectMovedInput(target, focusTarget = false) {
 
 function getVoiceRowInputs(row) {
   if (!row) return [];
-  return Array.from(row.querySelectorAll("input")).filter((input) => {
-    return project.settings.showDistance || input.dataset.field !== "distance";
-  });
+  return Array.from(row.querySelectorAll("input"))
+    .filter((input) => isFieldColumnVisible(input.dataset.field));
 }
 
 function getFieldBelowPreviousReading(rowIndex) {
@@ -1445,7 +1541,7 @@ async function moveAfterVoiceInput(current) {
     return;
   }
 
-  if (field === "pointName" && project.settings.showDistance && hasDistanceInPreviousRow(rowIndex)) {
+  if (field === "pointName" && isColumnVisible("distance") && hasDistanceInPreviousRow(rowIndex)) {
     selectMovedInput(tbody.rows[rowIndex]?.querySelector('[data-field="distance"]'));
     return;
   }
@@ -1958,14 +2054,28 @@ document.addEventListener("pointerdown", (event) => {
   ) return;
   closeRowActionPopover();
 }, { capture: true });
-function toggleDistanceColumn() {
-  project.settings.showDistance = !project.settings.showDistance;
-  applyDistanceVisibility();
+function toggleColumn(key) {
+  if (!COLUMN_DEFINITIONS.some((definition) => definition.key === key)) return;
+  project.settings.visibleColumns[key] = !isColumnVisible(key);
+  applyColumnVisibility();
+  applyTableScale(project.settings.tableScale);
   scheduleAutosave();
-  trackEvent("toggle_distance", { visible: project.settings.showDistance ? "yes" : "no" });
+  trackEvent("toggle_column", {
+    column: key,
+    visible: isColumnVisible(key) ? "yes" : "no"
+  });
 }
-distanceToggleButton.addEventListener("click", toggleDistanceColumn);
-stickyDistanceToggleButton.addEventListener("click", toggleDistanceColumn);
+
+function handleColumnToggle(event) {
+  const button = event.target.closest("[data-column-toggle]");
+  if (!button) return;
+  event.preventDefault();
+  event.stopPropagation();
+  toggleColumn(button.dataset.columnToggle);
+}
+
+notebook.tHead?.addEventListener("click", handleColumnToggle);
+stickyNotebookHeader.tHead?.addEventListener("click", handleColumnToggle);
 document.querySelector("#saveBtn").addEventListener("click", () => {
   project = saveProject(project);
   showNotice("上書き保存しました。", "success");
@@ -2444,5 +2554,6 @@ window.addEventListener("pagehide", () => {
   project = saveProject(project);
 });
 
+initializeColumnToggleButtons();
 renderSheet();
 document.fonts?.ready.then(() => scheduleStickyTableHeader());
