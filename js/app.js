@@ -7,7 +7,7 @@ import {
   LEVELING_TOLERANCE_PRESETS,
   resolveToleranceDistanceMeters,
   toNumber
-} from "./calculation.js?v=141";
+} from "./calculation.js?v=142";
 import {
   chooseLevelReading,
   createVoiceController,
@@ -15,25 +15,26 @@ import {
   normalizeSpokenNumber,
   prepareSpeechSynthesis,
   speakBack
-} from "./voice.js?v=141";
-import { clearProject, loadProject, saveProject } from "./storage.js?v=141";
-import { exportNotebookCsv } from "./export.js?v=141";
+} from "./voice.js?v=142";
+import { clearProject, loadProject, saveProject } from "./storage.js?v=142";
+import { exportNotebookCsv } from "./export.js?v=142";
 import {
   alignSheetsWithCurrentLabels,
   isValidStaffReading,
   rowHasLevelObservationData,
   reversePointNamesWithinUsedRows
-} from "./rules.js?v=141";
+} from "./rules.js?v=142";
 import {
   choosePointName,
+  composePointNameSuggestionCandidates,
   getPointNameConfusionCandidates,
   getRankedPointNameCandidates,
   incrementPointNameOrCopy,
   normalizePointName,
   pointNameToSpeech,
   recordPointNameUsage
-} from "./point-names.js?v=141";
-import { initializeAnalytics, trackEvent } from "./analytics.js?v=141";
+} from "./point-names.js?v=142";
+import { initializeAnalytics, trackEvent } from "./analytics.js?v=142";
 
 initializeAnalytics();
 
@@ -1237,20 +1238,13 @@ function showPointNameSuggestions(input) {
       POINT_SUGGESTION_LIMIT - 1
     )
     : [];
-  const strongestCandidate = currentPointName
-    ? confusionCandidates[0] || currentPointName
-    : rankedCandidates[0];
-  const candidates = currentPointName
-    ? [
-      strongestCandidate,
-      currentPointName,
-      ...confusionCandidates.slice(1)
-    ]
-    : rankedCandidates;
-  const uniqueCandidates = candidates
-    .filter(Boolean)
-    .filter((pointName, index, all) => all.indexOf(pointName) === index)
-    .slice(0, POINT_SUGGESTION_LIMIT);
+  const strongestCandidate = rankedCandidates[0] || currentPointName;
+  const uniqueCandidates = composePointNameSuggestionCandidates(
+    rankedCandidates,
+    currentPointName,
+    confusionCandidates,
+    POINT_SUGGESTION_LIMIT
+  );
   if (!uniqueCandidates.length) {
     hidePointSuggestions();
     return;

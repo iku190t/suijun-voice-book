@@ -1,4 +1,4 @@
-import { normalizeAliasKey, resolvePointAlias } from "./rules.js?v=141";
+import { normalizeAliasKey, resolvePointAlias } from "./rules.js?v=142";
 
 const BASE_PRIORITY_POINT_NAMES = [...new Set(`
 BM,KBM,TBM,仮BM,水準点,仮水準点,既知点,未知点,固定点,既設点,新設点,閉合点,確認点,チェック点,
@@ -134,7 +134,7 @@ export const POINT_NAME_LETTER_CONFUSIONS = Object.freeze({
   L: ["R", "M", "N"],
   M: ["N", "L"],
   N: ["M", "L"],
-  O: ["0", "Q"],
+  O: ["Q"],
   P: ["B", "T", "D", "E", "V", "G"],
   Q: ["9", "O", "U"],
   R: ["L"],
@@ -738,6 +738,45 @@ export function getPointNameConfusionCandidates(
     ))
     .slice(0, limit)
     .map((candidate) => candidate.pointName);
+}
+
+export function composePointNameSuggestionCandidates(
+  rankedCandidates = [],
+  currentPointName = "",
+  confusionCandidates = [],
+  limit = 6
+) {
+  if (limit <= 0) return [];
+  const unique = (values) => values
+    .filter(Boolean)
+    .filter((value, index, all) => all.indexOf(value) === index);
+  const normalCandidates = unique(rankedCandidates);
+  if (!currentPointName) return normalCandidates.slice(0, limit);
+
+  const strongestCandidate = normalCandidates[0] || currentPointName;
+  const remainingNormalCandidates = normalCandidates.filter((pointName) => (
+    pointName !== strongestCandidate &&
+    pointName !== currentPointName
+  ));
+  const distinctConfusions = unique(confusionCandidates).filter((pointName) => (
+    pointName !== strongestCandidate &&
+    pointName !== currentPointName
+  ));
+  const sixthNormalCandidate = remainingNormalCandidates.shift();
+  const middleCandidates = distinctConfusions.splice(0, 3);
+
+  while (middleCandidates.length < 3 && remainingNormalCandidates.length) {
+    middleCandidates.push(remainingNormalCandidates.shift());
+  }
+
+  return unique([
+    strongestCandidate,
+    currentPointName,
+    ...middleCandidates,
+    sixthNormalCandidate,
+    ...remainingNormalCandidates,
+    ...distinctConfusions
+  ]).slice(0, limit);
 }
 
 export function getNextPointNameCandidates(
