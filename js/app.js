@@ -7,7 +7,7 @@ import {
   LEVELING_TOLERANCE_PRESETS,
   resolveToleranceDistanceMeters,
   toNumber
-} from "./calculation.js?v=162";
+} from "./calculation.js?v=163";
 import {
   chooseLevelReading,
   createVoiceController,
@@ -15,15 +15,15 @@ import {
   normalizeSpokenNumber,
   prepareSpeechSynthesis,
   speakBack
-} from "./voice.js?v=162";
-import { clearProject, loadProject, saveProject } from "./storage.js?v=162";
-import { exportNotebookCsv } from "./export.js?v=162";
+} from "./voice.js?v=163";
+import { clearProject, loadProject, saveProject } from "./storage.js?v=163";
+import { exportNotebookCsv } from "./export.js?v=163";
 import {
   alignSheetsWithCurrentLabels,
   isValidStaffReading,
   rowHasLevelObservationData,
   reversePointNamesWithinUsedRows
-} from "./rules.js?v=162";
+} from "./rules.js?v=163";
 import {
   choosePointName,
   composePointNameSuggestionCandidates,
@@ -36,8 +36,8 @@ import {
   normalizePointName,
   pointNameToSpeech,
   recordPointNameUsage
-} from "./point-names.js?v=162";
-import { initializeAnalytics, trackEvent } from "./analytics.js?v=162";
+} from "./point-names.js?v=163";
+import { initializeAnalytics, trackEvent } from "./analytics.js?v=163";
 
 initializeAnalytics();
 
@@ -45,7 +45,7 @@ const DEFAULT_ROW_COUNT = 200;
 const APP_SHARE_URL = "https://iku190t.github.io/suijun-voice-book/";
 const APP_SHARE_TITLE = "水準ボイス";
 const APP_SHARE_TEXT = "水準測量の音声入力Web野帳です。";
-const APP_RELEASE_VERSION = new URL(import.meta.url).searchParams.get("v") || "162";
+const APP_RELEASE_VERSION = new URL(import.meta.url).searchParams.get("v") || "163";
 const FEEDBACK_EMAIL = "ez.survey2023@gmail.com";
 const POINT_SUGGESTION_LIMIT = 6;
 const POINT_SUGGESTION_SEEDS = ["NO.0", "TP0", "KBM0", "T-0", "BC.0", "SP.0"];
@@ -2078,29 +2078,21 @@ function updateStickyTableHeader() {
   const viewportTop = window.visualViewport?.offsetTop || 0;
   sheetHeading.style.top = `${Math.round(viewportTop)}px`;
   const sheetHeadingRect = sheetHeading.getBoundingClientRect();
-  const sheetHeadingIsStuck =
-    sheetHeadingRect.top <= viewportTop + 1 &&
-    wrapRect.bottom > sheetHeadingRect.bottom;
-  sheetHeading.classList.toggle("is-stuck", sheetHeadingIsStuck);
   const headerHeight = notebook.tHead?.getBoundingClientRect().height || 0;
   const sourceHeaderTop = notebook.tHead
     ? notebook.tHead.getBoundingClientRect().top
     : wrapRect.top;
-  const stickyTop = sheetHeadingIsStuck
-    ? Math.max(viewportTop, sheetHeadingRect.bottom)
-    : viewportTop;
+  const headerPassedHeading = sourceHeaderTop < sheetHeadingRect.bottom - 0.5;
   const visible =
-    sheetHeadingIsStuck &&
-    sourceHeaderTop < stickyTop &&
-    wrapRect.bottom > stickyTop + headerHeight;
+    headerPassedHeading &&
+    wrapRect.bottom > sheetHeadingRect.bottom + headerHeight;
+  sheetHeading.classList.toggle("is-stuck", visible);
   stickyTableHeader.hidden = !visible;
   if (!visible) return;
 
-  const left = Math.max(0, wrapRect.left);
-  const width = Math.min(window.innerWidth - left, wrapRect.width);
-  stickyTableHeader.style.top = `${Math.round(stickyTop)}px`;
-  stickyTableHeader.style.left = `${Math.round(left)}px`;
-  stickyTableHeader.style.width = `${Math.round(width)}px`;
+  stickyTableHeader.style.removeProperty("top");
+  stickyTableHeader.style.removeProperty("left");
+  stickyTableHeader.style.removeProperty("width");
   syncStickyHeaderColumns();
 
   let translateX = -tableWrap.scrollLeft;
