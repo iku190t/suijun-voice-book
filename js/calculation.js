@@ -380,7 +380,7 @@ export function calculateNotebook(sourceRows, toleranceMm = 10, options = {}) {
 
 export function formatRoundTripMillimeters(value, intermediateSight = false) {
   if (!Number.isFinite(value)) return "";
-  const formatted = String(Math.abs(Math.round(value)));
+  const formatted = String(Math.round(value));
   return intermediateSight ? `（${formatted}）` : formatted;
 }
 
