@@ -7,7 +7,7 @@ import {
   LEVELING_TOLERANCE_PRESETS,
   resolveToleranceDistanceMeters,
   toNumber
-} from "./calculation.js?v=163";
+} from "./calculation.js?v=164";
 import {
   chooseLevelReading,
   createVoiceController,
@@ -15,15 +15,15 @@ import {
   normalizeSpokenNumber,
   prepareSpeechSynthesis,
   speakBack
-} from "./voice.js?v=163";
-import { clearProject, loadProject, saveProject } from "./storage.js?v=163";
-import { exportNotebookCsv } from "./export.js?v=163";
+} from "./voice.js?v=164";
+import { clearProject, loadProject, saveProject } from "./storage.js?v=164";
+import { exportNotebookCsv } from "./export.js?v=164";
 import {
   alignSheetsWithCurrentLabels,
   isValidStaffReading,
   rowHasLevelObservationData,
   reversePointNamesWithinUsedRows
-} from "./rules.js?v=163";
+} from "./rules.js?v=164";
 import {
   choosePointName,
   composePointNameSuggestionCandidates,
@@ -36,8 +36,8 @@ import {
   normalizePointName,
   pointNameToSpeech,
   recordPointNameUsage
-} from "./point-names.js?v=163";
-import { initializeAnalytics, trackEvent } from "./analytics.js?v=163";
+} from "./point-names.js?v=164";
+import { initializeAnalytics, trackEvent } from "./analytics.js?v=164";
 
 initializeAnalytics();
 
@@ -45,7 +45,7 @@ const DEFAULT_ROW_COUNT = 200;
 const APP_SHARE_URL = "https://iku190t.github.io/suijun-voice-book/";
 const APP_SHARE_TITLE = "水準ボイス";
 const APP_SHARE_TEXT = "水準測量の音声入力Web野帳です。";
-const APP_RELEASE_VERSION = new URL(import.meta.url).searchParams.get("v") || "163";
+const APP_RELEASE_VERSION = new URL(import.meta.url).searchParams.get("v") || "164";
 const FEEDBACK_EMAIL = "ez.survey2023@gmail.com";
 const POINT_SUGGESTION_LIMIT = 6;
 const POINT_SUGGESTION_SEEDS = ["NO.0", "TP0", "KBM0", "T-0", "BC.0", "SP.0"];
@@ -2567,19 +2567,36 @@ pointClearButton.addEventListener("click", () => {
   updatePointClipboardButtons();
 });
 
+function rebuildSheetAfterPaste(input) {
+  const rowIndex = findRowIndex(input);
+  const field = input?.dataset.field;
+  if (rowIndex < 0 || !field) return null;
+  const horizontalScroll = tableWrap.scrollLeft;
+  renderSheet();
+  tableWrap.scrollLeft = horizontalScroll;
+  const refreshedTarget = tbody.rows[rowIndex]?.querySelector(`[data-field="${field}"]`) || null;
+  if (refreshedTarget) {
+    markSelectedInput(refreshedTarget);
+    syncStickyHeaderColumns();
+    updateStickyTableHeader();
+  }
+  return refreshedTarget;
+}
+
 pointPasteButton.addEventListener("click", async () => {
   if (
     !selectedInput?.isConnected ||
     !["pointName", "note"].includes(selectedInput.dataset.field)
   ) return;
-  const target = selectedInput;
+  let target = selectedInput;
   const field = target.dataset.field;
   const clipboardValue = field === "pointName" ? pointNameClipboard : noteClipboard;
   if (!clipboardValue) return;
   target.value = clipboardValue;
   if (!handleFieldChange(target, { forceHistory: true })) return;
   if (field === "pointName") recordPointName(target.value);
-  markSelectedInput(target);
+  target = rebuildSheetAfterPaste(target);
+  if (!target) return;
   hidePointSuggestions();
   if (!voiceModeActive) {
     target.readOnly = false;
@@ -2611,13 +2628,14 @@ pointIncrementPasteButton.addEventListener("click", async () => {
     !selectedInput?.isConnected ||
     selectedInput.dataset.field !== "pointName"
   ) return;
-  const target = selectedInput;
+  let target = selectedInput;
   const pastedValue = pointNameIncrementClipboard;
   target.value = pastedValue;
   if (!handleFieldChange(target, { forceHistory: true })) return;
   recordPointName(target.value);
   pointNameIncrementClipboard = incrementClipboardPointName(pastedValue);
-  markSelectedInput(target);
+  target = rebuildSheetAfterPaste(target);
+  if (!target) return;
   hidePointSuggestions();
   if (!voiceModeActive) {
     target.readOnly = false;
