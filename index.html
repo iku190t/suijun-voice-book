@@ -15,7 +15,7 @@
   <link rel="manifest" href="./manifest.json">
   <link rel="icon" href="./icons/icon-192.png">
   <link rel="apple-touch-icon" href="./icons/icon-192.png">
-  <link rel="stylesheet" href="./css/style.css?v=106">
+  <link rel="stylesheet" href="./css/style.css?v=107">
 </head>
 <body>
   <header class="app-header">
@@ -60,7 +60,7 @@
     <div class="toolbar" aria-label="操作">
       <button id="saveBtn" type="button">上書き保存</button>
       <button id="csvBtn" type="button">CSV出力</button>
-      <button id="settingsOpenBtn" type="button" aria-controls="settingsDialog" aria-expanded="false">⚙ 設定</button>
+      <button id="settingsOpenBtn" type="button" aria-controls="settingsDialog" aria-expanded="false">設定</button>
       <button id="clearBtn" class="danger-outline" type="button">消去</button>
     </div>
   </header>
@@ -235,15 +235,9 @@
   <dialog id="clearDialog" class="action-dialog clear-dialog" aria-labelledby="clearDialogTitle">
     <form method="dialog">
       <button class="dialog-close" value="cancel" aria-label="閉じる">×</button>
-      <h2 id="clearDialogTitle">消去するシートを選択</h2>
-      <div id="clearSelection" class="dialog-actions clear-actions">
-        <button type="button" data-clear-target="out">往路を消す</button>
-        <button type="button" data-clear-target="back">復路を消す</button>
-        <button class="danger-button" type="button" data-clear-target="all">全シートを消す</button>
-        <button type="submit" value="cancel">キャンセル</button>
-      </div>
-      <div id="clearConfirmation" class="clear-confirmation" hidden>
-        <p><strong id="clearTargetLabel"></strong>のデータを消去しますか？</p>
+      <h2 id="clearDialogTitle">すべて消去</h2>
+      <div id="clearConfirmation" class="clear-confirmation">
+        <p>往路・復路を含む、すべてのデータを消去しますか？</p>
         <div class="clear-confirmation-actions">
           <button id="confirmClearBtn" class="danger-button" type="button">はい</button>
           <button id="cancelClearBtn" type="button">いいえ</button>
@@ -266,6 +260,6 @@
   </dialog>
 
   <noscript>このアプリの利用にはJavaScriptを有効にしてください。</noscript>
-  <script type="module" src="./js/app.js?v=106"></script>
+  <script type="module" src="./js/app.js?v=107"></script>
 </body>
 </html>

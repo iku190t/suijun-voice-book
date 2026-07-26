@@ -8,10 +8,10 @@
   --accent: #7ed3ff;
   --bad: #a72c2c;
   --focus: #1677ff;
-  --app-font: "Yu Gothic UI", "Hiragino Kaku Gothic ProN", Meiryo, system-ui, sans-serif;
-  --weight-strong: 700;
-  --weight-bold: 800;
-  --weight-heavy: 900;
+  --app-font: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Noto Sans JP", "Noto Sans CJK JP", "Hiragino Sans", "Hiragino Kaku Gothic ProN", "Yu Gothic UI", "Yu Gothic", Meiryo, sans-serif;
+  --weight-strong: 600;
+  --weight-bold: 700;
+  --weight-heavy: 800;
   --line-body: 1.4;
   --line-control: 1.25;
   color-scheme: light;
@@ -191,9 +191,32 @@ a { color: #0d5d74; }
   font-variant-numeric: tabular-nums;
 }
 
-.toolbar { display: flex; gap: 7px; max-width: 1500px; margin: 0 auto; overflow-x: auto; scrollbar-width: thin; }
-.toolbar > * { flex: 0 0 auto; }
-.danger-outline { border-color: #e5a7a7; color: #8d2020; background: #fff7f7; }
+.toolbar {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(82px, 180px));
+  gap: 7px;
+  width: 100%;
+  max-width: 1500px;
+  margin: 0 auto;
+}
+.toolbar button {
+  width: 100%;
+  min-width: 0;
+  min-height: 48px;
+  padding: 8px 5px;
+  border-color: #b6d2e3;
+  border-radius: 9px;
+  color: #17384e;
+  background: #f8fcff;
+  font-size: clamp(.78rem, 2vw, .96rem);
+  font-weight: var(--weight-strong);
+  white-space: nowrap;
+}
+.toolbar .danger-outline {
+  border-color: #e4b3b3;
+  color: #8d2020;
+  background: #fff8f8;
+}
 
 main { max-width: 1540px; margin: 0 auto; padding: 9px 8px 28px; }
 .notice { margin: 0 0 8px; padding: 9px 12px; border: 1px solid #e6a15d; border-radius: 9px; color: #693500; background: #fff3df; font-weight: var(--weight-strong); }
@@ -624,12 +647,9 @@ dialog .eyebrow { color: var(--brand-2); }
   letter-spacing: 0;
   line-height: 1.35;
 }
-.clear-actions button { width: 100%; }
-.clear-actions[hidden] { display: none; }
 .clear-confirmation {
   margin-top: 14px;
 }
-.clear-confirmation[hidden] { display: none; }
 .clear-confirmation p {
   margin: 0 0 14px;
   padding: 14px 12px;
@@ -787,7 +807,15 @@ dialog .eyebrow { color: var(--brand-2); }
 @media (max-width: 430px) {
   .brand-links { max-width: 48%; }
   .summary-card, .tolerance-card { padding: 7px 8px; }
-  .toolbar button { min-height: 46px; }
+  .toolbar {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 5px;
+  }
+  .toolbar button {
+    min-height: 46px;
+    padding-inline: 3px;
+    font-size: clamp(.75rem, 3.25vw, .9rem);
+  }
   .voice-dock { grid-template-columns: 1fr; gap: 3px; }
   .voice-dock button { min-height: 116px; }
   body { padding-bottom: 144px; }

@@ -6,7 +6,7 @@ import {
   LEVELING_TOLERANCE_PRESETS,
   resolveToleranceDistanceMeters,
   toNumber
-} from "./calculation.js?v=106";
+} from "./calculation.js?v=107";
 import {
   chooseLevelReading,
   createVoiceController,
@@ -14,14 +14,14 @@ import {
   normalizeSpokenNumber,
   prepareSpeechSynthesis,
   speakBack
-} from "./voice.js?v=106";
-import { clearProject, loadProject, saveProject } from "./storage.js?v=106";
-import { exportSheetCsv } from "./export.js?v=106";
+} from "./voice.js?v=107";
+import { clearProject, loadProject, saveProject } from "./storage.js?v=107";
+import { exportSheetCsv } from "./export.js?v=107";
 import {
   alignSheetsWithCurrentLabels,
   isValidStaffReading,
   reversePointNamesWithinUsedRows
-} from "./rules.js?v=106";
+} from "./rules.js?v=107";
 import {
   choosePointName,
   getRankedPointNameCandidates,
@@ -29,8 +29,8 @@ import {
   normalizePointName,
   pointNameToSpeech,
   recordPointNameUsage
-} from "./point-names.js?v=106";
-import { initializeAnalytics, trackEvent } from "./analytics.js?v=106";
+} from "./point-names.js?v=107";
+import { initializeAnalytics, trackEvent } from "./analytics.js?v=107";
 
 initializeAnalytics();
 
@@ -1928,57 +1928,25 @@ document.querySelector("#csvBtn").addEventListener("click", async () => {
   }
 });
 const clearDialog = document.querySelector("#clearDialog");
-const clearSelection = document.querySelector("#clearSelection");
-const clearConfirmation = document.querySelector("#clearConfirmation");
-const clearTargetLabel = document.querySelector("#clearTargetLabel");
 const confirmClearButton = document.querySelector("#confirmClearBtn");
 const cancelClearButton = document.querySelector("#cancelClearBtn");
-let pendingClearTarget = null;
-
-function resetClearDialog() {
-  pendingClearTarget = null;
-  clearSelection.hidden = false;
-  clearConfirmation.hidden = true;
-  clearTargetLabel.textContent = "";
-}
 
 document.querySelector("#clearBtn").addEventListener("click", () => {
-  resetClearDialog();
   clearDialog.showModal();
 });
-clearDialog.querySelectorAll("[data-clear-target]").forEach((button) => {
-  button.addEventListener("click", () => {
-    pendingClearTarget = button.dataset.clearTarget;
-    clearTargetLabel.textContent = pendingClearTarget === "out"
-      ? "往路"
-      : pendingClearTarget === "back"
-        ? "復路"
-        : "全シート";
-    clearSelection.hidden = true;
-    clearConfirmation.hidden = false;
-  });
-});
 confirmClearButton.addEventListener("click", () => {
-  const target = pendingClearTarget;
-  if (!target) return;
-  const targetLabel = target === "out" ? "往路" : target === "back" ? "復路" : "全シート";
-  recordUndoSnapshot(activeSheet, `clear-${target}`, true);
-  if (target === "all") {
-    const settings = { ...project.settings };
-    clearProject();
-    project = createBlankProject();
-    project.settings = settings;
-  } else {
-    project.sheets[target] = createRows(target, project.sheets[target === "out" ? "back" : "out"].length);
-  }
+  recordUndoSnapshot(activeSheet, "clear-all", true);
+  const settings = { ...project.settings };
+  clearProject();
+  project = createBlankProject();
+  project.settings = settings;
   clearDialog.close();
   renderSheet();
   project = saveProject(project);
-  showNotice(`${targetLabel}を消去しました。`, "success");
-  trackEvent("clear_sheet", { target });
+  showNotice("すべてのデータを消去しました。", "success");
+  trackEvent("clear_sheet", { target: "all" });
 });
-cancelClearButton.addEventListener("click", resetClearDialog);
-clearDialog.addEventListener("close", resetClearDialog);
+cancelClearButton.addEventListener("click", () => clearDialog.close());
 
 const supportDialog = document.querySelector("#supportDialog");
 document.querySelector("#supportOpenBtn").addEventListener("click", () => {
