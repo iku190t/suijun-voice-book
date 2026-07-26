@@ -404,17 +404,16 @@ export function applyRoundTripDifferences(outRows, backRows) {
   if (lastUsedIndex < 0) return;
 
   const usedRowCount = lastUsedIndex + 1;
-  // 往路は上から下、復路は反転した点名順なので、鏡位置の区間を対応させる。
-  for (let outIndex = 1; outIndex < usedRowCount; outIndex += 1) {
+  // 往路は上から下、復路は反転した点名順なので、鏡位置の同じ測点を対応させる。
+  for (let outIndex = 0; outIndex < usedRowCount; outIndex += 1) {
     const backIndex = usedRowCount - 1 - outIndex;
-    const outDifference = outRows[outIndex]?._difference;
-    const backDifference = backRows[backIndex]?._difference;
-    if (!Number.isFinite(outDifference) || !Number.isFinite(backDifference)) {
+    const outElevation = toNumber(outRows[outIndex]?.elevation);
+    const backElevation = toNumber(backRows[backIndex]?.elevation);
+    if (outElevation === null || backElevation === null) {
       continue;
     }
 
-    const differenceMm =
-      (Math.abs(outDifference) - Math.abs(backDifference)) * 1000;
+    const differenceMm = (outElevation - backElevation) * 1000;
     const intermediateSight = Boolean(
       outRows[outIndex]?._intermediateSight ||
       backRows[backIndex]?._intermediateSight
