@@ -68,7 +68,28 @@ a { color: #0d5d74; }
 }
 .support-button,
 .share-button { min-height: 38px; padding: 6px 9px; border-color: #bce8ff; color: #07334f; background: #d9f4ff; }
-.share-button { color: #fff; border-color: rgba(255, 255, 255, .8); background: rgba(4, 73, 117, .5); }
+.share-button {
+  display: grid;
+  place-items: center;
+  width: 38px;
+  min-width: 38px;
+  padding: 4px;
+  color: #fff;
+  border-color: rgba(255, 255, 255, .8);
+  background: rgba(4, 73, 117, .5);
+}
+.share-button svg {
+  width: 25px;
+  height: 25px;
+  overflow: visible;
+}
+.share-button path {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2.4;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
 
 .history-buttons { display: flex; align-items: center; gap: 8px; margin-left: auto; }
 .history-buttons button {
@@ -863,6 +884,11 @@ dialog .eyebrow { color: var(--brand-2); }
   .brand-links .support-button {
     min-height: 34px;
     padding: 4px 7px;
+  }
+  .brand-links .share-button {
+    width: 34px;
+    min-width: 34px;
+    padding: 4px;
   }
   .summary-card, .tolerance-card { padding: 7px 8px; }
   .toolbar {
