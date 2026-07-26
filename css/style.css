@@ -851,6 +851,7 @@ body.external-ui-recovery .voice-dock {
   white-space: nowrap;
 }
 .point-name-keyboard-display output {
+  display: block;
   min-height: 27px;
   padding: 2px 7px;
   overflow: hidden;
@@ -861,7 +862,19 @@ body.external-ui-recovery .voice-dock {
   font-weight: var(--weight-heavy);
   line-height: 19px;
   text-overflow: ellipsis;
+  touch-action: none;
+  user-select: none;
   white-space: nowrap;
+  cursor: text;
+}
+.point-name-keyboard-char {
+  display: inline-block;
+  min-width: .2em;
+}
+.point-name-keyboard-char.selected {
+  color: #fff;
+  background: #168dcc;
+  border-radius: 2px;
 }
 .point-name-keyboard-caret {
   display: inline-block;

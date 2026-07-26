@@ -7,7 +7,7 @@ import {
   LEVELING_TOLERANCE_PRESETS,
   resolveToleranceDistanceMeters,
   toNumber
-} from "./calculation.js?v=178";
+} from "./calculation.js?v=179";
 import {
   chooseLevelReading,
   createVoiceController,
@@ -15,15 +15,15 @@ import {
   normalizeSpokenNumber,
   prepareSpeechSynthesis,
   speakBack
-} from "./voice.js?v=178";
-import { clearProject, loadProject, saveProject } from "./storage.js?v=178";
-import { exportNotebookCsv } from "./export.js?v=178";
+} from "./voice.js?v=179";
+import { clearProject, loadProject, saveProject } from "./storage.js?v=179";
+import { exportNotebookCsv } from "./export.js?v=179";
 import {
   alignSheetsWithCurrentLabels,
   isValidStaffReading,
   rowHasLevelObservationData,
   reversePointNamesWithinUsedRows
-} from "./rules.js?v=178";
+} from "./rules.js?v=179";
 import {
   choosePointName,
   composePointNameSuggestionCandidates,
@@ -36,8 +36,8 @@ import {
   normalizePointName,
   pointNameToSpeech,
   recordPointNameUsage
-} from "./point-names.js?v=178";
-import { initializeAnalytics, trackEvent } from "./analytics.js?v=178";
+} from "./point-names.js?v=179";
+import { initializeAnalytics, trackEvent } from "./analytics.js?v=179";
 
 initializeAnalytics();
 
@@ -45,7 +45,7 @@ const DEFAULT_ROW_COUNT = 200;
 const APP_SHARE_URL = "https://iku190t.github.io/suijun-voice-book/";
 const APP_SHARE_TITLE = "水準ボイス";
 const APP_SHARE_TEXT = "水準測量の音声入力Web野帳です。";
-const APP_RELEASE_VERSION = new URL(import.meta.url).searchParams.get("v") || "178";
+const APP_RELEASE_VERSION = new URL(import.meta.url).searchParams.get("v") || "179";
 const FEEDBACK_EMAIL = "ez.survey2023@gmail.com";
 const POINT_SUGGESTION_LIMIT = 6;
 const POINT_SUGGESTION_SEEDS = ["NO.0", "TP0", "KBM0", "T-0", "BC.0", "SP.0"];
@@ -137,6 +137,12 @@ let voiceModeActive = true;
 let voiceSessionActive = false;
 let pointNameKeyboardTarget = null;
 let pointNameKeyboardCaretIndex = 0;
+let pointNameKeyboardSelectionAnchor = 0;
+let pointNameKeyboardPointerId = null;
+let pointNameKeyboardPointerStartX = 0;
+let pointNameKeyboardPointerStartIndex = 0;
+let pointNameKeyboardLongPressTimer = null;
+let pointNameKeyboardLongPressActive = false;
 let selectedRowIndex = null;
 let autosaveTimer = null;
 let calculations = { out: null, back: null };
@@ -1234,15 +1240,90 @@ function updatePointNameKeyboardDisplay() {
     0,
     Math.min(pointNameKeyboardCaretIndex, value.length)
   );
-  const before = document.createTextNode(value.slice(0, pointNameKeyboardCaretIndex));
-  const caret = document.createElement("span");
-  caret.className = "point-name-keyboard-caret";
-  caret.setAttribute("aria-hidden", "true");
-  const after = document.createTextNode(value.slice(pointNameKeyboardCaretIndex));
-  pointNameKeyboardValue.replaceChildren(before, caret, after);
+  pointNameKeyboardSelectionAnchor = Math.max(
+    0,
+    Math.min(pointNameKeyboardSelectionAnchor, value.length)
+  );
+  const selectionStart = Math.min(
+    pointNameKeyboardSelectionAnchor,
+    pointNameKeyboardCaretIndex
+  );
+  const selectionEnd = Math.max(
+    pointNameKeyboardSelectionAnchor,
+    pointNameKeyboardCaretIndex
+  );
+  const fragment = document.createDocumentFragment();
+  for (let index = 0; index <= value.length; index += 1) {
+    if (index === pointNameKeyboardCaretIndex && selectionStart === selectionEnd) {
+      const caret = document.createElement("span");
+      caret.className = "point-name-keyboard-caret";
+      caret.setAttribute("aria-hidden", "true");
+      fragment.append(caret);
+    }
+    if (index >= value.length) continue;
+    const character = document.createElement("span");
+    character.className = "point-name-keyboard-char";
+    character.dataset.pointKeyboardCharIndex = String(index);
+    character.textContent = value[index] === " " ? "\u00a0" : value[index];
+    if (index >= selectionStart && index < selectionEnd) {
+      character.classList.add("selected");
+    }
+    fragment.append(character);
+  }
+  pointNameKeyboardValue.replaceChildren(fragment);
+  pointNameKeyboardValue.setAttribute(
+    "aria-label",
+    selectionStart === selectionEnd
+      ? `${value}、カーソル位置${pointNameKeyboardCaretIndex + 1}`
+      : `${value}、${selectionStart + 1}文字目から${selectionEnd}文字目を選択中`
+  );
+}
+
+function setPointNameKeyboardSelection(anchorIndex, caretIndex = anchorIndex) {
+  const length = String(pointNameKeyboardTarget?.value || "").length;
+  pointNameKeyboardSelectionAnchor = Math.max(0, Math.min(anchorIndex, length));
+  pointNameKeyboardCaretIndex = Math.max(0, Math.min(caretIndex, length));
+  updatePointNameKeyboardDisplay();
+}
+
+function getPointNameKeyboardSelectionBounds() {
+  return {
+    start: Math.min(pointNameKeyboardSelectionAnchor, pointNameKeyboardCaretIndex),
+    end: Math.max(pointNameKeyboardSelectionAnchor, pointNameKeyboardCaretIndex)
+  };
+}
+
+function replacePointNameKeyboardSelection(insertText) {
+  const value = String(pointNameKeyboardTarget?.value || "");
+  const { start, end } = getPointNameKeyboardSelectionBounds();
+  const replacement = String(insertText || "");
+  updatePointNameFromKeyboard(
+    `${value.slice(0, start)}${replacement}${value.slice(end)}`,
+    start + replacement.length
+  );
+}
+
+function getPointNameKeyboardIndexFromX(clientX) {
+  const characters = [
+    ...pointNameKeyboardValue.querySelectorAll(".point-name-keyboard-char")
+  ];
+  if (!characters.length) return 0;
+  for (let index = 0; index < characters.length; index += 1) {
+    const rect = characters[index].getBoundingClientRect();
+    if (clientX < rect.left + (rect.width / 2)) return index;
+  }
+  return characters.length;
+}
+
+function cancelPointNameKeyboardPointerGesture() {
+  clearTimeout(pointNameKeyboardLongPressTimer);
+  pointNameKeyboardLongPressTimer = null;
+  pointNameKeyboardPointerId = null;
+  pointNameKeyboardLongPressActive = false;
 }
 
 function hidePointNameKeyboard() {
+  cancelPointNameKeyboardPointerGesture();
   pointNameKeyboard.hidden = true;
   pointNameKeyboardTarget = null;
   document.body.classList.remove("point-keyboard-active");
@@ -1257,6 +1338,7 @@ function openPointNameKeyboard(target) {
   setVoiceModeActive(true);
   pointNameKeyboardTarget = target;
   pointNameKeyboardCaretIndex = target.value.length;
+  pointNameKeyboardSelectionAnchor = pointNameKeyboardCaretIndex;
   pointNameKeyboard.hidden = false;
   document.body.classList.add("point-keyboard-active");
   voiceTarget = target;
@@ -1290,6 +1372,7 @@ function updatePointNameFromKeyboard(nextValue, nextCaretIndex) {
     0,
     Math.min(nextCaretIndex, target.value.length)
   );
+  pointNameKeyboardSelectionAnchor = pointNameKeyboardCaretIndex;
   markSelectedInput(target);
   voiceTarget = target;
   updatePointNameKeyboardDisplay();
@@ -1321,32 +1404,82 @@ pointNameKeyboard.addEventListener("pointerdown", (event) => {
   if (event.target.closest("button")) event.preventDefault();
 });
 
+pointNameKeyboardValue.addEventListener("pointerdown", (event) => {
+  if (!pointNameKeyboardTarget?.isConnected) return;
+  event.preventDefault();
+  cancelPointNameKeyboardPointerGesture();
+  pointNameKeyboardPointerId = event.pointerId;
+  pointNameKeyboardPointerStartX = event.clientX;
+  pointNameKeyboardPointerStartIndex = getPointNameKeyboardIndexFromX(event.clientX);
+  setPointNameKeyboardSelection(pointNameKeyboardPointerStartIndex);
+  pointNameKeyboardValue.setPointerCapture?.(event.pointerId);
+  pointNameKeyboardLongPressTimer = setTimeout(() => {
+    if (pointNameKeyboardPointerId !== event.pointerId) return;
+    pointNameKeyboardLongPressActive = true;
+    const length = String(pointNameKeyboardTarget?.value || "").length;
+    setPointNameKeyboardSelection(0, length);
+    navigator.vibrate?.(15);
+  }, 480);
+});
+
+pointNameKeyboardValue.addEventListener("pointermove", (event) => {
+  if (event.pointerId !== pointNameKeyboardPointerId) return;
+  if (Math.abs(event.clientX - pointNameKeyboardPointerStartX) > 5) {
+    clearTimeout(pointNameKeyboardLongPressTimer);
+    pointNameKeyboardLongPressTimer = null;
+  }
+  const index = getPointNameKeyboardIndexFromX(event.clientX);
+  if (pointNameKeyboardLongPressActive) {
+    setPointNameKeyboardSelection(pointNameKeyboardPointerStartIndex, index);
+  } else {
+    setPointNameKeyboardSelection(index);
+  }
+});
+
+function finishPointNameKeyboardPointerGesture(event) {
+  if (event.pointerId !== pointNameKeyboardPointerId) return;
+  if (pointNameKeyboardValue.hasPointerCapture?.(event.pointerId)) {
+    pointNameKeyboardValue.releasePointerCapture(event.pointerId);
+  }
+  cancelPointNameKeyboardPointerGesture();
+}
+
+pointNameKeyboardValue.addEventListener("pointerup", finishPointNameKeyboardPointerGesture);
+pointNameKeyboardValue.addEventListener("pointercancel", finishPointNameKeyboardPointerGesture);
+pointNameKeyboardValue.addEventListener("dblclick", (event) => {
+  event.preventDefault();
+  const length = String(pointNameKeyboardTarget?.value || "").length;
+  setPointNameKeyboardSelection(0, length);
+});
+
 pointNameKeyboard.addEventListener("click", (event) => {
   const keyButton = event.target.closest("[data-point-keyboard-key]");
   if (keyButton) {
-    const value = String(pointNameKeyboardTarget?.value || "");
     const key = keyButton.dataset.pointKeyboardKey || "";
-    updatePointNameFromKeyboard(
-      `${value.slice(0, pointNameKeyboardCaretIndex)}${key}${value.slice(pointNameKeyboardCaretIndex)}`,
-      pointNameKeyboardCaretIndex + key.length
-    );
+    replacePointNameKeyboardSelection(key);
     return;
   }
 
   const actionButton = event.target.closest("[data-point-keyboard-action]");
   if (!actionButton) return;
   const value = String(pointNameKeyboardTarget?.value || "");
+  const { start, end } = getPointNameKeyboardSelectionBounds();
+  const hasSelection = start !== end;
   switch (actionButton.dataset.pointKeyboardAction) {
     case "left":
-      pointNameKeyboardCaretIndex = Math.max(0, pointNameKeyboardCaretIndex - 1);
-      updatePointNameKeyboardDisplay();
+      setPointNameKeyboardSelection(
+        hasSelection ? start : Math.max(0, pointNameKeyboardCaretIndex - 1)
+      );
       break;
     case "right":
-      pointNameKeyboardCaretIndex = Math.min(value.length, pointNameKeyboardCaretIndex + 1);
-      updatePointNameKeyboardDisplay();
+      setPointNameKeyboardSelection(
+        hasSelection ? end : Math.min(value.length, pointNameKeyboardCaretIndex + 1)
+      );
       break;
     case "backspace":
-      if (pointNameKeyboardCaretIndex > 0) {
+      if (hasSelection) {
+        replacePointNameKeyboardSelection("");
+      } else if (pointNameKeyboardCaretIndex > 0) {
         updatePointNameFromKeyboard(
           `${value.slice(0, pointNameKeyboardCaretIndex - 1)}${value.slice(pointNameKeyboardCaretIndex)}`,
           pointNameKeyboardCaretIndex - 1
@@ -1354,10 +1487,7 @@ pointNameKeyboard.addEventListener("click", (event) => {
       }
       break;
     case "space":
-      updatePointNameFromKeyboard(
-        `${value.slice(0, pointNameKeyboardCaretIndex)} ${value.slice(pointNameKeyboardCaretIndex)}`,
-        pointNameKeyboardCaretIndex + 1
-      );
+      replacePointNameKeyboardSelection(" ");
       break;
     case "clear":
       updatePointNameFromKeyboard("", 0);
@@ -1411,6 +1541,7 @@ function selectVoiceTargetWithoutKeyboard(input) {
     if (input.dataset.field === "pointName") {
       pointNameKeyboardTarget = input;
       pointNameKeyboardCaretIndex = input.value.length;
+      pointNameKeyboardSelectionAnchor = pointNameKeyboardCaretIndex;
       voiceTarget = input;
       markSelectedInput(input);
       input.blur();
