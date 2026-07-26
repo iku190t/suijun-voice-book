@@ -79,16 +79,44 @@ function safeTolerance(toleranceMm) {
 }
 
 function prepareRows(sourceRows) {
-  return sourceRows.map((sourceRow) => ({
+  const rows = sourceRows.map((sourceRow) => ({
     ...sourceRow,
     bs: toNumber(sourceRow.bs),
     fs: toNumber(sourceRow.fs),
     distance: toNumber(sourceRow.distance),
     _difference: null,
     _roundTripDifferenceMm: null,
+    _roundTripDifferenceIntermediate: false,
+    _intermediateSight: false,
     _complete: false,
     _incomplete: false
   }));
+  markIntermediateSightRows(rows);
+  return rows;
+}
+
+function markIntermediateSightRows(rows) {
+  let instrumentActive = false;
+  let sightIndexes = [];
+
+  const finishInstrument = () => {
+    sightIndexes.slice(0, -1).forEach((index) => {
+      rows[index]._intermediateSight = true;
+    });
+    sightIndexes = [];
+  };
+
+  rows.forEach((row, index) => {
+    // BS・FSが同じ行なら、そのFSは直前の器械位置の終点として扱う。
+    if (instrumentActive && row.fs !== null) {
+      sightIndexes.push(index);
+    }
+    if (row.bs !== null) {
+      if (instrumentActive) finishInstrument();
+      instrumentActive = true;
+    }
+  });
+  if (instrumentActive) finishInstrument();
 }
 
 function calculateNotebookUpward(sourceRows, toleranceMm, options) {
@@ -342,10 +370,10 @@ export function calculateNotebook(sourceRows, toleranceMm = 10, options = {}) {
   return calculateNotebookDownward(sourceRows, toleranceMm, options);
 }
 
-export function formatSignedMillimeters(value) {
+export function formatRoundTripMillimeters(value, intermediateSight = false) {
   if (!Number.isFinite(value)) return "";
-  const rounded = Math.round(value);
-  return rounded > 0 ? `+${rounded}` : String(rounded);
+  const formatted = String(Math.abs(Math.round(value)));
+  return intermediateSight ? `（${formatted}）` : formatted;
 }
 
 export function applyRoundTripDifferences(outRows, backRows) {
@@ -363,6 +391,8 @@ export function applyRoundTripDifferences(outRows, backRows) {
 
   outRows.forEach((row) => { row._roundTripDifferenceMm = null; });
   backRows.forEach((row) => { row._roundTripDifferenceMm = null; });
+  outRows.forEach((row) => { row._roundTripDifferenceIntermediate = false; });
+  backRows.forEach((row) => { row._roundTripDifferenceIntermediate = false; });
   if (lastUsedIndex < 0) return;
 
   const usedRowCount = lastUsedIndex + 1;
@@ -377,7 +407,13 @@ export function applyRoundTripDifferences(outRows, backRows) {
 
     const differenceMm =
       (Math.abs(outDifference) - Math.abs(backDifference)) * 1000;
+    const intermediateSight = Boolean(
+      outRows[outIndex]?._intermediateSight ||
+      backRows[backIndex]?._intermediateSight
+    );
     outRows[outIndex]._roundTripDifferenceMm = differenceMm;
+    outRows[outIndex]._roundTripDifferenceIntermediate = intermediateSight;
     backRows[backIndex]._roundTripDifferenceMm = differenceMm;
+    backRows[backIndex]._roundTripDifferenceIntermediate = intermediateSight;
   }
 }

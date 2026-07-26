@@ -2,12 +2,12 @@ import {
   applyRoundTripDifferences,
   calculateNotebook,
   calculateToleranceMm,
-  formatSignedMillimeters,
+  formatRoundTripMillimeters,
   formatMeters,
   LEVELING_TOLERANCE_PRESETS,
   resolveToleranceDistanceMeters,
   toNumber
-} from "./calculation.js?v=117";
+} from "./calculation.js?v=118";
 import {
   chooseLevelReading,
   createVoiceController,
@@ -15,14 +15,14 @@ import {
   normalizeSpokenNumber,
   prepareSpeechSynthesis,
   speakBack
-} from "./voice.js?v=117";
-import { clearProject, loadProject, saveProject } from "./storage.js?v=117";
-import { exportSheetCsv } from "./export.js?v=117";
+} from "./voice.js?v=118";
+import { clearProject, loadProject, saveProject } from "./storage.js?v=118";
+import { exportSheetCsv } from "./export.js?v=118";
 import {
   alignSheetsWithCurrentLabels,
   isValidStaffReading,
   reversePointNamesWithinUsedRows
-} from "./rules.js?v=117";
+} from "./rules.js?v=118";
 import {
   choosePointName,
   getRankedPointNameCandidates,
@@ -30,8 +30,8 @@ import {
   normalizePointName,
   pointNameToSpeech,
   recordPointNameUsage
-} from "./point-names.js?v=117";
-import { initializeAnalytics, trackEvent } from "./analytics.js?v=117";
+} from "./point-names.js?v=118";
+import { initializeAnalytics, trackEvent } from "./analytics.js?v=118";
 
 initializeAnalytics();
 
@@ -550,7 +550,10 @@ function recalculateAndRender() {
       ? row._difference.toFixed(3)
       : "";
     tr.querySelector(".round-trip-diff").textContent = Number.isFinite(row._roundTripDifferenceMm)
-      ? formatSignedMillimeters(row._roundTripDifferenceMm)
+      ? formatRoundTripMillimeters(
+        row._roundTripDifferenceMm,
+        row._roundTripDifferenceIntermediate
+      )
       : "";
     const elevationInput = tr.querySelector('[data-field="elevation"]');
     if (document.activeElement !== elevationInput || row.elevationType === "calculated") {
@@ -570,7 +573,15 @@ function recalculateAndRender() {
 }
 
 function stripCalculatedFields(rows) {
-  return rows.map(({ _complete, _incomplete, _difference, _roundTripDifferenceMm, ...row }) => row);
+  return rows.map(({
+    _complete,
+    _incomplete,
+    _difference,
+    _roundTripDifferenceMm,
+    _roundTripDifferenceIntermediate,
+    _intermediateSight,
+    ...row
+  }) => row);
 }
 
 function getToleranceState() {

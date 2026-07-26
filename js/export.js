@@ -1,4 +1,4 @@
-import { formatSignedMillimeters } from "./calculation.js?v=117";
+import { formatRoundTripMillimeters } from "./calculation.js?v=118";
 
 function escapeCsv(value) {
   return `"${String(value ?? "").replace(/"/g, '""')}"`;
@@ -23,7 +23,10 @@ export async function exportSheetCsv(sheet, calculatedRows) {
     row.distance !== null ? Number(row.distance).toFixed(3) : "",
     row.bs !== null ? Number(row.bs).toFixed(3) : "",
     row.fs !== null ? Number(row.fs).toFixed(3) : "",
-    formatSignedMillimeters(row._roundTripDifferenceMm),
+    formatRoundTripMillimeters(
+      row._roundTripDifferenceMm,
+      row._roundTripDifferenceIntermediate
+    ),
     Number.isFinite(row._difference) ? row._difference.toFixed(3) : "",
     row.elevation !== null ? row.elevation.toFixed(3) : "",
     row.note
