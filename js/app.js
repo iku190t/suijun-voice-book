@@ -6,7 +6,7 @@ import {
   LEVELING_TOLERANCE_PRESETS,
   sumObservationDistanceMeters,
   toNumber
-} from "./calculation.js?v=94";
+} from "./calculation.js?v=95";
 import {
   chooseLevelReading,
   createVoiceController,
@@ -14,14 +14,14 @@ import {
   normalizeSpokenNumber,
   prepareSpeechSynthesis,
   speakBack
-} from "./voice.js?v=94";
-import { clearProject, loadProject, saveProject } from "./storage.js?v=94";
-import { exportSheetCsv } from "./export.js?v=94";
+} from "./voice.js?v=95";
+import { clearProject, loadProject, saveProject } from "./storage.js?v=95";
+import { exportSheetCsv } from "./export.js?v=95";
 import {
   alignSheetsWithCurrentLabels,
   isValidStaffReading,
   reversePointNamesWithinUsedRows
-} from "./rules.js?v=94";
+} from "./rules.js?v=95";
 import {
   choosePointName,
   getRankedPointNameCandidates,
@@ -29,7 +29,10 @@ import {
   normalizePointName,
   pointNameToSpeech,
   recordPointNameUsage
-} from "./point-names.js?v=94";
+} from "./point-names.js?v=95";
+import { initializeAnalytics, trackEvent } from "./analytics.js?v=95";
+
+initializeAnalytics();
 
 const DEFAULT_ROW_COUNT = 200;
 const POINT_SUGGESTION_LIMIT = 10;
@@ -773,6 +776,7 @@ function updateVoiceModeUi() {
 }
 
 function setVoiceModeActive(active) {
+  const previous = voiceModeActive;
   const activating = Boolean(active) && !voiceModeActive;
   voiceModeActive = Boolean(active);
   if (activating) lastVoiceValueText = "";
@@ -781,6 +785,9 @@ function setVoiceModeActive(active) {
   updateVoiceModeUi();
   updatePointClipboardButtons();
   hidePointSuggestions();
+  if (previous !== voiceModeActive) {
+    trackEvent("voice_mode_change", { state: voiceModeActive ? "on" : "off" });
+  }
 }
 
 function setVoiceSessionActive(active) {
@@ -1689,6 +1696,7 @@ insertRowButton.addEventListener("click", () => {
   closeRowActionPopover();
   renderSheet();
   scheduleAutosave();
+  trackEvent("insert_row", { sheet: activeSheet });
 });
 deleteSelectedRowButton.addEventListener("click", () => {
   if (selectedRowIndex === null) return;
@@ -1709,6 +1717,7 @@ confirmDeleteRowButton.addEventListener("click", () => {
   closeRowActionPopover();
   renderSheet();
   scheduleAutosave();
+  trackEvent("delete_row", { sheet: activeSheet });
 });
 cancelDeleteRowButton.addEventListener("click", () => {
   closeRowActionPopover();
@@ -1725,15 +1734,18 @@ function toggleDistanceColumn() {
   project.settings.showDistance = !project.settings.showDistance;
   applyDistanceVisibility();
   scheduleAutosave();
+  trackEvent("toggle_distance", { visible: project.settings.showDistance ? "yes" : "no" });
 }
 distanceToggleButton.addEventListener("click", toggleDistanceColumn);
 stickyDistanceToggleButton.addEventListener("click", toggleDistanceColumn);
 document.querySelector("#saveBtn").addEventListener("click", () => {
   project = saveProject(project);
   showNotice("上書き保存しました。", "success");
+  trackEvent("save_notebook", { sheet: activeSheet });
 });
 document.querySelector("#csvBtn").addEventListener("click", async () => {
   const result = await exportSheetCsv(activeSheet, calculations[activeSheet].rows);
+  if (result) trackEvent("export_csv", { sheet: activeSheet, result });
   if (result === "shared") {
     showNotice("CSVを共有しました。Gmailなどで送信できます。", "success");
   } else if (result === "downloaded") {
@@ -1788,12 +1800,16 @@ confirmClearButton.addEventListener("click", () => {
   renderSheet();
   project = saveProject(project);
   showNotice(`${targetLabel}を消去しました。`, "success");
+  trackEvent("clear_sheet", { target });
 });
 cancelClearButton.addEventListener("click", resetClearDialog);
 clearDialog.addEventListener("close", resetClearDialog);
 
 const supportDialog = document.querySelector("#supportDialog");
-document.querySelector("#supportOpenBtn").addEventListener("click", () => supportDialog.showModal());
+document.querySelector("#supportOpenBtn").addEventListener("click", () => {
+  supportDialog.showModal();
+  trackEvent("open_support");
+});
 
 const voiceRateInput = document.querySelector("#voiceRate");
 const voiceRateValue = document.querySelector("#voiceRateValue");
@@ -1810,6 +1826,7 @@ settingsOpenButton.addEventListener("click", (event) => {
     renderPointAliasEditors();
     settingsDialog.showModal();
     settingsOpenButton.setAttribute("aria-expanded", "true");
+    trackEvent("open_settings");
   }
 });
 settingsDialog.addEventListener("close", () => {
@@ -1921,6 +1938,7 @@ const voiceController = createVoiceController({
       if (field === "bs" || field === "fs") {
         value = chooseLevelReading(transcript, recognitionDetails.alternatives);
         if (!value) {
+          trackEvent("voice_input_error", { field_group: "level_reading" });
           showNotice("レベル値を確定できません。小数3桁でもう一度入力してください。", "error");
           navigator.vibrate?.([80, 60, 80]);
           voiceStatus.textContent = "レベル値を認識できませんでした";
@@ -1937,6 +1955,7 @@ const voiceController = createVoiceController({
           project.settings.pointNameScripts
         );
         if (!value) {
+          trackEvent("voice_input_error", { field_group: "point_name" });
           showNotice("点名として確定できません。登録済みの点名でもう一度入力してください。", "error");
           navigator.vibrate?.([80, 60, 80]);
           voiceStatus.textContent = "点名を認識できませんでした";
@@ -1952,6 +1971,13 @@ const voiceController = createVoiceController({
       formatNumericInput(target);
       setLastVoiceValue(target.value);
       if (field === "pointName") recordPointName(value);
+      trackEvent("voice_input", {
+        field_group: field === "pointName"
+          ? "point_name"
+          : field === "bs" || field === "fs"
+            ? "level_reading"
+            : "other"
+      });
       voiceStatus.textContent = `${value} と復唱します`;
       voiceButtonLabel.textContent = "🔊 復唱中…";
       const repeatText = field === "pointName"
@@ -2048,6 +2074,7 @@ sheetToggleButton.addEventListener("click", () => {
   activeSheet = targetSheet;
   renderSheet();
   project = saveProject(project);
+  trackEvent("switch_sheet", { sheet: activeSheet });
 });
 
 keyboardModeButton.addEventListener("click", () => {
