@@ -384,6 +384,16 @@ export function formatRoundTripMillimeters(value, intermediateSight = false) {
   return intermediateSight ? `（${formatted}）` : formatted;
 }
 
+export function calculateRoundTripDifferenceMm(outElevation, backElevation) {
+  const outward = toNumber(outElevation);
+  const returnTrip = toNumber(backElevation);
+  if (outward === null || returnTrip === null) return null;
+
+  // 同じ測点の「往路標高－復路標高」をmmへ変換する。
+  // 例: 往路 7.878m、復路 7.877m → +1mm。
+  return (outward - returnTrip) * 1000;
+}
+
 export function applyRoundTripDifferences(outRows, backRows) {
   const maximumLength = Math.max(outRows.length, backRows.length);
   let lastUsedIndex = -1;
@@ -407,13 +417,14 @@ export function applyRoundTripDifferences(outRows, backRows) {
   // 往路は上から下、復路は反転した点名順なので、鏡位置の同じ測点を対応させる。
   for (let outIndex = 0; outIndex < usedRowCount; outIndex += 1) {
     const backIndex = usedRowCount - 1 - outIndex;
-    const outElevation = toNumber(outRows[outIndex]?.elevation);
-    const backElevation = toNumber(backRows[backIndex]?.elevation);
-    if (outElevation === null || backElevation === null) {
+    const differenceMm = calculateRoundTripDifferenceMm(
+      outRows[outIndex]?.elevation,
+      backRows[backIndex]?.elevation
+    );
+    if (differenceMm === null) {
       continue;
     }
 
-    const differenceMm = (outElevation - backElevation) * 1000;
     const intermediateSight = Boolean(
       outRows[outIndex]?._intermediateSight ||
       backRows[backIndex]?._intermediateSight
