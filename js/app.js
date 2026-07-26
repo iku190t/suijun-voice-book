@@ -7,7 +7,7 @@ import {
   LEVELING_TOLERANCE_PRESETS,
   resolveToleranceDistanceMeters,
   toNumber
-} from "./calculation.js?v=118";
+} from "./calculation.js?v=119";
 import {
   chooseLevelReading,
   createVoiceController,
@@ -15,14 +15,14 @@ import {
   normalizeSpokenNumber,
   prepareSpeechSynthesis,
   speakBack
-} from "./voice.js?v=118";
-import { clearProject, loadProject, saveProject } from "./storage.js?v=118";
-import { exportSheetCsv } from "./export.js?v=118";
+} from "./voice.js?v=119";
+import { clearProject, loadProject, saveProject } from "./storage.js?v=119";
+import { exportSheetCsv } from "./export.js?v=119";
 import {
   alignSheetsWithCurrentLabels,
   isValidStaffReading,
   reversePointNamesWithinUsedRows
-} from "./rules.js?v=118";
+} from "./rules.js?v=119";
 import {
   choosePointName,
   getRankedPointNameCandidates,
@@ -30,8 +30,8 @@ import {
   normalizePointName,
   pointNameToSpeech,
   recordPointNameUsage
-} from "./point-names.js?v=118";
-import { initializeAnalytics, trackEvent } from "./analytics.js?v=118";
+} from "./point-names.js?v=119";
+import { initializeAnalytics, trackEvent } from "./analytics.js?v=119";
 
 initializeAnalytics();
 
@@ -2203,6 +2203,20 @@ const voiceController = createVoiceController({
     }
     voiceButton.classList.toggle("listening", listening);
     voiceButtonLabel.textContent = listening ? "■ 聞き取り中（押すと中止）" : "🔊 処理中…";
+  },
+  onError: (errorCode) => {
+    const permissionError = [
+      "start-timeout",
+      "not-allowed",
+      "service-not-allowed",
+      "audio-capture"
+    ].includes(errorCode);
+    if (!permissionError) return;
+    const message = isIosDevice()
+      ? "Safariのマイクを許可してください。Webサイトの設定から変更できます。"
+      : "ブラウザのマイクを許可してください。";
+    showNotice(message, "error");
+    trackEvent("voice_permission_error", { error_code: errorCode });
   },
   onResult: async (transcript, recognitionDetails = {}) => {
     const resultSessionToken = voiceSessionToken;

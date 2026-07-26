@@ -79,7 +79,14 @@ export function speakBack(value, rate = 0.9) {
   });
 }
 
-export function createVoiceController({ onResult, onStatus, onListeningChange, shouldFinalize }) {
+export function createVoiceController({
+  onResult,
+  onStatus,
+  onListeningChange,
+  onError,
+  shouldFinalize,
+  startTimeoutMs = 10000
+}) {
   const Recognition = window.SpeechRecognition || window.webkitSpeechRecognition;
   if (!Recognition) return { supported: false, start() {}, cancel() {} };
 
@@ -96,8 +103,16 @@ export function createVoiceController({ onResult, onStatus, onListeningChange, s
   let cancelRequested = false;
   let recognitionState = "idle";
   let restartQueued = false;
+  let startTimeoutId = null;
+
+  const clearStartTimeout = () => {
+    if (startTimeoutId === null) return;
+    clearTimeout(startTimeoutId);
+    startTimeoutId = null;
+  };
 
   const beginRecognition = () => {
+    clearStartTimeout();
     cancelRequested = false;
     pendingTranscript = "";
     pendingAlternatives = [];
@@ -107,14 +122,35 @@ export function createVoiceController({ onResult, onStatus, onListeningChange, s
     recognitionState = "starting";
     try {
       recognition.start();
+      startTimeoutId = setTimeout(() => {
+        if (recognitionState !== "starting") return;
+        startTimeoutId = null;
+        recognitionFailed = true;
+        cancelRequested = true;
+        recognitionState = "cancelling";
+        try { recognition.abort(); } catch {}
+        onListeningChange(false);
+        onStatus("");
+        onError?.("start-timeout");
+        // Safariからabort後のendイベントも返らない場合に、次回開始を妨げない。
+        setTimeout(() => {
+          if (recognitionState !== "cancelling") return;
+          recognitionState = "idle";
+          cancelRequested = false;
+          restartQueued = false;
+        }, 250);
+      }, startTimeoutMs);
     } catch {
+      clearStartTimeout();
       recognitionState = "idle";
       onListeningChange(false);
       onStatus("");
+      onError?.("start-failed");
     }
   };
 
   recognition.onstart = () => {
+    clearStartTimeout();
     if (cancelRequested) {
       try { recognition.abort(); } catch {}
       return;
@@ -124,6 +160,7 @@ export function createVoiceController({ onResult, onStatus, onListeningChange, s
     onStatus("音声を聞き取り中");
   };
   recognition.onend = () => {
+    clearStartTimeout();
     const wasCancelled = cancelRequested;
     recognitionState = "idle";
     if (wasCancelled && restartQueued) {
@@ -147,13 +184,15 @@ export function createVoiceController({ onResult, onStatus, onListeningChange, s
       onStatus("");
     }
   };
-  recognition.onerror = () => {
+  recognition.onerror = (event) => {
+    clearStartTimeout();
     recognitionFailed = true;
     pendingTranscript = "";
     pendingAlternatives = [];
     if (cancelRequested) return;
     onListeningChange(false);
     onStatus("");
+    onError?.(event?.error || "recognition-error");
   };
   recognition.onresult = (event) => {
     if (cancelRequested || recognitionState === "cancelling") return;
@@ -204,6 +243,7 @@ export function createVoiceController({ onResult, onStatus, onListeningChange, s
       beginRecognition();
     },
     cancel() {
+      clearStartTimeout();
       restartQueued = false;
       cancelRequested = true;
       recognitionFailed = true;

@@ -1,4 +1,4 @@
-import { formatRoundTripMillimeters } from "./calculation.js?v=118";
+import { formatRoundTripMillimeters } from "./calculation.js?v=119";
 
 function escapeCsv(value) {
   return `"${String(value ?? "").replace(/"/g, '""')}"`;
