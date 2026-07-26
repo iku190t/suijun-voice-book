@@ -104,6 +104,8 @@ export function createVoiceController({
   let recognitionState = "idle";
   let restartQueued = false;
   let startTimeoutId = null;
+  let interimFinalizeTimer = null;
+  let interimFinalizeKey = "";
 
   const clearStartTimeout = () => {
     if (startTimeoutId === null) return;
@@ -111,8 +113,36 @@ export function createVoiceController({
     startTimeoutId = null;
   };
 
+  const clearInterimFinalize = () => {
+    if (interimFinalizeTimer !== null) clearTimeout(interimFinalizeTimer);
+    interimFinalizeTimer = null;
+    interimFinalizeKey = "";
+  };
+
+  const deliverResult = (transcript, alternatives, isFinal) => {
+    if (
+      finishRequested ||
+      cancelRequested ||
+      recognitionState === "cancelling" ||
+      !transcript
+    ) return;
+    clearInterimFinalize();
+    finishRequested = true;
+    resultDelivered = true;
+    pendingTranscript = "";
+    pendingAlternatives = [];
+    onStatus("認識結果を復唱します");
+    onResult(transcript, { alternatives, isFinal });
+    try {
+      recognition.stop();
+    } catch {
+      onListeningChange(false);
+    }
+  };
+
   const beginRecognition = () => {
     clearStartTimeout();
+    clearInterimFinalize();
     cancelRequested = false;
     pendingTranscript = "";
     pendingAlternatives = [];
@@ -161,6 +191,7 @@ export function createVoiceController({
   };
   recognition.onend = () => {
     clearStartTimeout();
+    clearInterimFinalize();
     const wasCancelled = cancelRequested;
     recognitionState = "idle";
     if (wasCancelled && restartQueued) {
@@ -186,6 +217,7 @@ export function createVoiceController({
   };
   recognition.onerror = (event) => {
     clearStartTimeout();
+    clearInterimFinalize();
     recognitionFailed = true;
     pendingTranscript = "";
     pendingAlternatives = [];
@@ -210,23 +242,42 @@ export function createVoiceController({
         .filter(Boolean)
       : [];
     const isFinal = Boolean(results.at(-1)?.isFinal);
-    if (!finishRequested && shouldFinalize?.(pendingTranscript, {
+    const recognitionDetails = {
       alternatives: pendingAlternatives,
       isFinal
-    })) {
-      finishRequested = true;
-      resultDelivered = true;
+    };
+    const finalizeDecision = !finishRequested
+      ? shouldFinalize?.(pendingTranscript, recognitionDetails)
+      : false;
+    if (!finalizeDecision) {
+      clearInterimFinalize();
+      return;
+    }
+
+    const delayedInterim = (
+      !isFinal &&
+      typeof finalizeDecision === "object" &&
+      Number(finalizeDecision.delayMs) > 0
+    );
+    if (delayedInterim) {
+      const finalizeKey = String(finalizeDecision.key || pendingTranscript);
+      if (interimFinalizeTimer !== null && interimFinalizeKey === finalizeKey) return;
+      clearInterimFinalize();
+      interimFinalizeKey = finalizeKey;
+      interimFinalizeTimer = setTimeout(() => {
+        interimFinalizeTimer = null;
+        interimFinalizeKey = "";
+        const transcript = pendingTranscript;
+        const alternatives = pendingAlternatives;
+        deliverResult(transcript, alternatives, false);
+      }, Math.max(80, Number(finalizeDecision.delayMs)));
+      return;
+    }
+
+    if (!finishRequested) {
       const transcript = pendingTranscript;
       const alternatives = pendingAlternatives;
-      pendingTranscript = "";
-      pendingAlternatives = [];
-      onStatus("認識結果を復唱します");
-      onResult(transcript, { alternatives, isFinal });
-      try {
-        recognition.stop();
-      } catch {
-        onListeningChange(false);
-      }
+      deliverResult(transcript, alternatives, isFinal);
     }
   };
 
@@ -244,6 +295,7 @@ export function createVoiceController({
     },
     cancel() {
       clearStartTimeout();
+      clearInterimFinalize();
       restartQueued = false;
       cancelRequested = true;
       recognitionFailed = true;

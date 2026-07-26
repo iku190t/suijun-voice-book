@@ -7,7 +7,7 @@ import {
   LEVELING_TOLERANCE_PRESETS,
   resolveToleranceDistanceMeters,
   toNumber
-} from "./calculation.js?v=146";
+} from "./calculation.js?v=147";
 import {
   chooseLevelReading,
   createVoiceController,
@@ -15,15 +15,15 @@ import {
   normalizeSpokenNumber,
   prepareSpeechSynthesis,
   speakBack
-} from "./voice.js?v=146";
-import { clearProject, loadProject, saveProject } from "./storage.js?v=146";
-import { exportNotebookCsv } from "./export.js?v=146";
+} from "./voice.js?v=147";
+import { clearProject, loadProject, saveProject } from "./storage.js?v=147";
+import { exportNotebookCsv } from "./export.js?v=147";
 import {
   alignSheetsWithCurrentLabels,
   isValidStaffReading,
   rowHasLevelObservationData,
   reversePointNamesWithinUsedRows
-} from "./rules.js?v=146";
+} from "./rules.js?v=147";
 import {
   choosePointName,
   composePointNameSuggestionCandidates,
@@ -33,8 +33,8 @@ import {
   normalizePointName,
   pointNameToSpeech,
   recordPointNameUsage
-} from "./point-names.js?v=146";
-import { initializeAnalytics, trackEvent } from "./analytics.js?v=146";
+} from "./point-names.js?v=147";
+import { initializeAnalytics, trackEvent } from "./analytics.js?v=147";
 
 initializeAnalytics();
 
@@ -2807,6 +2807,32 @@ pointAliasList.addEventListener("click", (event) => {
   collectPointAliases();
 });
 
+function normalizeVoiceMatchText(value) {
+  return String(value ?? "")
+    .normalize("NFKC")
+    .toLocaleLowerCase("ja-JP")
+    .replace(/[、。,\s]/g, "");
+}
+
+function isImmediatePointNameVoiceMatch(value, transcript, alternatives = []) {
+  const inputs = [...new Set([
+    transcript,
+    ...(Array.isArray(alternatives) ? alternatives : [])
+  ].map((input) => String(input ?? "").trim()).filter(Boolean))];
+
+  return inputs.some((input) => {
+    const normalized = normalizePointName(input, project.settings.pointAliases);
+    if (normalized !== value) return false;
+    if (/^(?=.*\d)[A-Z0-9.+-]+$/.test(normalized)) return true;
+
+    const spokenKey = normalizeVoiceMatchText(input);
+    return project.settings.pointAliases.some((alias) => (
+      normalizeVoiceMatchText(alias.spoken) === spokenKey &&
+      normalizePointName(alias.pointName, project.settings.pointAliases) === value
+    ));
+  });
+}
+
 const voiceController = createVoiceController({
   onStatus: (message) => {
     if (!voiceSessionActive) {
@@ -2908,13 +2934,22 @@ const voiceController = createVoiceController({
   shouldFinalize: (transcript, recognitionDetails = {}) => {
     if (!voiceTarget) return false;
     if (voiceTarget.dataset.field === "pointName") {
-      if (!recognitionDetails.isFinal) return false;
-      return Boolean(choosePointName(
+      const pointName = choosePointName(
         transcript,
         recognitionDetails.alternatives,
         project.settings.pointAliases,
         project.settings.pointNameScripts
-      ));
+      );
+      if (!pointName) return false;
+      if (
+        recognitionDetails.isFinal ||
+        isImmediatePointNameVoiceMatch(
+          pointName,
+          transcript,
+          recognitionDetails.alternatives
+        )
+      ) return true;
+      return { delayMs: 280, key: pointName };
     }
     if (!NUMERIC_FIELDS.has(voiceTarget.dataset.field)) return false;
     if (voiceTarget.dataset.field === "bs" || voiceTarget.dataset.field === "fs") {
