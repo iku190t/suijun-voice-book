@@ -60,6 +60,7 @@ export function rowHasContent(row) {
     row?.bs !== null && row?.bs !== undefined ||
     row?.fs !== null && row?.fs !== undefined ||
     row?.elevation !== null && row?.elevation !== undefined ||
+    row?.planHeight !== null && row?.planHeight !== undefined ||
     row?.distance !== null && row?.distance !== undefined ||
     String(row?.note ?? "").trim()
   );
@@ -71,6 +72,7 @@ export function rowHasEnteredContent(row) {
     row?.bs !== null && row?.bs !== undefined ||
     row?.fs !== null && row?.fs !== undefined ||
     row?.distance !== null && row?.distance !== undefined ||
+    row?.planHeight !== null && row?.planHeight !== undefined ||
     row?.elevationType === "manual" &&
       row?.elevation !== null &&
       row?.elevation !== undefined ||

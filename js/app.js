@@ -7,7 +7,7 @@ import {
   LEVELING_TOLERANCE_PRESETS,
   resolveToleranceDistanceMeters,
   toNumber
-} from "./calculation.js?v=136";
+} from "./calculation.js?v=137";
 import {
   chooseLevelReading,
   createVoiceController,
@@ -15,15 +15,15 @@ import {
   normalizeSpokenNumber,
   prepareSpeechSynthesis,
   speakBack
-} from "./voice.js?v=136";
-import { clearProject, loadProject, saveProject } from "./storage.js?v=136";
-import { exportSheetCsv } from "./export.js?v=136";
+} from "./voice.js?v=137";
+import { clearProject, loadProject, saveProject } from "./storage.js?v=137";
+import { exportNotebookCsv } from "./export.js?v=137";
 import {
   alignSheetsWithCurrentLabels,
   isValidStaffReading,
   rowHasLevelObservationData,
   reversePointNamesWithinUsedRows
-} from "./rules.js?v=136";
+} from "./rules.js?v=137";
 import {
   choosePointName,
   getPointNameConfusionCandidates,
@@ -32,8 +32,8 @@ import {
   normalizePointName,
   pointNameToSpeech,
   recordPointNameUsage
-} from "./point-names.js?v=136";
-import { initializeAnalytics, trackEvent } from "./analytics.js?v=136";
+} from "./point-names.js?v=137";
+import { initializeAnalytics, trackEvent } from "./analytics.js?v=137";
 
 initializeAnalytics();
 
@@ -43,7 +43,7 @@ const APP_SHARE_TITLE = "水準ボイス野帳";
 const APP_SHARE_TEXT = "水準測量の音声入力Web野帳です。";
 const POINT_SUGGESTION_LIMIT = 6;
 const POINT_SUGGESTION_SEEDS = ["NO.0", "TP0", "KBM0", "T-0", "BC.0", "SP.0"];
-const NUMERIC_FIELDS = new Set(["bs", "fs", "elevation", "distance"]);
+const NUMERIC_FIELDS = new Set(["bs", "fs", "elevation", "planHeight", "distance"]);
 const UNSIGNED_DECIMAL_FIELDS = new Set(["bs", "fs", "distance"]);
 const COLUMN_DEFINITIONS = [
   { key: "number", label: "No.", baseWidth: 42, toggleable: false },
@@ -54,6 +54,8 @@ const COLUMN_DEFINITIONS = [
   { key: "roundTrip", label: "往復差", baseWidth: 112 },
   { key: "difference", label: "高低差", baseWidth: 112 },
   { key: "elevation", label: "標高", baseWidth: 112 },
+  { key: "planHeight", label: "計画高", baseWidth: 112 },
+  { key: "planDifference", label: "差", baseWidth: 112 },
   { key: "note", label: "備考", baseWidth: 180 }
 ];
 const FIELD_COLUMN_KEYS = {
@@ -62,6 +64,7 @@ const FIELD_COLUMN_KEYS = {
   bs: "bs",
   fs: "fs",
   elevation: "elevation",
+  planHeight: "planHeight",
   note: "note"
 };
 const COLLAPSED_COLUMN_BASE_WIDTH = 0;
@@ -227,6 +230,7 @@ function createRow(route) {
     fs: null,
     elevation: null,
     elevationType: "calculated",
+    planHeight: null,
     distance: null,
     note: ""
   };
@@ -327,6 +331,7 @@ function normalizeRow(row, route) {
     bs: bs === null || isValidStaffReading(bs) ? bs : null,
     fs: fs === null || isValidStaffReading(fs) ? fs : null,
     elevation: toNumber(row?.elevation),
+    planHeight: toNumber(row?.planHeight),
     distance: toNumber(row?.distance)
   };
 }
@@ -542,11 +547,14 @@ function rowTemplate(row, index) {
     <td class="calc round-trip-diff"></td>
     <td class="calc diff"></td>
     <td class="elevation-cell calculated${index === 0 ? " starting-elevation-cell" : ""}"><input data-field="elevation" inputmode="decimal" autocomplete="off" aria-label="${index + 1}行目 既知標高または仮標高"></td>
+    <td><input data-field="planHeight" inputmode="decimal" autocomplete="off" aria-label="${index + 1}行目 計画高"></td>
+    <td class="calc plan-difference"></td>
     <td><input data-field="note" inputmode="text" autocomplete="off" aria-label="${index + 1}行目 備考"></td>`;
   tr.querySelector('[data-field="pointName"]').value = row.pointName || "";
   tr.querySelector('[data-field="bs"]').value = displayValue(row.bs, row.bs !== null ? 3 : null);
   tr.querySelector('[data-field="fs"]').value = displayValue(row.fs, row.fs !== null ? 3 : null);
   tr.querySelector('[data-field="elevation"]').value = displayValue(row.elevation, row.elevation !== null ? 3 : null);
+  tr.querySelector('[data-field="planHeight"]').value = displayValue(row.planHeight, row.planHeight !== null ? 3 : null);
   tr.querySelector('[data-field="distance"]').value = displayValue(row.distance, row.distance !== null ? 3 : null);
   tr.querySelector('[data-field="note"]').value = row.note || "";
   return tr;
@@ -694,6 +702,8 @@ function applyTableScale(value) {
     "--difference-width": 112,
     "--round-trip-width": 112,
     "--elevation-width": 112,
+    "--plan-height-width": 112,
+    "--plan-difference-width": 112,
     "--note-width": 180,
     "--input-font-size": 19.2,
     "--header-font-size": 19.2
@@ -773,6 +783,17 @@ function recalculateAndRender() {
     const cell = elevationInput.closest(".elevation-cell");
     cell.classList.toggle("manual", row.elevationType === "manual" && row.elevation !== null);
     cell.classList.toggle("calculated", row.elevationType !== "manual" || row.elevation === null);
+    const planDifference = Number.isFinite(row.elevation) && Number.isFinite(row.planHeight)
+      ? row.elevation - row.planHeight
+      : null;
+    const planDifferenceCell = tr.querySelector(".plan-difference");
+    planDifferenceCell.textContent = Number.isFinite(planDifference)
+      ? `${planDifference > 0 ? "+" : ""}${planDifference.toFixed(3)}`
+      : "";
+    planDifferenceCell.classList.toggle(
+      "negative",
+      Number.isFinite(planDifference) && planDifference < 0
+    );
   });
 
   const outDifference = calculations.out.outDifference;
@@ -2177,12 +2198,15 @@ document.querySelector("#saveBtn").addEventListener("click", () => {
   trackEvent("save_notebook", { sheet: activeSheet });
 });
 document.querySelector("#csvBtn").addEventListener("click", async () => {
-  const result = await exportSheetCsv(activeSheet, calculations[activeSheet].rows);
-  if (result) trackEvent("export_csv", { sheet: activeSheet, result });
+  const result = await exportNotebookCsv({
+    outRows: calculations.out.rows,
+    backRows: calculations.back.rows
+  });
+  if (result) trackEvent("export_csv", { sheet: "both", result });
   if (result === "shared") {
     showNotice("CSVを共有しました。Gmailなどで送信できます。", "success");
   } else if (result === "downloaded") {
-    showNotice(`${activeSheet === "out" ? "往路" : "復路"}シートをCSV出力しました。`, "success");
+    showNotice("往路・復路をCSV出力しました。", "success");
   }
 });
 const clearDialog = document.querySelector("#clearDialog");

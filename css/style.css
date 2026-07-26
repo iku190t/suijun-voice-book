@@ -362,7 +362,9 @@ th:nth-child(4), td:nth-child(4), th:nth-child(5), td:nth-child(5) { width: var(
 th:nth-child(6), td:nth-child(6) { width: var(--round-trip-width, 104px); }
 th:nth-child(7), td:nth-child(7) { width: var(--difference-width, 100px); }
 th:nth-child(8), td:nth-child(8) { width: var(--elevation-width, 134px); }
-th:nth-child(9), td:nth-child(9) { width: var(--note-width, 180px); }
+th:nth-child(9), td:nth-child(9) { width: var(--plan-height-width, 112px); }
+th:nth-child(10), td:nth-child(10) { width: var(--plan-difference-width, 112px); }
+th:nth-child(11), td:nth-child(11) { width: var(--note-width, 180px); }
 .column-heading-label {
   display: block;
   overflow: hidden;
@@ -482,6 +484,7 @@ tr:nth-child(even) td { background-color: rgba(46, 145, 203, .035); }
 td.calc { padding: 4px; background: #eaf6fc !important; font-size: var(--input-font-size, 16px); font-weight: var(--weight-strong); font-variant-numeric: tabular-nums; }
 tr.incomplete td { background-color: #fff4d6 !important; }
 tr.incomplete .diff { color: #9b5700; }
+td.plan-difference.negative { color: #c52c2c; }
 td.starting-elevation-cell,
 td.starting-elevation-cell input {
   background-color: #fff4cf !important;

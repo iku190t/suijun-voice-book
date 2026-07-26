@@ -45,6 +45,7 @@ export function loadProject() {
         fs: valueOrNull(row.fs),
         elevation: valueOrNull(row.elev),
         elevationType: valueOrNull(row.elev) === null ? "calculated" : "manual",
+        planHeight: null,
         distance: valueOrNull(row.dist),
         note: row.note || ""
       })),
