@@ -7,7 +7,7 @@ import {
   LEVELING_TOLERANCE_PRESETS,
   resolveToleranceDistanceMeters,
   toNumber
-} from "./calculation.js?v=119";
+} from "./calculation.js?v=120";
 import {
   chooseLevelReading,
   createVoiceController,
@@ -15,14 +15,14 @@ import {
   normalizeSpokenNumber,
   prepareSpeechSynthesis,
   speakBack
-} from "./voice.js?v=119";
-import { clearProject, loadProject, saveProject } from "./storage.js?v=119";
-import { exportSheetCsv } from "./export.js?v=119";
+} from "./voice.js?v=120";
+import { clearProject, loadProject, saveProject } from "./storage.js?v=120";
+import { exportSheetCsv } from "./export.js?v=120";
 import {
   alignSheetsWithCurrentLabels,
   isValidStaffReading,
   reversePointNamesWithinUsedRows
-} from "./rules.js?v=119";
+} from "./rules.js?v=120";
 import {
   choosePointName,
   getRankedPointNameCandidates,
@@ -30,8 +30,8 @@ import {
   normalizePointName,
   pointNameToSpeech,
   recordPointNameUsage
-} from "./point-names.js?v=119";
-import { initializeAnalytics, trackEvent } from "./analytics.js?v=119";
+} from "./point-names.js?v=120";
+import { initializeAnalytics, trackEvent } from "./analytics.js?v=120";
 
 initializeAnalytics();
 
@@ -221,9 +221,10 @@ function createBlankProject() {
   return {
     version: 5,
     settings: {
-      tolerancePreset: "grade3",
-      toleranceDistanceMode: "sheet",
+      tolerancePreset: "grade4",
+      toleranceDistanceMode: "manual",
       manualToleranceDistance: null,
+      toleranceDefaultsVersion: 1,
       showDistance: false,
       voiceRate: 1.2,
       voiceSettingsVersion: 2,
@@ -301,6 +302,7 @@ function normalizeLoadedProject(loaded) {
     ? loaded.settings.pointNameScripts
     : {};
   const hasCurrentVoiceDefaults = Number(loaded.settings?.voiceSettingsVersion) >= 2;
+  const hasCurrentToleranceDefaults = Number(loaded.settings?.toleranceDefaultsVersion) >= 1;
 
   return {
     version: 5,
@@ -312,13 +314,21 @@ function normalizeLoadedProject(loaded) {
         : 1.2,
       voiceSettingsVersion: 2,
       sheetMeaningVersion: 2,
-      toleranceDistanceMode: loaded.settings?.toleranceDistanceMode === "manual"
-        ? "manual"
-        : "sheet",
+      tolerancePreset: hasCurrentToleranceDefaults &&
+        LEVELING_TOLERANCE_PRESETS[loaded.settings?.tolerancePreset]
+        ? loaded.settings.tolerancePreset
+        : "grade4",
+      toleranceDistanceMode: hasCurrentToleranceDefaults
+        ? loaded.settings?.toleranceDistanceMode === "manual"
+          ? "manual"
+          : "sheet"
+        : "manual",
       manualToleranceDistance: (() => {
+        if (!hasCurrentToleranceDefaults) return null;
         const value = toNumber(loaded.settings?.manualToleranceDistance);
         return value !== null && value > 0 ? value : null;
       })(),
+      toleranceDefaultsVersion: 1,
       pointAliases: loadedAliases,
       pointNameScripts: {
         kanji: hasCurrentVoiceDefaults && loadedScripts.kanji === true,
@@ -332,11 +342,15 @@ function normalizeLoadedProject(loaded) {
   };
 }
 
-let project = normalizeLoadedProject(loadProject());
+const storedProject = loadProject();
+let project = normalizeLoadedProject(storedProject);
+if (!storedProject || Number(storedProject.settings?.toleranceDefaultsVersion) < 1) {
+  project = saveProject(project);
+}
 project.settings.voiceRate = clamp(Number(project.settings.voiceRate) || 1.2, 0.5, 1.5);
 project.settings.tableScale = clamp(Number(project.settings.tableScale) || 1, 0.5, 1.8);
 if (!LEVELING_TOLERANCE_PRESETS[project.settings.tolerancePreset]) {
-  project.settings.tolerancePreset = "grade3";
+  project.settings.tolerancePreset = "grade4";
 }
 
 function synchronizeRowCounts() {
@@ -586,7 +600,7 @@ function stripCalculatedFields(rows) {
 
 function getToleranceState() {
   const presetKey = project.settings.tolerancePreset;
-  const preset = LEVELING_TOLERANCE_PRESETS[presetKey] || LEVELING_TOLERANCE_PRESETS.grade3;
+  const preset = LEVELING_TOLERANCE_PRESETS[presetKey] || LEVELING_TOLERANCE_PRESETS.grade4;
   const distanceMode = project.settings.toleranceDistanceMode === "manual"
     ? "manual"
     : "sheet";
@@ -610,7 +624,7 @@ function updateToleranceDisplay(toleranceState) {
   toleranceDistanceModeSelect.value = toleranceState.distanceMode;
   tolerancePresetSummary.textContent = toleranceState.preset.label;
   toleranceDistanceSummary.textContent = toleranceState.distanceMeters === null
-    ? "距離待ち"
+    ? toleranceState.distanceMode === "manual" ? "手入力" : "距離待ち"
     : `${toleranceState.distanceMode === "manual" ? "手入力" : "シート"} ${Math.round(toleranceState.distanceMeters)}m`;
   manualToleranceDistanceField.hidden = toleranceState.distanceMode !== "manual";
   if (document.activeElement !== manualToleranceDistanceInput) {
@@ -1844,7 +1858,7 @@ tolerancePresetSelect.value = project.settings.tolerancePreset;
 tolerancePresetSelect.addEventListener("change", (event) => {
   project.settings.tolerancePreset = LEVELING_TOLERANCE_PRESETS[event.target.value]
     ? event.target.value
-    : "grade3";
+    : "grade4";
   recalculateAndRender();
   scheduleAutosave();
 });
@@ -2040,6 +2054,25 @@ function isIosDevice() {
     (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
 }
 
+let microphonePermissionConfirmed = false;
+
+async function requestMicrophonePermission() {
+  if (microphonePermissionConfirmed || !navigator.mediaDevices?.getUserMedia) {
+    return;
+  }
+  const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+  stream.getTracks().forEach((track) => track.stop());
+  microphonePermissionConfirmed = true;
+}
+
+function showMicrophonePermissionError(errorCode) {
+  const message = isIosDevice()
+    ? "Safariのマイクを許可してください。Webサイトの設定から変更できます。"
+    : "ブラウザのマイクを許可してください。";
+  showNotice(message, "error");
+  trackEvent("voice_permission_error", { error_code: errorCode });
+}
+
 function showInstallInstructions() {
   const ios = isIosDevice();
   installDialogMessage.textContent = ios
@@ -2212,11 +2245,7 @@ const voiceController = createVoiceController({
       "audio-capture"
     ].includes(errorCode);
     if (!permissionError) return;
-    const message = isIosDevice()
-      ? "Safariのマイクを許可してください。Webサイトの設定から変更できます。"
-      : "ブラウザのマイクを許可してください。";
-    showNotice(message, "error");
-    trackEvent("voice_permission_error", { error_code: errorCode });
+    showMicrophonePermissionError(errorCode);
   },
   onResult: async (transcript, recognitionDetails = {}) => {
     const resultSessionToken = voiceSessionToken;
@@ -2329,7 +2358,7 @@ if (!voiceController.supported) {
   voiceButton.title = "音声入力非対応";
 }
 
-voiceButton.addEventListener("click", () => {
+voiceButton.addEventListener("click", async () => {
   if (!voiceModeActive) {
     const target = selectedInput?.isConnected ? selectedInput : null;
     setVoiceModeActive(true);
@@ -2352,7 +2381,18 @@ voiceButton.addEventListener("click", () => {
   prepareSpeechSynthesis();
   voiceTarget = selectedInput;
   voiceSessionToken += 1;
+  const permissionSessionToken = voiceSessionToken;
   setVoiceSessionActive(true);
+  voiceButtonLabel.textContent = "● マイク確認中…";
+  try {
+    await requestMicrophonePermission();
+  } catch (error) {
+    if (permissionSessionToken !== voiceSessionToken) return;
+    finishVoiceSession();
+    showMicrophonePermissionError(error?.name || "permission-request-failed");
+    return;
+  }
+  if (!voiceSessionActive || permissionSessionToken !== voiceSessionToken) return;
   voiceButtonLabel.textContent = "● 準備中…";
   voiceController.start();
 });

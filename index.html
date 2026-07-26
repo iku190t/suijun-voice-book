@@ -13,9 +13,9 @@
   <meta name="description" content="水準測量の観測値を音声やキーボードで入力できる、無料の現場向けWeb野帳です。">
   <title>水準ボイス野帳</title>
   <link rel="manifest" href="./manifest.json">
-  <link rel="icon" href="./icons/icon-192.png?v=119">
-  <link rel="apple-touch-icon" href="./icons/icon-192.png?v=119">
-  <link rel="stylesheet" href="./css/style.css?v=119">
+  <link rel="icon" href="./icons/icon-192.png?v=120">
+  <link rel="apple-touch-icon" href="./icons/icon-192.png?v=120">
+  <link rel="stylesheet" href="./css/style.css?v=120">
 </head>
 <body>
   <header class="app-header">
@@ -174,7 +174,11 @@
   <dialog id="settingsDialog" class="voice-settings-dialog" aria-labelledby="settingsDialogTitle">
     <form method="dialog">
       <button class="dialog-close" value="cancel" aria-label="閉じる">×</button>
-      <h2 id="settingsDialogTitle">音声設定</h2>
+      <h2 id="settingsDialogTitle">設定</h2>
+      <section id="installAppSection" class="install-settings" aria-labelledby="installAppTitle">
+        <h3 id="installAppTitle">アプリ</h3>
+        <button id="installAppBtn" class="install-settings-button" type="button">アプリとして追加</button>
+      </section>
       <label class="setting-field" for="voiceRate">
         <span>復唱速度</span>
         <output id="voiceRateValue" for="voiceRate">1.2倍</output>
@@ -197,10 +201,6 @@
         <div id="pointAliasList" class="alias-list"></div>
         <button id="addPointAliasBtn" class="add-alias-button" type="button">＋ 点名を追加</button>
       </section>
-      <section id="installAppSection" class="install-settings" aria-labelledby="installAppTitle">
-        <h3 id="installAppTitle">アプリ</h3>
-        <button id="installAppBtn" class="install-settings-button" type="button">アプリとして追加</button>
-      </section>
       <div class="dialog-actions">
         <button type="submit" value="close">閉じる</button>
       </div>
@@ -217,17 +217,17 @@
           <option value="grade1">1級</option>
           <option value="grade2">2級</option>
           <option value="grade3">3級</option>
-          <option value="grade4">4級</option>
+          <option value="grade4" selected>4級</option>
         </select>
       </label>
       <label class="tolerance-dialog-field" for="toleranceDistanceMode">
         <span>距離設定</span>
         <select id="toleranceDistanceMode" aria-label="許容値に使用する距離">
           <option value="sheet">シートから計算</option>
-          <option value="manual">手入力</option>
+          <option value="manual" selected>手入力</option>
         </select>
       </label>
-      <label id="manualToleranceDistanceField" class="tolerance-dialog-field manual-tolerance-distance" for="manualToleranceDistance" hidden>
+      <label id="manualToleranceDistanceField" class="tolerance-dialog-field manual-tolerance-distance" for="manualToleranceDistance">
         <span>距離（m）</span>
         <input id="manualToleranceDistance" type="text" inputmode="decimal" pattern="[0-9]*[.]?[0-9]*" autocomplete="off" aria-label="許容値計算用の手入力距離">
       </label>
@@ -295,6 +295,6 @@
   </dialog>
 
   <noscript>このアプリの利用にはJavaScriptを有効にしてください。</noscript>
-  <script type="module" src="./js/app.js?v=119"></script>
+  <script type="module" src="./js/app.js?v=120"></script>
 </body>
 </html>

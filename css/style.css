@@ -734,8 +734,9 @@ dialog .eyebrow { color: var(--brand-2); }
   line-height: 1.65;
 }
 .install-settings {
-  padding-top: 14px;
-  border-top: 1px solid #b7d7e9;
+  margin-bottom: 16px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid #b7d7e9;
 }
 .install-settings h3 {
   margin: 0 0 9px;
