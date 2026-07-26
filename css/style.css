@@ -862,7 +862,7 @@ dialog .eyebrow { color: var(--brand-2); }
   position: absolute;
   top: 2px;
   left: 7px;
-  content: "最有力・固定";
+  content: "最有力";
   color: #46768f;
   font-size: .56rem;
   font-weight: var(--weight-strong);
