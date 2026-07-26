@@ -7,7 +7,7 @@ import {
   LEVELING_TOLERANCE_PRESETS,
   resolveToleranceDistanceMeters,
   toNumber
-} from "./calculation.js?v=164";
+} from "./calculation.js?v=165";
 import {
   chooseLevelReading,
   createVoiceController,
@@ -15,15 +15,15 @@ import {
   normalizeSpokenNumber,
   prepareSpeechSynthesis,
   speakBack
-} from "./voice.js?v=164";
-import { clearProject, loadProject, saveProject } from "./storage.js?v=164";
-import { exportNotebookCsv } from "./export.js?v=164";
+} from "./voice.js?v=165";
+import { clearProject, loadProject, saveProject } from "./storage.js?v=165";
+import { exportNotebookCsv } from "./export.js?v=165";
 import {
   alignSheetsWithCurrentLabels,
   isValidStaffReading,
   rowHasLevelObservationData,
   reversePointNamesWithinUsedRows
-} from "./rules.js?v=164";
+} from "./rules.js?v=165";
 import {
   choosePointName,
   composePointNameSuggestionCandidates,
@@ -36,8 +36,8 @@ import {
   normalizePointName,
   pointNameToSpeech,
   recordPointNameUsage
-} from "./point-names.js?v=164";
-import { initializeAnalytics, trackEvent } from "./analytics.js?v=164";
+} from "./point-names.js?v=165";
+import { initializeAnalytics, trackEvent } from "./analytics.js?v=165";
 
 initializeAnalytics();
 
@@ -45,7 +45,7 @@ const DEFAULT_ROW_COUNT = 200;
 const APP_SHARE_URL = "https://iku190t.github.io/suijun-voice-book/";
 const APP_SHARE_TITLE = "水準ボイス";
 const APP_SHARE_TEXT = "水準測量の音声入力Web野帳です。";
-const APP_RELEASE_VERSION = new URL(import.meta.url).searchParams.get("v") || "164";
+const APP_RELEASE_VERSION = new URL(import.meta.url).searchParams.get("v") || "165";
 const FEEDBACK_EMAIL = "ez.survey2023@gmail.com";
 const POINT_SUGGESTION_LIMIT = 6;
 const POINT_SUGGESTION_SEEDS = ["NO.0", "TP0", "KBM0", "T-0", "BC.0", "SP.0"];
@@ -180,8 +180,9 @@ let keyboardCellScrollTimer = null;
 let keyboardCellScrollTarget = null;
 let textMeasureContext = null;
 let stickyHeaderFrame = null;
-let stickyHeaderSettleTimer = null;
-let stickyHeaderSettleToken = 0;
+let pasteLayoutStabilizationTimer = null;
+let pasteLayoutStabilizationToken = 0;
+let pasteLayoutStabilizing = false;
 const HISTORY_LIMIT = 50;
 const undoHistory = { out: [], back: [] };
 const redoHistory = { out: [], back: [] };
@@ -1752,7 +1753,7 @@ window.addEventListener("focus", () => {
   if (externalUiRecoveryActive) scheduleExternalUiRecovery();
 });
 
-function ensureFocusedCellAboveKeyboard(input) {
+function ensureFocusedCellAboveKeyboard(input, behavior = "smooth") {
   if (
     !input?.isConnected ||
     document.activeElement !== input ||
@@ -1777,12 +1778,13 @@ function ensureFocusedCellAboveKeyboard(input) {
   window.scrollBy({
     top: Math.ceil(overlap),
     left: 0,
-    behavior: "smooth",
+    behavior,
   });
 }
 
 function scheduleFocusedCellKeyboardScroll(input = document.activeElement, delay = 120) {
   if (
+    pasteLayoutStabilizing ||
     !input?.matches?.("#notebookBody input") ||
     voiceModeActive ||
     voiceSessionActive
@@ -2107,28 +2109,40 @@ function updateStickyTableHeader() {
 }
 
 function scheduleStickyTableHeader() {
+  if (pasteLayoutStabilizing) return;
   if (stickyHeaderFrame !== null) return;
   stickyHeaderFrame = requestAnimationFrame(() => {
     stickyHeaderFrame = null;
-    updateStickyTableHeader();
+    if (!pasteLayoutStabilizing) updateStickyTableHeader();
   });
 }
 
-function settleStickyHeaderAfterInputTransition() {
-  const token = ++stickyHeaderSettleToken;
-  clearTimeout(stickyHeaderSettleTimer);
-  stickyHeaderSettleTimer = null;
+function stabilizePasteLayout(input) {
+  const token = ++pasteLayoutStabilizationToken;
+  clearTimeout(pasteLayoutStabilizationTimer);
+  pasteLayoutStabilizationTimer = null;
+  clearTimeout(keyboardCellScrollTimer);
+  keyboardCellScrollTimer = null;
+  keyboardCellScrollTarget = null;
+  if (stickyHeaderFrame !== null) {
+    cancelAnimationFrame(stickyHeaderFrame);
+    stickyHeaderFrame = null;
+  }
+  pasteLayoutStabilizing = true;
   let previousMetrics = null;
   let stableSamples = 0;
   const startedAt = Date.now();
   const sampleLayout = () => {
-    if (token !== stickyHeaderSettleToken) return;
-    schedulePointClipboardPosition();
-    scheduleStickyTableHeader();
+    if (token !== pasteLayoutStabilizationToken) return;
+    const inputRect = input?.isConnected
+      ? input.getBoundingClientRect()
+      : { top: 0, bottom: 0 };
     const metrics = [
       ...readExternalUiViewportMetrics(),
       Math.round(window.scrollX),
       Math.round(window.scrollY),
+      Math.round(inputRect.top),
+      Math.round(inputRect.bottom),
     ];
     if (externalUiViewportIsStable(previousMetrics, metrics)) {
       stableSamples += 1;
@@ -2137,15 +2151,23 @@ function settleStickyHeaderAfterInputTransition() {
     }
     previousMetrics = metrics;
     const elapsed = Date.now() - startedAt;
-    if ((stableSamples >= 4 && elapsed >= 700) || elapsed >= 2500) {
-      stickyHeaderSettleTimer = null;
-      schedulePointClipboardPosition();
-      scheduleStickyTableHeader();
+    if ((stableSamples >= 3 && elapsed >= 320) || elapsed >= 1800) {
+      pasteLayoutStabilizationTimer = null;
+      if (input?.isConnected && document.activeElement === input) {
+        ensureFocusedCellAboveKeyboard(input, "auto");
+      }
+      requestAnimationFrame(() => requestAnimationFrame(() => {
+        if (token !== pasteLayoutStabilizationToken) return;
+        pasteLayoutStabilizing = false;
+        updateSoftwareKeyboardState();
+        schedulePointClipboardPosition();
+        updateStickyTableHeader();
+      }));
       return;
     }
-    stickyHeaderSettleTimer = setTimeout(sampleLayout, 80);
+    pasteLayoutStabilizationTimer = setTimeout(sampleLayout, 80);
   };
-  sampleLayout();
+  pasteLayoutStabilizationTimer = setTimeout(sampleLayout, 60);
 }
 
 window.addEventListener("scroll", () => {
@@ -2600,12 +2622,13 @@ pointPasteButton.addEventListener("click", async () => {
   hidePointSuggestions();
   if (!voiceModeActive) {
     target.readOnly = false;
+    stabilizePasteLayout(target);
     target.focus({ preventScroll: true });
     const end = target.value.length;
     target.setSelectionRange(end, end);
-    scheduleFocusedCellKeyboardScroll(target, 90);
+  } else {
+    scheduleStickyTableHeader();
   }
-  settleStickyHeaderAfterInputTransition();
   pointClipboardDismissedFor = target;
   pointClipboardPopover.hidden = true;
   voiceStatus.textContent = `${target.value} と貼り付けました`;
@@ -2619,7 +2642,6 @@ pointPasteButton.addEventListener("click", async () => {
     await moveAfterVoiceInput(target);
   }
   updatePointClipboardButtons();
-  settleStickyHeaderAfterInputTransition();
 });
 
 pointIncrementPasteButton.addEventListener("click", async () => {
@@ -2639,12 +2661,13 @@ pointIncrementPasteButton.addEventListener("click", async () => {
   hidePointSuggestions();
   if (!voiceModeActive) {
     target.readOnly = false;
+    stabilizePasteLayout(target);
     target.focus({ preventScroll: true });
     const end = target.value.length;
     target.setSelectionRange(end, end);
-    scheduleFocusedCellKeyboardScroll(target, 90);
+  } else {
+    scheduleStickyTableHeader();
   }
-  settleStickyHeaderAfterInputTransition();
   voiceStatus.textContent = `${target.value} と増番して貼り付けました`;
   await speakBack(
     pointNameToSpeech(target.value, project.settings.pointAliases),
@@ -2654,7 +2677,6 @@ pointIncrementPasteButton.addEventListener("click", async () => {
     await moveAfterVoiceInput(target);
   }
   updatePointClipboardButtons();
-  settleStickyHeaderAfterInputTransition();
 });
 
 document.addEventListener("pointerup", () => {
