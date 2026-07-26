@@ -78,6 +78,17 @@ export function rowHasEnteredContent(row) {
   );
 }
 
+export function rowHasLevelObservationData(row) {
+  return Boolean(
+    row?.bs !== null && row?.bs !== undefined ||
+    row?.fs !== null && row?.fs !== undefined ||
+    row?.distance !== null && row?.distance !== undefined ||
+    row?.elevationType === "manual" &&
+      row?.elevation !== null &&
+      row?.elevation !== undefined
+  );
+}
+
 export function reversePointNamesWithinUsedRows(sourceRows, targetRows) {
   let usedLength = 0;
   sourceRows.forEach((row, index) => {
