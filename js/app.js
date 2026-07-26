@@ -6,7 +6,7 @@ import {
   LEVELING_TOLERANCE_PRESETS,
   sumObservationDistanceMeters,
   toNumber
-} from "./calculation.js?v=101";
+} from "./calculation.js?v=102";
 import {
   chooseLevelReading,
   createVoiceController,
@@ -14,14 +14,14 @@ import {
   normalizeSpokenNumber,
   prepareSpeechSynthesis,
   speakBack
-} from "./voice.js?v=101";
-import { clearProject, loadProject, saveProject } from "./storage.js?v=101";
-import { exportSheetCsv } from "./export.js?v=101";
+} from "./voice.js?v=102";
+import { clearProject, loadProject, saveProject } from "./storage.js?v=102";
+import { exportSheetCsv } from "./export.js?v=102";
 import {
   alignSheetsWithCurrentLabels,
   isValidStaffReading,
   reversePointNamesWithinUsedRows
-} from "./rules.js?v=101";
+} from "./rules.js?v=102";
 import {
   choosePointName,
   getRankedPointNameCandidates,
@@ -29,8 +29,8 @@ import {
   normalizePointName,
   pointNameToSpeech,
   recordPointNameUsage
-} from "./point-names.js?v=101";
-import { initializeAnalytics, trackEvent } from "./analytics.js?v=101";
+} from "./point-names.js?v=102";
+import { initializeAnalytics, trackEvent } from "./analytics.js?v=102";
 
 initializeAnalytics();
 
@@ -417,19 +417,19 @@ function applyTableScale(value) {
   const scale = clamp(Number(value) || 1, 0.5, 1.8);
   project.settings.tableScale = scale;
   const pixels = {
-    "--table-min-width": 894,
+    "--table-min-width": 902,
     "--row-height": 48,
     "--input-height": 47,
     "--number-width": 42,
     "--point-width": 116,
     "--distance-width": 94,
-    "--reading-width": 96,
-    "--difference-width": 100,
-    "--round-trip-width": 104,
-    "--elevation-width": 134,
+    "--reading-width": 94,
+    "--difference-width": 94,
+    "--round-trip-width": 94,
+    "--elevation-width": 94,
     "--note-width": 180,
-    "--input-font-size": 16,
-    "--header-font-size": 16
+    "--input-font-size": 19.2,
+    "--header-font-size": 19.2
   };
   Object.entries(pixels).forEach(([property, base]) => {
     const size = `${Math.round(base * scale * 10) / 10}px`;
