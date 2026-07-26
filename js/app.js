@@ -7,7 +7,7 @@ import {
   LEVELING_TOLERANCE_PRESETS,
   resolveToleranceDistanceMeters,
   toNumber
-} from "./calculation.js?v=160";
+} from "./calculation.js?v=161";
 import {
   chooseLevelReading,
   createVoiceController,
@@ -15,15 +15,15 @@ import {
   normalizeSpokenNumber,
   prepareSpeechSynthesis,
   speakBack
-} from "./voice.js?v=160";
-import { clearProject, loadProject, saveProject } from "./storage.js?v=160";
-import { exportNotebookCsv } from "./export.js?v=160";
+} from "./voice.js?v=161";
+import { clearProject, loadProject, saveProject } from "./storage.js?v=161";
+import { exportNotebookCsv } from "./export.js?v=161";
 import {
   alignSheetsWithCurrentLabels,
   isValidStaffReading,
   rowHasLevelObservationData,
   reversePointNamesWithinUsedRows
-} from "./rules.js?v=160";
+} from "./rules.js?v=161";
 import {
   choosePointName,
   composePointNameSuggestionCandidates,
@@ -36,8 +36,8 @@ import {
   normalizePointName,
   pointNameToSpeech,
   recordPointNameUsage
-} from "./point-names.js?v=160";
-import { initializeAnalytics, trackEvent } from "./analytics.js?v=160";
+} from "./point-names.js?v=161";
+import { initializeAnalytics, trackEvent } from "./analytics.js?v=161";
 
 initializeAnalytics();
 
@@ -177,6 +177,8 @@ let keyboardCellScrollTimer = null;
 let keyboardCellScrollTarget = null;
 let textMeasureContext = null;
 let stickyHeaderFrame = null;
+let stickyHeaderSettleTimer = null;
+let stickyHeaderSettleToken = 0;
 const HISTORY_LIMIT = 50;
 const undoHistory = { out: [], back: [] };
 const redoHistory = { out: [], back: [] };
@@ -2117,6 +2119,40 @@ function scheduleStickyTableHeader() {
   });
 }
 
+function settleStickyHeaderAfterInputTransition() {
+  const token = ++stickyHeaderSettleToken;
+  clearTimeout(stickyHeaderSettleTimer);
+  stickyHeaderSettleTimer = null;
+  let previousMetrics = null;
+  let stableSamples = 0;
+  const startedAt = Date.now();
+  const sampleLayout = () => {
+    if (token !== stickyHeaderSettleToken) return;
+    schedulePointClipboardPosition();
+    scheduleStickyTableHeader();
+    const metrics = [
+      ...readExternalUiViewportMetrics(),
+      Math.round(window.scrollX),
+      Math.round(window.scrollY),
+    ];
+    if (externalUiViewportIsStable(previousMetrics, metrics)) {
+      stableSamples += 1;
+    } else {
+      stableSamples = 0;
+    }
+    previousMetrics = metrics;
+    const elapsed = Date.now() - startedAt;
+    if ((stableSamples >= 4 && elapsed >= 700) || elapsed >= 2500) {
+      stickyHeaderSettleTimer = null;
+      schedulePointClipboardPosition();
+      scheduleStickyTableHeader();
+      return;
+    }
+    stickyHeaderSettleTimer = setTimeout(sampleLayout, 80);
+  };
+  sampleLayout();
+}
+
 window.addEventListener("scroll", () => {
   schedulePointClipboardPosition();
   scheduleStickyTableHeader();
@@ -2552,10 +2588,12 @@ pointPasteButton.addEventListener("click", async () => {
   hidePointSuggestions();
   if (!voiceModeActive) {
     target.readOnly = false;
-    target.focus({ preventScroll: false });
+    target.focus({ preventScroll: true });
     const end = target.value.length;
     target.setSelectionRange(end, end);
+    scheduleFocusedCellKeyboardScroll(target, 90);
   }
+  settleStickyHeaderAfterInputTransition();
   pointClipboardDismissedFor = target;
   pointClipboardPopover.hidden = true;
   voiceStatus.textContent = `${target.value} と貼り付けました`;
@@ -2569,6 +2607,7 @@ pointPasteButton.addEventListener("click", async () => {
     await moveAfterVoiceInput(target);
   }
   updatePointClipboardButtons();
+  settleStickyHeaderAfterInputTransition();
 });
 
 pointIncrementPasteButton.addEventListener("click", async () => {
@@ -2587,10 +2626,12 @@ pointIncrementPasteButton.addEventListener("click", async () => {
   hidePointSuggestions();
   if (!voiceModeActive) {
     target.readOnly = false;
-    target.focus({ preventScroll: false });
+    target.focus({ preventScroll: true });
     const end = target.value.length;
     target.setSelectionRange(end, end);
+    scheduleFocusedCellKeyboardScroll(target, 90);
   }
+  settleStickyHeaderAfterInputTransition();
   voiceStatus.textContent = `${target.value} と増番して貼り付けました`;
   await speakBack(
     pointNameToSpeech(target.value, project.settings.pointAliases),
@@ -2600,6 +2641,7 @@ pointIncrementPasteButton.addEventListener("click", async () => {
     await moveAfterVoiceInput(target);
   }
   updatePointClipboardButtons();
+  settleStickyHeaderAfterInputTransition();
 });
 
 document.addEventListener("pointerup", () => {
