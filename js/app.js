@@ -7,7 +7,7 @@ import {
   LEVELING_TOLERANCE_PRESETS,
   resolveToleranceDistanceMeters,
   toNumber
-} from "./calculation.js?v=153";
+} from "./calculation.js?v=154";
 import {
   chooseLevelReading,
   createVoiceController,
@@ -15,18 +15,19 @@ import {
   normalizeSpokenNumber,
   prepareSpeechSynthesis,
   speakBack
-} from "./voice.js?v=153";
-import { clearProject, loadProject, saveProject } from "./storage.js?v=153";
-import { exportNotebookCsv } from "./export.js?v=153";
+} from "./voice.js?v=154";
+import { clearProject, loadProject, saveProject } from "./storage.js?v=154";
+import { exportNotebookCsv } from "./export.js?v=154";
 import {
   alignSheetsWithCurrentLabels,
   isValidStaffReading,
   rowHasLevelObservationData,
   reversePointNamesWithinUsedRows
-} from "./rules.js?v=153";
+} from "./rules.js?v=154";
 import {
   choosePointName,
   composePointNameSuggestionCandidates,
+  getBaseNoOffsetCandidates,
   getPointNameConfusionCandidates,
   getOffsetPointNameCandidates,
   getRankedPointNameCandidates,
@@ -34,8 +35,8 @@ import {
   normalizePointName,
   pointNameToSpeech,
   recordPointNameUsage
-} from "./point-names.js?v=153";
-import { initializeAnalytics, trackEvent } from "./analytics.js?v=153";
+} from "./point-names.js?v=154";
+import { initializeAnalytics, trackEvent } from "./analytics.js?v=154";
 
 initializeAnalytics();
 
@@ -1273,11 +1274,16 @@ function showPointNameSuggestions(input) {
     namesAboveCurrentRow.at(-1),
     project.settings.pointAliases
   );
+  const baseNoOffsetCandidates = getBaseNoOffsetCandidates(
+    namesAboveCurrentRow.at(-1),
+    project.settings.pointAliases
+  );
   const offsetPatternBase = normalizePointName(
     namesAboveCurrentRow.at(-1),
     project.settings.pointAliases
   ).match(/^(NO\.?\d+)\+\d+$/i)?.[1] || "";
   const rankedCandidatesWithOffsetPatterns = [
+    ...baseNoOffsetCandidates,
     ...offsetPatternCandidates.slice(1),
     ...rankedCandidates.filter((pointName) => (
       !offsetPatternCandidates.length ||

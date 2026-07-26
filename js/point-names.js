@@ -1,4 +1,4 @@
-import { normalizeAliasKey, resolvePointAlias } from "./rules.js?v=153";
+import { normalizeAliasKey, resolvePointAlias } from "./rules.js?v=154";
 
 const BASE_PRIORITY_POINT_NAMES = [...new Set(`
 BM,KBM,TBM,仮BM,水準点,仮水準点,既知点,未知点,固定点,既設点,新設点,閉合点,確認点,チェック点,
@@ -482,6 +482,15 @@ export function getOffsetPointNameCandidates(pointName, manualAliases = []) {
   if (offset === 10) return [`${base}+15`, nextBase];
   if (offset === 15) return [nextBase];
   return [];
+}
+
+export function getBaseNoOffsetCandidates(pointName, manualAliases = []) {
+  const normalized = normalizePointName(pointName, manualAliases);
+  const match = normalized.match(/^(NO\.?)(\d+)$/i);
+  if (!match) return [];
+
+  const base = `${match[1].toUpperCase()}${match[2]}`;
+  return [`${base}+5`, `${base}+10`];
 }
 
 export function incrementPointNameOrCopy(pointName, manualAliases = []) {
