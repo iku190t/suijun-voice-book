@@ -7,7 +7,7 @@ import {
   LEVELING_TOLERANCE_PRESETS,
   resolveToleranceDistanceMeters,
   toNumber
-} from "./calculation.js?v=145";
+} from "./calculation.js?v=146";
 import {
   chooseLevelReading,
   createVoiceController,
@@ -15,15 +15,15 @@ import {
   normalizeSpokenNumber,
   prepareSpeechSynthesis,
   speakBack
-} from "./voice.js?v=145";
-import { clearProject, loadProject, saveProject } from "./storage.js?v=145";
-import { exportNotebookCsv } from "./export.js?v=145";
+} from "./voice.js?v=146";
+import { clearProject, loadProject, saveProject } from "./storage.js?v=146";
+import { exportNotebookCsv } from "./export.js?v=146";
 import {
   alignSheetsWithCurrentLabels,
   isValidStaffReading,
   rowHasLevelObservationData,
   reversePointNamesWithinUsedRows
-} from "./rules.js?v=145";
+} from "./rules.js?v=146";
 import {
   choosePointName,
   composePointNameSuggestionCandidates,
@@ -33,8 +33,8 @@ import {
   normalizePointName,
   pointNameToSpeech,
   recordPointNameUsage
-} from "./point-names.js?v=145";
-import { initializeAnalytics, trackEvent } from "./analytics.js?v=145";
+} from "./point-names.js?v=146";
+import { initializeAnalytics, trackEvent } from "./analytics.js?v=146";
 
 initializeAnalytics();
 
@@ -2056,10 +2056,10 @@ function renderPlanHeightPointList() {
     button.setAttribute("aria-pressed", String(selected));
     const elevationText = Number.isFinite(row.elevation)
       ? `標高 ${row.elevation.toFixed(3)}`
-      : "標高 未設定";
+      : "";
     button.setAttribute(
       "aria-label",
-      `No.${rowIndex + 1} ${row.pointName} ${elevationText}`
+      `No.${rowIndex + 1} ${row.pointName}${elevationText ? ` ${elevationText}` : ""}`
     );
     button.classList.toggle("range-start", planHeightRangeStart === rowIndex);
 
@@ -2080,17 +2080,7 @@ function renderPlanHeightPointList() {
     elevation.className = "plan-height-elevation";
     elevation.textContent = elevationText;
 
-    const pointMain = document.createElement("span");
-    pointMain.className = "plan-height-point-main";
-    pointMain.append(pointName, elevation);
-
-    const currentValue = document.createElement("span");
-    currentValue.className = "plan-height-current-value";
-    currentValue.textContent = Number.isFinite(row.planHeight)
-      ? `現在 ${row.planHeight.toFixed(3)}`
-      : "未設定";
-
-    button.append(check, number, pointMain, currentValue);
+    button.append(check, number, pointName, elevation);
     fragment.append(button);
   });
   planHeightPointList.replaceChildren(fragment);
@@ -2157,10 +2147,7 @@ function openPlanHeightBulkDialog() {
   planHeightRangeStart = null;
   planHeightRangeStatus.textContent = "点名を個別に選択できます。";
   planHeightBulkSheet.textContent = `${activeSheet === "out" ? "往路" : "復路"}の点名`;
-  const currentValue = project.sheets[activeSheet][selectedRowIndex]?.planHeight;
-  planHeightBulkValueInput.value = Number.isFinite(currentValue)
-    ? currentValue.toFixed(3)
-    : "";
+  planHeightBulkValueInput.value = "";
   renderPlanHeightPointList();
   planHeightBulkDialog.showModal();
   requestAnimationFrame(() => {

@@ -248,7 +248,7 @@ a { color: #0d5d74; }
   display: grid;
   grid-template-columns: 32px 54px minmax(0, 1fr) auto;
   min-height: 48px;
-  padding: 6px 9px;
+  padding: 6px 5px 6px 9px;
   align-items: center;
   gap: 7px;
   border: 1px solid #b5d4e4;
@@ -287,13 +287,6 @@ a { color: #0d5d74; }
   color: #477086;
   font-size: .82rem;
 }
-.plan-height-point-main {
-  display: flex;
-  min-width: 0;
-  align-items: baseline;
-  gap: 7px;
-  overflow: hidden;
-}
 .plan-height-point-name {
   min-width: 0;
   overflow: hidden;
@@ -302,17 +295,14 @@ a { color: #0d5d74; }
   white-space: nowrap;
 }
 .plan-height-elevation {
-  flex: 0 0 auto;
+  justify-self: end;
+  padding-right: 1px;
   color: #718a99;
   font-size: .72rem;
   font-variant-numeric: tabular-nums;
   font-weight: var(--weight-regular);
+  text-align: right;
   white-space: nowrap;
-}
-.plan-height-current-value {
-  color: #59798b;
-  font-size: .78rem;
-  font-variant-numeric: tabular-nums;
 }
 .plan-height-value-field {
   display: grid;
@@ -357,10 +347,7 @@ a { color: #0d5d74; }
 }
 @media (max-width: 420px) {
   .plan-height-point-option {
-    grid-template-columns: 30px 42px minmax(0, 1fr);
-  }
-  .plan-height-current-value {
-    grid-column: 3;
+    grid-template-columns: 30px 42px minmax(0, 1fr) auto;
   }
   .plan-height-bulk-footer {
     grid-template-columns: 1fr;
