@@ -880,10 +880,20 @@ body.external-ui-recovery .voice-dock {
 }
 .point-name-keyboard-caret {
   display: inline-block;
-  width: 2px;
+  position: relative;
+  width: 0;
   height: 1.05em;
-  margin: 0 1px -2px;
+  margin: 0;
+  vertical-align: -2px;
+}
+.point-name-keyboard-caret::after {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 2px;
+  height: 100%;
   background: #087ec0;
+  content: "";
   animation: point-keyboard-caret 1s steps(1) infinite;
 }
 .point-name-keyboard-keys {
