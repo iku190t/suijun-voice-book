@@ -7,7 +7,7 @@ import {
   LEVELING_TOLERANCE_PRESETS,
   resolveToleranceDistanceMeters,
   toNumber
-} from "./calculation.js?v=189";
+} from "./calculation.js?v=190";
 import {
   chooseLevelReading,
   createVoiceController,
@@ -15,15 +15,15 @@ import {
   normalizeSpokenNumber,
   prepareSpeechSynthesis,
   speakBack
-} from "./voice.js?v=189";
-import { clearProject, loadProject, saveProject } from "./storage.js?v=189";
-import { exportNotebookCsv } from "./export.js?v=189";
+} from "./voice.js?v=190";
+import { clearProject, loadProject, saveProject } from "./storage.js?v=190";
+import { exportNotebookCsv } from "./export.js?v=190";
 import {
   alignSheetsWithCurrentLabels,
   isValidStaffReading,
   rowHasLevelObservationData,
   reversePointNamesWithinUsedRows
-} from "./rules.js?v=189";
+} from "./rules.js?v=190";
 import {
   choosePointName,
   composePointNameSuggestionCandidates,
@@ -36,8 +36,8 @@ import {
   normalizePointName,
   pointNameToSpeech,
   recordPointNameUsage
-} from "./point-names.js?v=189";
-import { initializeAnalytics, trackEvent } from "./analytics.js?v=189";
+} from "./point-names.js?v=190";
+import { initializeAnalytics, trackEvent } from "./analytics.js?v=190";
 
 initializeAnalytics();
 
@@ -45,7 +45,7 @@ const DEFAULT_ROW_COUNT = 200;
 const APP_SHARE_URL = "https://iku190t.github.io/suijun-voice-book/";
 const APP_SHARE_TITLE = "水準ボイス";
 const APP_SHARE_TEXT = "水準測量の音声入力Web野帳です。";
-const APP_RELEASE_VERSION = new URL(import.meta.url).searchParams.get("v") || "189";
+const APP_RELEASE_VERSION = new URL(import.meta.url).searchParams.get("v") || "190";
 const FEEDBACK_EMAIL = "ez.survey2023@gmail.com";
 const POINT_SUGGESTION_LIMIT = 6;
 const POINT_SUGGESTION_SEEDS = ["NO.0", "TP0", "KBM0", "T-0", "BC.0", "SP.0"];
@@ -2230,12 +2230,19 @@ document.addEventListener("visibilitychange", () => {
   handleVoicePageVisible();
   scheduleExternalUiRecovery();
 });
-window.addEventListener("pageshow", () => {
+window.addEventListener("pageshow", (event) => {
+  if (event.persisted) voicePageWasHidden = true;
   handleVoicePageVisible();
   if (externalUiRecoveryActive) scheduleExternalUiRecovery();
 });
 window.addEventListener("focus", () => {
+  handleVoicePageVisible();
   if (externalUiRecoveryActive) scheduleExternalUiRecovery();
+});
+document.addEventListener("freeze", handleVoicePageHidden);
+document.addEventListener("resume", handleVoicePageVisible);
+window.addEventListener("online", () => {
+  if (!voiceSessionActive) voiceController.resume();
 });
 
 function ensureFocusedCellAboveKeyboard(input, behavior = "smooth") {
@@ -3487,7 +3494,7 @@ function invalidateMicrophonePermissionSession() {
 
 async function requestMicrophonePermission() {
   if (
-    (microphonePermissionConfirmed && !isIosDevice()) ||
+    microphonePermissionConfirmed ||
     !navigator.mediaDevices?.getUserMedia
   ) {
     return;
@@ -3532,6 +3539,9 @@ async function requestMicrophonePermission() {
     clearTimeout(timeoutId);
     stream?.getTracks?.().forEach((track) => track.stop());
   }
+  // getUserMediaのトラック停止直後にSpeechRecognitionを開始すると、
+  // iOSで音声入力デバイスの解放が間に合わないことがある。
+  await new Promise((resolve) => setTimeout(resolve, 140));
 }
 
 function showMicrophonePermissionError(errorCode) {
@@ -3742,13 +3752,24 @@ const voiceController = createVoiceController({
   },
   onError: (errorCode) => {
     const permissionError = [
-      "start-timeout",
       "not-allowed",
       "service-not-allowed",
       "audio-capture"
     ].includes(errorCode);
-    if (!permissionError) return;
-    showMicrophonePermissionError(errorCode);
+    if (permissionError) {
+      invalidateMicrophonePermissionSession();
+      showMicrophonePermissionError(errorCode);
+      return;
+    }
+    if (errorCode === "start-timeout" || errorCode === "start-failed") {
+      showNotice("マイクを開始できませんでした。もう一度「聞き取る」を押してください。", "error");
+      trackEvent("voice_start_error", { error_code: errorCode });
+      return;
+    }
+    if (errorCode === "network") {
+      showNotice("音声認識へ接続できません。通信状態を確認してください。", "error");
+      trackEvent("voice_network_error");
+    }
   },
   onResult: async (transcript, recognitionDetails = {}) => {
     const resultSessionToken = voiceSessionToken;
@@ -3857,10 +3878,9 @@ function resetVoiceRecognitionForNextStart() {
   if (voiceSessionActive) {
     cancelActiveVoiceSession();
   } else {
-    voiceController.reset();
+    voiceController.suspend();
     updateVoiceModeUi();
   }
-  invalidateMicrophonePermissionSession();
 }
 
 function handleVoicePageHidden() {
@@ -3872,7 +3892,7 @@ function handleVoicePageHidden() {
 function handleVoicePageVisible() {
   if (!voicePageWasHidden) return;
   voicePageWasHidden = false;
-  voiceController.reset();
+  voiceController.resume();
   finishVoiceSession();
   updateVoiceModeUi();
 }
@@ -3916,7 +3936,9 @@ voiceButton.addEventListener("click", async () => {
     showNotice("先に入力セルを選択してください。", "error");
     return;
   }
-  prepareSpeechSynthesis();
+  // ユーザー操作中に毎回復唱エンジンを起こし直す。
+  // ロック復帰後に残った古い読み上げキューもここで破棄する。
+  prepareSpeechSynthesis({ force: true });
   voiceTarget = selectedInput;
   voiceSessionToken += 1;
   const permissionSessionToken = voiceSessionToken;

@@ -49,27 +49,57 @@ export function levelReadingToSpeech(value) {
 let speechPrepared = false;
 let speechRequestSequence = 0;
 let releaseActiveSpeech = null;
+let activeSpeechUtterance = null;
+let speechPrimerUtterance = null;
+let cachedJapaneseVoice = null;
+let voicesChangedListenerAttached = false;
+
+function refreshJapaneseVoice() {
+  if (!("speechSynthesis" in window)) return null;
+  const voices = window.speechSynthesis.getVoices?.() || [];
+  cachedJapaneseVoice = voices.find((voice) => /^ja(?:-|_)/i.test(voice.lang || "")) || null;
+  return cachedJapaneseVoice;
+}
+
+function attachVoicesChangedListener() {
+  if (voicesChangedListenerAttached || !("speechSynthesis" in window)) return;
+  voicesChangedListenerAttached = true;
+  window.speechSynthesis.addEventListener?.("voiceschanged", refreshJapaneseVoice);
+}
 
 export function resetSpeechSynthesis() {
   speechPrepared = false;
   speechRequestSequence += 1;
   releaseActiveSpeech?.();
   releaseActiveSpeech = null;
-  window.speechSynthesis?.cancel?.();
-  window.speechSynthesis?.resume?.();
+  activeSpeechUtterance = null;
+  speechPrimerUtterance = null;
+  try { window.speechSynthesis?.cancel?.(); } catch {}
+  try { window.speechSynthesis?.resume?.(); } catch {}
 }
 
 export function prepareSpeechSynthesis({ force = false } = {}) {
   if (force) resetSpeechSynthesis();
-  if (speechPrepared || !("speechSynthesis" in window) || !("SpeechSynthesisUtterance" in window)) return;
+  if (!("speechSynthesis" in window) || !("SpeechSynthesisUtterance" in window)) return false;
+  attachVoicesChangedListener();
+  refreshJapaneseVoice();
+  try { window.speechSynthesis.resume(); } catch {}
+  if (speechPrepared) return true;
   speechPrepared = true;
-  window.speechSynthesis.getVoices();
-  const primer = new SpeechSynthesisUtterance("\u00a0");
-  primer.lang = "ja-JP";
-  primer.volume = 0;
-  primer.rate = 10;
-  window.speechSynthesis.speak(primer);
-  window.speechSynthesis.cancel();
+  // iOSではユーザー操作中に一度speakを通しておくと、認識完了後の復唱が
+  // 非同期処理を挟んでも開始しやすい。直後にcancelせず自然終了させる。
+  speechPrimerUtterance = new SpeechSynthesisUtterance("\u00a0");
+  speechPrimerUtterance.lang = "ja-JP";
+  speechPrimerUtterance.volume = 0;
+  speechPrimerUtterance.rate = 10;
+  speechPrimerUtterance.onend = () => { speechPrimerUtterance = null; };
+  speechPrimerUtterance.onerror = () => { speechPrimerUtterance = null; };
+  try {
+    window.speechSynthesis.speak(speechPrimerUtterance);
+  } catch {
+    speechPrimerUtterance = null;
+  }
+  return true;
 }
 
 export function speakBack(value, rate = 0.9) {
@@ -81,38 +111,35 @@ export function speakBack(value, rate = 0.9) {
   const synthesis = window.speechSynthesis;
   const requestId = ++speechRequestSequence;
   releaseActiveSpeech?.();
-  synthesis.cancel();
-  synthesis.resume();
+  try { synthesis.cancel(); } catch {}
+  try { synthesis.resume(); } catch {}
 
   return (async () => {
-    await new Promise((resolve) => setTimeout(resolve, 90));
+    // SpeechRecognitionの音声入力デバイスが解放される猶予を取る。
+    await new Promise((resolve) => setTimeout(resolve, 120));
     for (let attempt = 0; attempt < 3; attempt += 1) {
       if (requestId !== speechRequestSequence) return;
       if (attempt > 0) {
-        speechPrepared = false;
-        prepareSpeechSynthesis();
-        synthesis.cancel();
-        synthesis.resume();
-        await new Promise((resolve) => setTimeout(resolve, 160 + (attempt * 80)));
+        try { synthesis.cancel(); } catch {}
+        try { synthesis.resume(); } catch {}
+        refreshJapaneseVoice();
+        await new Promise((resolve) => setTimeout(resolve, 180 + (attempt * 100)));
       }
       const result = await new Promise((resolve) => {
         const utterance = new SpeechSynthesisUtterance(spoken);
+        activeSpeechUtterance = utterance;
         utterance.lang = "ja-JP";
         utterance.rate = Math.min(1.5, Math.max(0.5, Number(rate) || 0.9));
-        const japaneseVoice = synthesis.getVoices?.().find((voice) => (
-          /^ja(?:-|_)/i.test(voice.lang || "")
-        ));
+        const japaneseVoice = cachedJapaneseVoice || refreshJapaneseVoice();
         if (japaneseVoice) utterance.voice = japaneseVoice;
         let completed = false;
         let started = false;
-        let quietSamples = 0;
         const timers = [];
-        let heartbeat = null;
         const finish = (status) => {
           if (completed) return;
           completed = true;
           timers.forEach(clearTimeout);
-          clearInterval(heartbeat);
+          if (activeSpeechUtterance === utterance) activeSpeechUtterance = null;
           if (releaseActiveSpeech === release) releaseActiveSpeech = null;
           resolve(status);
         };
@@ -120,49 +147,53 @@ export function speakBack(value, rate = 0.9) {
         releaseActiveSpeech = release;
         utterance.onstart = () => {
           started = true;
-          quietSamples = 0;
         };
         utterance.onend = () => finish("ended");
         utterance.onerror = () => finish(
           requestId === speechRequestSequence ? "retry" : "cancelled"
         );
-        utterance.onpause = () => synthesis.resume();
-        synthesis.speak(utterance);
-        [60, 220, 520].forEach((delay) => {
+        utterance.onpause = () => {
+          try { synthesis.resume(); } catch {}
+        };
+        try {
+          synthesis.speak(utterance);
+        } catch {
+          finish("retry");
+          return;
+        }
+        [80, 260, 700, 1400].forEach((delay) => {
           timers.push(setTimeout(() => {
-            if (!completed && requestId === speechRequestSequence) synthesis.resume();
+            if (
+              !completed &&
+              requestId === speechRequestSequence &&
+              synthesis.paused
+            ) {
+              try { synthesis.resume(); } catch {}
+            }
           }, delay));
         });
         timers.push(setTimeout(() => {
           if (!completed && !started) {
             finish("retry");
-            synthesis.cancel();
+            try { synthesis.cancel(); } catch {}
           }
-        }, 1600));
+        }, 1800));
         timers.push(setTimeout(() => {
           if (!completed) {
-            finish("retry");
-            synthesis.cancel();
+            // onendを返さないSafariでも、音声が終了していれば成功扱いにする。
+            const status = started && !synthesis.speaking && !synthesis.pending
+              ? "ended"
+              : "retry";
+            finish(status);
+            if (status === "retry") {
+              try { synthesis.cancel(); } catch {}
+            }
           }
-        }, 8000));
-        heartbeat = setInterval(() => {
-          if (completed || requestId !== speechRequestSequence) {
-            finish("cancelled");
-            return;
-          }
-          synthesis.resume();
-          if (!started) return;
-          if (!synthesis.speaking && !synthesis.pending) {
-            quietSamples += 1;
-            if (quietSamples >= 4) finish("retry");
-          } else {
-            quietSamples = 0;
-          }
-        }, 260);
+        }, 9000));
       });
       if (result === "ended" || result === "cancelled") return;
-      synthesis.cancel();
-      synthesis.resume();
+      try { synthesis.cancel(); } catch {}
+      try { synthesis.resume(); } catch {}
     }
   })();
 }
@@ -176,7 +207,16 @@ export function createVoiceController({
   startTimeoutMs = 10000
 }) {
   const Recognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-  if (!Recognition) return { supported: false, start() {}, cancel() {}, reset() {} };
+  if (!Recognition) {
+    return {
+      supported: false,
+      start() {},
+      cancel() {},
+      reset() {},
+      suspend() {},
+      resume() {}
+    };
+  }
 
   let recognition = null;
   let pendingTranscript = "";
@@ -193,6 +233,8 @@ export function createVoiceController({
   let queuedResult = null;
   let resultDeliveryTimer = null;
   let recognitionStopFallbackTimer = null;
+  let recognitionRestartTimer = null;
+  let startRetryCount = 0;
 
   const clearStartTimeout = () => {
     if (startTimeoutId === null) return;
@@ -213,6 +255,24 @@ export function createVoiceController({
     }
     resultDeliveryTimer = null;
     recognitionStopFallbackTimer = null;
+  };
+
+  const clearRecognitionRestartTimer = () => {
+    if (recognitionRestartTimer !== null) clearTimeout(recognitionRestartTimer);
+    recognitionRestartTimer = null;
+  };
+
+  const disposeRecognitionInstance = ({ abort = true } = {}) => {
+    const previous = recognition;
+    recognition = null;
+    if (!previous) return;
+    previous.onstart = null;
+    previous.onend = null;
+    previous.onerror = null;
+    previous.onresult = null;
+    if (abort) {
+      try { previous.abort(); } catch {}
+    }
   };
 
   const dispatchQueuedResult = () => {
@@ -256,9 +316,11 @@ export function createVoiceController({
       recognitionStopFallbackTimer = setTimeout(() => {
         recognitionStopFallbackTimer = null;
         recognitionState = "idle";
+        // Safariがstop後にendを返さない場合も、古いマイク処理を確実に破棄する。
+        disposeRecognitionInstance();
         onListeningChange(false);
         dispatchQueuedResult();
-      }, 700);
+      }, 850);
     } catch {
       recognitionState = "idle";
       onListeningChange(false);
@@ -266,7 +328,7 @@ export function createVoiceController({
     }
   };
 
-  const beginRecognition = () => {
+  const beginRecognition = ({ retry = false } = {}) => {
     if (!recognition) createRecognitionInstance();
     clearStartTimeout();
     clearInterimFinalize();
@@ -284,6 +346,24 @@ export function createVoiceController({
       startTimeoutId = setTimeout(() => {
         if (recognitionState !== "starting") return;
         startTimeoutId = null;
+        if (
+          startRetryCount < 1 &&
+          (
+            typeof document === "undefined" ||
+            document.visibilityState === "visible"
+          )
+        ) {
+          startRetryCount += 1;
+          recognitionState = "idle";
+          disposeRecognitionInstance();
+          onListeningChange(false);
+          onStatus("マイクへ再接続中");
+          recognitionRestartTimer = setTimeout(() => {
+            recognitionRestartTimer = null;
+            beginRecognition({ retry: true });
+          }, 240);
+          return;
+        }
         recognitionFailed = true;
         cancelRequested = true;
         recognitionState = "cancelling";
@@ -298,7 +378,7 @@ export function createVoiceController({
           cancelRequested = false;
           restartQueued = false;
         }, 250);
-      }, startTimeoutMs);
+      }, retry ? Math.max(5000, startTimeoutMs) : startTimeoutMs);
     } catch {
       clearStartTimeout();
       recognitionState = "idle";
@@ -323,9 +403,10 @@ export function createVoiceController({
     clearInterimFinalize();
     const wasCancelled = cancelRequested;
     recognitionState = "idle";
+    disposeRecognitionInstance({ abort: false });
     if (wasCancelled && restartQueued) {
       restartQueued = false;
-      beginRecognition();
+      beginRecognition({ retry: true });
       return;
     }
     onListeningChange(false);
@@ -431,6 +512,7 @@ export function createVoiceController({
     clearStartTimeout();
     clearInterimFinalize();
     clearResultDeliveryTimers();
+    clearRecognitionRestartTimer();
     queuedResult = null;
     restartQueued = false;
     cancelRequested = true;
@@ -440,24 +522,14 @@ export function createVoiceController({
     finishRequested = true;
     resultDelivered = false;
     recognitionState = "idle";
-    const previous = recognition;
-    recognition = null;
-    if (previous) {
-      previous.onstart = null;
-      previous.onend = null;
-      previous.onerror = null;
-      previous.onresult = null;
-      try { previous.abort(); } catch {}
-    }
+    startRetryCount = 0;
+    disposeRecognitionInstance();
     cancelRequested = false;
-    createRecognitionInstance();
     if (notify) {
       onListeningChange(false);
       onStatus("");
     }
   };
-
-  createRecognitionInstance();
 
   return {
     supported: true,
@@ -474,6 +546,14 @@ export function createVoiceController({
     reset() {
       resetSpeechSynthesis();
       resetRecognition();
+    },
+    suspend() {
+      resetSpeechSynthesis();
+      resetRecognition({ notify: true });
+    },
+    resume() {
+      resetSpeechSynthesis();
+      resetRecognition({ notify: true });
     }
   };
 }
