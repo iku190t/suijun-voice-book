@@ -7,7 +7,7 @@ import {
   LEVELING_TOLERANCE_PRESETS,
   resolveToleranceDistanceMeters,
   toNumber
-} from "./calculation.js?v=187";
+} from "./calculation.js?v=188";
 import {
   chooseLevelReading,
   createVoiceController,
@@ -15,15 +15,15 @@ import {
   normalizeSpokenNumber,
   prepareSpeechSynthesis,
   speakBack
-} from "./voice.js?v=187";
-import { clearProject, loadProject, saveProject } from "./storage.js?v=187";
-import { exportNotebookCsv } from "./export.js?v=187";
+} from "./voice.js?v=188";
+import { clearProject, loadProject, saveProject } from "./storage.js?v=188";
+import { exportNotebookCsv } from "./export.js?v=188";
 import {
   alignSheetsWithCurrentLabels,
   isValidStaffReading,
   rowHasLevelObservationData,
   reversePointNamesWithinUsedRows
-} from "./rules.js?v=187";
+} from "./rules.js?v=188";
 import {
   choosePointName,
   composePointNameSuggestionCandidates,
@@ -36,8 +36,8 @@ import {
   normalizePointName,
   pointNameToSpeech,
   recordPointNameUsage
-} from "./point-names.js?v=187";
-import { initializeAnalytics, trackEvent } from "./analytics.js?v=187";
+} from "./point-names.js?v=188";
+import { initializeAnalytics, trackEvent } from "./analytics.js?v=188";
 
 initializeAnalytics();
 
@@ -45,7 +45,7 @@ const DEFAULT_ROW_COUNT = 200;
 const APP_SHARE_URL = "https://iku190t.github.io/suijun-voice-book/";
 const APP_SHARE_TITLE = "水準ボイス";
 const APP_SHARE_TEXT = "水準測量の音声入力Web野帳です。";
-const APP_RELEASE_VERSION = new URL(import.meta.url).searchParams.get("v") || "187";
+const APP_RELEASE_VERSION = new URL(import.meta.url).searchParams.get("v") || "188";
 const FEEDBACK_EMAIL = "ez.survey2023@gmail.com";
 const POINT_SUGGESTION_LIMIT = 6;
 const POINT_SUGGESTION_SEEDS = ["NO.0", "TP0", "KBM0", "T-0", "BC.0", "SP.0"];
@@ -1241,7 +1241,17 @@ const POINT_NAME_KEYBOARD_ROWS = [
   [..."1234567890"],
   [..."QWERTYUIOP"],
   [..."ASDFGHJKL"],
-  [..."ZXCVBNM", "-", ".", "+"]
+  [
+    ..."ZXCVBNM",
+    { action: "left", label: "カーソルを左へ", text: "←" },
+    { action: "right", label: "カーソルを右へ", text: "→" },
+    {
+      action: "backspace",
+      className: "point-name-keyboard-backspace",
+      label: "一文字削除",
+      text: "⌫"
+    }
+  ]
 ];
 
 function initializePointNameKeyboard() {
@@ -1252,9 +1262,16 @@ function initializePointNameKeyboard() {
     keys.forEach((key) => {
       const button = document.createElement("button");
       button.type = "button";
-      button.dataset.pointKeyboardKey = key;
-      button.textContent = key;
-      button.setAttribute("aria-label", `${key}を入力`);
+      if (typeof key === "string") {
+        button.dataset.pointKeyboardKey = key;
+        button.textContent = key;
+        button.setAttribute("aria-label", `${key}を入力`);
+      } else {
+        button.dataset.pointKeyboardAction = key.action;
+        button.textContent = key.text;
+        button.setAttribute("aria-label", key.label);
+        if (key.className) button.className = key.className;
+      }
       row.append(button);
     });
     fragment.append(row);
