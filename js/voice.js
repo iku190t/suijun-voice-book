@@ -88,13 +88,9 @@ export function createVoiceController({
   startTimeoutMs = 10000
 }) {
   const Recognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-  if (!Recognition) return { supported: false, start() {}, cancel() {} };
+  if (!Recognition) return { supported: false, start() {}, cancel() {}, reset() {} };
 
-  const recognition = new Recognition();
-  recognition.lang = "ja-JP";
-  recognition.interimResults = true;
-  recognition.continuous = false;
-  recognition.maxAlternatives = 5;
+  let recognition = null;
   let pendingTranscript = "";
   let pendingAlternatives = [];
   let recognitionFailed = false;
@@ -134,13 +130,14 @@ export function createVoiceController({
     onStatus("認識結果を復唱します");
     onResult(transcript, { alternatives, isFinal });
     try {
-      recognition.stop();
+      recognition?.stop();
     } catch {
       onListeningChange(false);
     }
   };
 
   const beginRecognition = () => {
+    if (!recognition) createRecognitionInstance();
     clearStartTimeout();
     clearInterimFinalize();
     cancelRequested = false;
@@ -158,7 +155,7 @@ export function createVoiceController({
         recognitionFailed = true;
         cancelRequested = true;
         recognitionState = "cancelling";
-        try { recognition.abort(); } catch {}
+        try { recognition?.abort(); } catch {}
         onListeningChange(false);
         onStatus("");
         onError?.("start-timeout");
@@ -179,17 +176,17 @@ export function createVoiceController({
     }
   };
 
-  recognition.onstart = () => {
+  const handleRecognitionStart = () => {
     clearStartTimeout();
     if (cancelRequested) {
-      try { recognition.abort(); } catch {}
+      try { recognition?.abort(); } catch {}
       return;
     }
     recognitionState = "listening";
     onListeningChange(true);
     onStatus("音声を聞き取り中");
   };
-  recognition.onend = () => {
+  const handleRecognitionEnd = () => {
     clearStartTimeout();
     clearInterimFinalize();
     const wasCancelled = cancelRequested;
@@ -215,7 +212,7 @@ export function createVoiceController({
       onStatus("");
     }
   };
-  recognition.onerror = (event) => {
+  const handleRecognitionError = (event) => {
     clearStartTimeout();
     clearInterimFinalize();
     recognitionFailed = true;
@@ -226,7 +223,7 @@ export function createVoiceController({
     onStatus("");
     onError?.(event?.error || "recognition-error");
   };
-  recognition.onresult = (event) => {
+  const handleRecognitionResult = (event) => {
     if (cancelRequested || recognitionState === "cancelling") return;
     const results = Array.from(event.results);
     pendingTranscript = results
@@ -281,33 +278,65 @@ export function createVoiceController({
     }
   };
 
+  const createRecognitionInstance = () => {
+    const instance = new Recognition();
+    instance.lang = "ja-JP";
+    instance.interimResults = true;
+    instance.continuous = false;
+    instance.maxAlternatives = 5;
+    instance.onstart = handleRecognitionStart;
+    instance.onend = handleRecognitionEnd;
+    instance.onerror = handleRecognitionError;
+    instance.onresult = handleRecognitionResult;
+    recognition = instance;
+    return instance;
+  };
+
+  const resetRecognition = ({ notify = false } = {}) => {
+    clearStartTimeout();
+    clearInterimFinalize();
+    restartQueued = false;
+    cancelRequested = true;
+    recognitionFailed = true;
+    pendingTranscript = "";
+    pendingAlternatives = [];
+    finishRequested = true;
+    resultDelivered = false;
+    recognitionState = "idle";
+    const previous = recognition;
+    recognition = null;
+    if (previous) {
+      previous.onstart = null;
+      previous.onend = null;
+      previous.onerror = null;
+      previous.onresult = null;
+      try { previous.abort(); } catch {}
+    }
+    cancelRequested = false;
+    createRecognitionInstance();
+    if (notify) {
+      onListeningChange(false);
+      onStatus("");
+    }
+  };
+
+  createRecognitionInstance();
+
   return {
     supported: true,
     start() {
-      if (recognitionState !== "idle") {
-        if (cancelRequested || recognitionState === "cancelling") {
-          restartQueued = true;
-          onStatus("音声入力を準備中");
-        }
-        return;
-      }
+      // iOS Safariではロック復帰後に古い認識状態だけが残ることがある。
+      // 開始のたびに新しいインスタンスへ交換してから聞き取りを始める。
+      resetRecognition();
       beginRecognition();
     },
     cancel() {
-      clearStartTimeout();
-      clearInterimFinalize();
-      restartQueued = false;
-      cancelRequested = true;
-      recognitionFailed = true;
-      pendingTranscript = "";
-      pendingAlternatives = [];
-      finishRequested = true;
-      resultDelivered = false;
-      if (recognitionState !== "idle") recognitionState = "cancelling";
-      try { recognition.abort(); } catch {}
       window.speechSynthesis?.cancel?.();
-      onListeningChange(false);
-      onStatus("");
+      resetRecognition({ notify: true });
+    },
+    reset() {
+      window.speechSynthesis?.cancel?.();
+      resetRecognition();
     }
   };
 }

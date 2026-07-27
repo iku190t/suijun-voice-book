@@ -16,10 +16,10 @@
   <meta name="apple-mobile-web-app-title" content="水準ボイス">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <title>水準ボイス</title>
-  <link rel="manifest" href="./manifest.json?v=183">
-  <link rel="icon" href="./icons/icon-192.png?v=183">
-  <link rel="apple-touch-icon" href="./icons/icon-192.png?v=183">
-  <link rel="stylesheet" href="./css/style.css?v=183">
+  <link rel="manifest" href="./manifest.json?v=184">
+  <link rel="icon" href="./icons/icon-192.png?v=184">
+  <link rel="apple-touch-icon" href="./icons/icon-192.png?v=184">
+  <link rel="stylesheet" href="./css/style.css?v=184">
 </head>
 <body class="voice-mode-active">
   <header class="app-header">
@@ -161,16 +161,17 @@
       <div class="point-name-keyboard-display">
         <strong id="customKeyboardLabel">点名入力</strong>
         <output id="pointNameKeyboardValue" aria-live="polite"></output>
+        <button class="point-name-native-keyboard point-name-native-keyboard-text" type="button" data-point-keyboard-action="native" aria-label="端末の標準キーボードを開く">純正⌨</button>
       </div>
       <div id="pointNameKeyboardKeys" class="point-name-keyboard-keys"></div>
       <div class="point-name-keyboard-actions">
         <button type="button" data-point-keyboard-action="left" aria-label="カーソルを左へ">←</button>
         <button type="button" data-point-keyboard-action="right" aria-label="カーソルを右へ">→</button>
         <button type="button" data-point-keyboard-action="backspace" aria-label="一文字削除">⌫</button>
-        <button id="numericKeyboardSign" class="numeric-keyboard-sign" type="button" data-point-keyboard-action="sign" aria-label="プラスとマイナスを切り替え">±</button>
+        <button id="numericKeyboardSign" class="numeric-keyboard-sign" type="button" data-point-keyboard-action="sign" aria-label="マイナスを付ける">−</button>
         <button class="point-name-keyboard-space" type="button" data-point-keyboard-action="space">空白</button>
         <button class="custom-keyboard-voice" type="button" data-point-keyboard-action="voice" aria-label="音声入力へ切り替え">🎤</button>
-        <button class="point-name-native-keyboard" type="button" data-point-keyboard-action="native" aria-label="端末の標準キーボードを開く">純正⌨</button>
+        <button class="point-name-native-keyboard point-name-native-keyboard-numeric" type="button" data-point-keyboard-action="native" aria-label="端末の標準キーボードを開く">純正⌨</button>
         <button class="point-name-keyboard-clear" type="button" data-point-keyboard-action="clear">クリア</button>
         <button class="point-name-keyboard-done" type="button" data-point-keyboard-action="done">確定</button>
       </div>
@@ -374,6 +375,6 @@
   </dialog>
 
   <noscript>このアプリの利用にはJavaScriptを有効にしてください。</noscript>
-  <script type="module" src="./js/app.js?v=183"></script>
+  <script type="module" src="./js/app.js?v=184"></script>
 </body>
 </html>

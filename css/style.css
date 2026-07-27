@@ -842,7 +842,7 @@ body.external-ui-recovery .voice-dock {
 .point-name-keyboard[hidden] { display: none; }
 .point-name-keyboard-display {
   display: grid;
-  grid-template-columns: auto minmax(0, 1fr);
+  grid-template-columns: auto minmax(0, 1fr) auto;
   min-height: 41px;
   align-items: center;
   gap: 5px;
@@ -930,14 +930,17 @@ body.external-ui-recovery .voice-dock {
   background: #f7fcff;
   font-size: .78rem;
 }
-.voice-dock .point-name-keyboard-actions .point-name-native-keyboard {
+.voice-dock .point-name-keyboard-display .point-name-native-keyboard-text {
   min-height: 30px;
-  padding: 1px 4px;
+  padding: 1px 6px;
   border-color: #168dcc;
   color: #0d527b;
   background: #fff;
   font-size: .72rem;
   white-space: nowrap;
+}
+.point-name-keyboard-actions .point-name-native-keyboard-numeric {
+  display: none;
 }
 .voice-dock .point-name-keyboard-actions .point-name-keyboard-clear {
   color: #942222;
@@ -966,6 +969,9 @@ body.external-ui-recovery .voice-dock {
   grid-row: 1;
   grid-template-columns: auto minmax(0, 1fr);
 }
+.point-name-keyboard[data-keyboard-layout="numeric"] .point-name-keyboard-display .point-name-native-keyboard-text {
+  display: none;
+}
 .point-name-keyboard[data-keyboard-layout="numeric"] .point-name-keyboard-display strong {
   font-size: .7rem;
 }
@@ -980,8 +986,8 @@ body.external-ui-recovery .voice-dock {
 .point-name-keyboard[data-keyboard-layout="numeric"] .point-name-keyboard-actions {
   grid-column: 1;
   grid-row: 2;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  grid-template-rows: repeat(2, 60px);
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-rows: repeat(3, 39px);
   align-content: center;
 }
 .point-name-keyboard[data-keyboard-layout="numeric"] .point-name-keyboard-actions > [data-point-keyboard-action="backspace"] {
@@ -989,13 +995,21 @@ body.external-ui-recovery .voice-dock {
 }
 .point-name-keyboard[data-keyboard-layout="numeric"] .point-name-keyboard-actions .numeric-keyboard-sign {
   display: block;
-  color: #fff;
-  border-color: #087ec0;
-  background: #168dcc;
+  color: #07334f;
+  border-color: #9ac9e1;
+  background: #fff;
   font-size: 1.05rem;
 }
+.point-name-keyboard[data-keyboard-layout="numeric"] .point-name-keyboard-actions .point-name-native-keyboard-numeric {
+  display: block;
+  grid-column: span 2;
+  font-size: .84rem;
+}
+.point-name-keyboard[data-keyboard-layout="numeric"] .point-name-keyboard-actions .point-name-keyboard-done {
+  grid-column: span 2;
+}
 .voice-dock .point-name-keyboard[data-keyboard-layout="numeric"] .point-name-keyboard-actions button {
-  min-height: 60px;
+  min-height: 39px;
 }
 .point-name-keyboard[data-keyboard-layout="numeric"] .point-name-keyboard-space {
   display: none;
@@ -1021,8 +1035,16 @@ body.external-ui-recovery .voice-dock {
 body.point-keyboard-active .voice-dock {
   grid-template-columns: minmax(280px, 560px);
 }
-body.point-keyboard-active .voice-dock > :not(.point-name-keyboard) {
+body.point-keyboard-active .voice-dock > :not(.point-name-keyboard):not(.point-suggestions) {
   display: none;
+}
+body.point-keyboard-active.point-suggestions-visible .point-suggestions {
+  order: 1;
+  width: min(100%, 560px);
+  padding-block: 5px;
+}
+body.point-keyboard-active.point-suggestions-visible .point-name-keyboard {
+  order: 2;
 }
 @keyframes point-keyboard-caret { 50% { opacity: 0; } }
 .voice-action {

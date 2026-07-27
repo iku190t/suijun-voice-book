@@ -7,7 +7,7 @@ import {
   LEVELING_TOLERANCE_PRESETS,
   resolveToleranceDistanceMeters,
   toNumber
-} from "./calculation.js?v=183";
+} from "./calculation.js?v=184";
 import {
   chooseLevelReading,
   createVoiceController,
@@ -15,15 +15,15 @@ import {
   normalizeSpokenNumber,
   prepareSpeechSynthesis,
   speakBack
-} from "./voice.js?v=183";
-import { clearProject, loadProject, saveProject } from "./storage.js?v=183";
-import { exportNotebookCsv } from "./export.js?v=183";
+} from "./voice.js?v=184";
+import { clearProject, loadProject, saveProject } from "./storage.js?v=184";
+import { exportNotebookCsv } from "./export.js?v=184";
 import {
   alignSheetsWithCurrentLabels,
   isValidStaffReading,
   rowHasLevelObservationData,
   reversePointNamesWithinUsedRows
-} from "./rules.js?v=183";
+} from "./rules.js?v=184";
 import {
   choosePointName,
   composePointNameSuggestionCandidates,
@@ -36,8 +36,8 @@ import {
   normalizePointName,
   pointNameToSpeech,
   recordPointNameUsage
-} from "./point-names.js?v=183";
-import { initializeAnalytics, trackEvent } from "./analytics.js?v=183";
+} from "./point-names.js?v=184";
+import { initializeAnalytics, trackEvent } from "./analytics.js?v=184";
 
 initializeAnalytics();
 
@@ -45,7 +45,7 @@ const DEFAULT_ROW_COUNT = 200;
 const APP_SHARE_URL = "https://iku190t.github.io/suijun-voice-book/";
 const APP_SHARE_TITLE = "水準ボイス";
 const APP_SHARE_TEXT = "水準測量の音声入力Web野帳です。";
-const APP_RELEASE_VERSION = new URL(import.meta.url).searchParams.get("v") || "183";
+const APP_RELEASE_VERSION = new URL(import.meta.url).searchParams.get("v") || "184";
 const FEEDBACK_EMAIL = "ez.survey2023@gmail.com";
 const POINT_SUGGESTION_LIMIT = 6;
 const POINT_SUGGESTION_SEEDS = ["NO.0", "TP0", "KBM0", "T-0", "BC.0", "SP.0"];
@@ -105,7 +105,7 @@ const customKeyboardLabel = document.querySelector("#customKeyboardLabel");
 const pointNameKeyboardValue = document.querySelector("#pointNameKeyboardValue");
 const pointNameKeyboardKeys = document.querySelector("#pointNameKeyboardKeys");
 const numericKeyboardSign = document.querySelector("#numericKeyboardSign");
-const nativeKeyboardButton = pointNameKeyboard.querySelector('[data-point-keyboard-action="native"]');
+const nativeKeyboardButtons = pointNameKeyboard.querySelectorAll('[data-point-keyboard-action="native"]');
 const voiceStatus = document.querySelector("#voiceStatus");
 const lastVoiceValue = document.querySelector("#lastVoiceValue");
 const voiceDock = document.querySelector(".voice-dock");
@@ -143,6 +143,7 @@ let selectedInput = null;
 let voiceTarget = null;
 let voiceModeActive = true;
 let voiceSessionActive = false;
+let voicePageWasHidden = false;
 let pointNameKeyboardTarget = null;
 let pointNameKeyboardCaretIndex = 0;
 let pointNameKeyboardSelectionAnchor = 0;
@@ -1374,15 +1375,21 @@ function openPointNameKeyboard(target) {
     elevation: "標高",
     planHeight: "計画高"
   }[target.dataset.field] || "数値入力";
-  nativeKeyboardButton.textContent = textLayout ? "純正⌨" : "⌨";
-  nativeKeyboardButton.setAttribute("aria-label", "端末の標準キーボードを開く");
+  nativeKeyboardButtons.forEach((button) => {
+    button.textContent = "純正⌨";
+    button.setAttribute("aria-label", "端末の標準キーボードを開く");
+  });
   numericKeyboardSign.disabled = UNSIGNED_DECIMAL_FIELDS.has(target.dataset.field);
   pointNameKeyboard.hidden = false;
   document.body.classList.add("point-keyboard-active");
   voiceTarget = target;
   markSelectedInput(target);
   target.blur();
-  hidePointSuggestions();
+  if (target.dataset.field === "pointName") {
+    showPointNameSuggestions(target);
+  } else {
+    hidePointSuggestions();
+  }
   updatePointNameKeyboardDisplay();
   schedulePointClipboardPosition();
 }
@@ -1552,9 +1559,7 @@ pointNameKeyboard.addEventListener("click", (event) => {
       break;
     case "sign":
       if (numericKeyboardSign.disabled) break;
-      if (value.startsWith("-")) {
-        updatePointNameFromKeyboard(value.slice(1), Math.max(0, pointNameKeyboardCaretIndex - 1));
-      } else {
+      if (!value.startsWith("-")) {
         updatePointNameFromKeyboard(`-${value}`, pointNameKeyboardCaretIndex + 1);
       }
       break;
@@ -1562,6 +1567,7 @@ pointNameKeyboard.addEventListener("click", (event) => {
       const target = pointNameKeyboardTarget;
       hidePointNameKeyboard();
       if (!target?.isConnected) break;
+      resetVoiceRecognitionForNextStart();
       setVoiceModeActive(true);
       markSelectedInput(target);
       voiceTarget = target;
@@ -2146,15 +2152,18 @@ function scheduleExternalUiRecovery() {
 
 document.addEventListener("visibilitychange", () => {
   if (document.visibilityState === "hidden") {
+    handleVoicePageHidden();
     if (!externalUiRecoveryActive) beginExternalUiRecovery();
     externalUiRecoverySamplingStartedAt = 0;
     externalUiRecoveryStableSamples = 0;
     externalUiRecoveryMetrics = null;
     return;
   }
+  handleVoicePageVisible();
   scheduleExternalUiRecovery();
 });
 window.addEventListener("pageshow", () => {
+  handleVoicePageVisible();
   if (externalUiRecoveryActive) scheduleExternalUiRecovery();
 });
 window.addEventListener("focus", () => {
@@ -3392,14 +3401,60 @@ function isIosDevice() {
 }
 
 let microphonePermissionConfirmed = false;
+let microphonePermissionRequestToken = 0;
+
+function invalidateMicrophonePermissionSession() {
+  microphonePermissionConfirmed = false;
+  microphonePermissionRequestToken += 1;
+}
 
 async function requestMicrophonePermission() {
-  if (microphonePermissionConfirmed || !navigator.mediaDevices?.getUserMedia) {
+  if (
+    (microphonePermissionConfirmed && !isIosDevice()) ||
+    !navigator.mediaDevices?.getUserMedia
+  ) {
     return;
   }
-  const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-  stream.getTracks().forEach((track) => track.stop());
-  microphonePermissionConfirmed = true;
+  const requestToken = ++microphonePermissionRequestToken;
+  let timeoutId = null;
+  const timeout = new Promise((_, reject) => {
+    timeoutId = setTimeout(() => {
+      const error = new Error("microphone-timeout");
+      error.name = "TimeoutError";
+      reject(error);
+    }, 8000);
+  });
+  let stream = null;
+  let requestActive = true;
+  const mediaRequest = navigator.mediaDevices.getUserMedia({ audio: true })
+    .then((candidateStream) => {
+      if (
+        !requestActive ||
+        requestToken !== microphonePermissionRequestToken
+      ) {
+        candidateStream.getTracks().forEach((track) => track.stop());
+        const error = new Error("microphone-request-replaced");
+        error.name = "AbortError";
+        throw error;
+      }
+      return candidateStream;
+    });
+  try {
+    stream = await Promise.race([
+      mediaRequest,
+      timeout
+    ]);
+    if (requestToken !== microphonePermissionRequestToken) {
+      const error = new Error("microphone-request-replaced");
+      error.name = "AbortError";
+      throw error;
+    }
+    microphonePermissionConfirmed = true;
+  } finally {
+    requestActive = false;
+    clearTimeout(timeoutId);
+    stream?.getTracks?.().forEach((track) => track.stop());
+  }
 }
 
 function showMicrophonePermissionError(errorCode) {
@@ -3721,6 +3776,30 @@ function cancelActiveVoiceSession() {
   updateVoiceModeUi();
 }
 
+function resetVoiceRecognitionForNextStart() {
+  if (voiceSessionActive) {
+    cancelActiveVoiceSession();
+  } else {
+    voiceController.reset();
+    updateVoiceModeUi();
+  }
+  invalidateMicrophonePermissionSession();
+}
+
+function handleVoicePageHidden() {
+  if (voicePageWasHidden) return;
+  voicePageWasHidden = true;
+  resetVoiceRecognitionForNextStart();
+}
+
+function handleVoicePageVisible() {
+  if (!voicePageWasHidden) return;
+  voicePageWasHidden = false;
+  voiceController.reset();
+  finishVoiceSession();
+  updateVoiceModeUi();
+}
+
 undoButton.addEventListener("click", () => {
   if (voiceSessionActive) {
     cancelActiveVoiceSession();
@@ -3820,6 +3899,7 @@ if ("serviceWorker" in navigator) {
 }
 
 window.addEventListener("pagehide", () => {
+  handleVoicePageHidden();
   clearTimeout(autosaveTimer);
   project = saveProject(project);
 });
