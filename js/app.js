@@ -7,7 +7,7 @@ import {
   LEVELING_TOLERANCE_PRESETS,
   resolveToleranceDistanceMeters,
   toNumber
-} from "./calculation.js?v=188";
+} from "./calculation.js?v=189";
 import {
   chooseLevelReading,
   createVoiceController,
@@ -15,15 +15,15 @@ import {
   normalizeSpokenNumber,
   prepareSpeechSynthesis,
   speakBack
-} from "./voice.js?v=188";
-import { clearProject, loadProject, saveProject } from "./storage.js?v=188";
-import { exportNotebookCsv } from "./export.js?v=188";
+} from "./voice.js?v=189";
+import { clearProject, loadProject, saveProject } from "./storage.js?v=189";
+import { exportNotebookCsv } from "./export.js?v=189";
 import {
   alignSheetsWithCurrentLabels,
   isValidStaffReading,
   rowHasLevelObservationData,
   reversePointNamesWithinUsedRows
-} from "./rules.js?v=188";
+} from "./rules.js?v=189";
 import {
   choosePointName,
   composePointNameSuggestionCandidates,
@@ -36,8 +36,8 @@ import {
   normalizePointName,
   pointNameToSpeech,
   recordPointNameUsage
-} from "./point-names.js?v=188";
-import { initializeAnalytics, trackEvent } from "./analytics.js?v=188";
+} from "./point-names.js?v=189";
+import { initializeAnalytics, trackEvent } from "./analytics.js?v=189";
 
 initializeAnalytics();
 
@@ -45,7 +45,7 @@ const DEFAULT_ROW_COUNT = 200;
 const APP_SHARE_URL = "https://iku190t.github.io/suijun-voice-book/";
 const APP_SHARE_TITLE = "水準ボイス";
 const APP_SHARE_TEXT = "水準測量の音声入力Web野帳です。";
-const APP_RELEASE_VERSION = new URL(import.meta.url).searchParams.get("v") || "188";
+const APP_RELEASE_VERSION = new URL(import.meta.url).searchParams.get("v") || "189";
 const FEEDBACK_EMAIL = "ez.survey2023@gmail.com";
 const POINT_SUGGESTION_LIMIT = 6;
 const POINT_SUGGESTION_SEEDS = ["NO.0", "TP0", "KBM0", "T-0", "BC.0", "SP.0"];
@@ -65,6 +65,7 @@ const COLUMN_DEFINITIONS = [
   { key: "roundTrip", label: "往復差", baseWidth: 112 },
   { key: "difference", label: "高低差", baseWidth: 112 },
   { key: "elevation", label: "標高", baseWidth: 112 },
+  { key: "determinedElevation", label: "決定標高", baseWidth: 124 },
   { key: "planHeight", label: "計画高", baseWidth: 112 },
   { key: "planDifference", label: "差", baseWidth: 112 },
   { key: "note", label: "備考", baseWidth: 180 }
@@ -612,6 +613,7 @@ function rowTemplate(row, index) {
     <td class="calc round-trip-diff"></td>
     <td class="calc diff"></td>
     <td class="elevation-cell calculated${index === 0 ? " starting-elevation-cell" : " locked-elevation-cell"}"><input data-field="elevation" inputmode="decimal" autocomplete="off" aria-label="${index + 1}行目 既知標高または仮標高"${index > 0 ? ' readonly aria-readonly="true" data-calculated-elevation="" tabindex="-1"' : ""}></td>
+    <td class="calc determined-elevation"></td>
     <td><input data-field="planHeight" inputmode="decimal" autocomplete="off" aria-label="${index + 1}行目 計画高"></td>
     <td class="calc plan-difference"></td>
     <td><input data-field="note" inputmode="text" autocomplete="off" aria-label="${index + 1}行目 備考"></td>`;
@@ -771,6 +773,7 @@ function applyTableScale(value) {
     "--difference-width": 112,
     "--round-trip-width": 112,
     "--elevation-width": 112,
+    "--determined-elevation-width": 124,
     "--plan-height-width": 112,
     "--plan-difference-width": 112,
     "--note-width": 180,
@@ -830,9 +833,13 @@ function recalculateAndRender() {
   calculations.out = calculateNotebook(project.sheets.out, toleranceState.toleranceMm ?? 10);
   calculations.back = calculateNotebook(project.sheets.back, toleranceState.toleranceMm ?? 10, {
     direction: "up",
-    initialElevation: calculations.out.startElevation ?? 0
+    initialElevation: calculations.out.lastElevation
   });
-  applyRoundTripDifferences(calculations.out.rows, calculations.back.rows);
+  const roundTripState = applyRoundTripDifferences(
+    calculations.out.rows,
+    calculations.back.rows,
+    { outStartElevation: calculations.out.startElevation }
+  );
   project.sheets.out = stripCalculatedFields(calculations.out.rows);
   project.sheets.back = stripCalculatedFields(calculations.back.rows);
 
@@ -855,6 +862,11 @@ function recalculateAndRender() {
       "negative",
       Number.isFinite(row._roundTripDifferenceMm) && row._roundTripDifferenceMm < 0
     );
+    const determinedElevationCell = tr.querySelector(".determined-elevation");
+    determinedElevationCell.textContent =
+      activeSheet === "out" && Number.isFinite(row._determinedElevation)
+        ? row._determinedElevation.toFixed(4)
+        : "";
     const elevationInput = tr.querySelector('[data-field="elevation"]');
     if (document.activeElement !== elevationInput || row.elevationType === "calculated") {
       elevationInput.value = displayValue(row.elevation, row.elevation !== null ? 3 : null);
@@ -880,7 +892,7 @@ function recalculateAndRender() {
   document.querySelector("#outDiff").textContent = formatMeters(outDifference);
   document.querySelector("#backDiff").textContent = formatMeters(backDifference);
   updateToleranceDisplay(toleranceState);
-  updateClosure(outDifference, backDifference, toleranceState.toleranceMm);
+  updateClosure(roundTripState, toleranceState.toleranceMm);
 }
 
 function stripCalculatedFields(rows) {
@@ -890,6 +902,7 @@ function stripCalculatedFields(rows) {
     _difference,
     _roundTripDifferenceMm,
     _roundTripDifferenceIntermediate,
+    _determinedElevation,
     _intermediateSight,
     ...row
   }) => row);
@@ -936,25 +949,30 @@ function updateToleranceDisplay(toleranceState) {
     : `許容 ${toleranceState.toleranceMm.toFixed(1)}mm`;
 }
 
-function updateClosure(outDifference, backDifference, toleranceMm) {
+function updateClosure(roundTripState, toleranceMm) {
   const card = document.querySelector("#closureCard");
   const value = document.querySelector("#closure");
   const judgement = document.querySelector("#closureJudgement");
   card.classList.remove("pass", "fail", "pending");
-  if (outDifference === null || backDifference === null) {
+  const closureMm = Number(roundTripState?.closureMm);
+  if (!Number.isFinite(closureMm)) {
     value.textContent = "—";
     judgement.textContent = "判定待ち";
     card.classList.add("pending");
     return;
   }
-  const closureMm = Math.abs((outDifference + backDifference) * 1000);
-  value.textContent = `${closureMm.toFixed(1)} mm`;
+  value.textContent = `${Math.abs(closureMm).toFixed(1)} mm`;
+  if (!roundTripState.complete) {
+    judgement.textContent = "途中";
+    card.classList.add("pending");
+    return;
+  }
   if (toleranceMm === null) {
     judgement.textContent = "距離待ち";
     card.classList.add("pending");
     return;
   }
-  const passed = closureMm <= toleranceMm;
+  const passed = Math.abs(closureMm) <= toleranceMm;
   judgement.textContent = passed ? "合格" : "要確認";
   card.classList.add(passed ? "pass" : "fail");
 }
@@ -3327,10 +3345,14 @@ function createFreshCsvRows() {
     toleranceState.toleranceMm ?? 10,
     {
       direction: "up",
-      initialElevation: outCalculation.startElevation ?? 0
+      initialElevation: outCalculation.lastElevation
     }
   );
-  applyRoundTripDifferences(outCalculation.rows, backCalculation.rows);
+  applyRoundTripDifferences(
+    outCalculation.rows,
+    backCalculation.rows,
+    { outStartElevation: outCalculation.startElevation }
+  );
   return {
     outRows: outCalculation.rows,
     backRows: backCalculation.rows

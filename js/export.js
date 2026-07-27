@@ -1,4 +1,4 @@
-import { formatRoundTripMillimeters } from "./calculation.js?v=188";
+import { formatRoundTripMillimeters } from "./calculation.js?v=189";
 
 const CSV_HEADERS = [
   "No.",
@@ -9,6 +9,7 @@ const CSV_HEADERS = [
   "往復差",
   "高低差",
   "標高",
+  "決定標高",
   "計画高",
   "差",
   "備考"
@@ -56,7 +57,7 @@ function formatSignedMeters(value) {
   return `${value > 0 ? "+" : ""}${value.toFixed(3)}`;
 }
 
-function rowToCsv(row, index) {
+function rowToCsv(row, index, isOutward) {
   const planDifference = Number.isFinite(row?.elevation) && Number.isFinite(row?.planHeight)
     ? row.elevation - row.planHeight
     : null;
@@ -66,31 +67,36 @@ function rowToCsv(row, index) {
     Number.isFinite(row?.distance) ? row.distance.toFixed(3) : "",
     Number.isFinite(row?.bs) ? row.bs.toFixed(3) : "",
     Number.isFinite(row?.fs) ? row.fs.toFixed(3) : "",
-    formatRoundTripMillimeters(
-      row?._roundTripDifferenceMm,
-      row?._roundTripDifferenceIntermediate
-    ),
+    isOutward
+      ? formatRoundTripMillimeters(
+        row?._roundTripDifferenceMm,
+        row?._roundTripDifferenceIntermediate
+      )
+      : "",
     Number.isFinite(row?._difference) ? row._difference.toFixed(3) : "",
     Number.isFinite(row?.elevation) ? row.elevation.toFixed(3) : "",
+    isOutward && Number.isFinite(row?._determinedElevation)
+      ? row._determinedElevation.toFixed(4)
+      : "",
     Number.isFinite(row?.planHeight) ? row.planHeight.toFixed(3) : "",
     formatSignedMeters(planDifference),
     row?.note ?? ""
   ];
 }
 
-function createSheetSection(sheetName, rows) {
+function createSheetSection(sheetName, rows, isOutward) {
   const lastIndex = getLastExportRowIndex(rows);
   const dataRows = lastIndex >= 0
-    ? rows.slice(0, lastIndex + 1).map(rowToCsv)
+    ? rows.slice(0, lastIndex + 1).map((row, index) => rowToCsv(row, index, isOutward))
     : [];
   return [[sheetName], CSV_HEADERS, ...dataRows];
 }
 
 export function createNotebookCsv(outRows, backRows) {
   const rows = [
-    ...createSheetSection("往路", outRows),
+    ...createSheetSection("往路", outRows, true),
     [],
-    ...createSheetSection("復路", backRows)
+    ...createSheetSection("復路", backRows, false)
   ];
   return `\uFEFF${rows.map((row) => row.map(escapeCsv).join(",")).join("\r\n")}`;
 }

@@ -562,9 +562,10 @@ th:nth-child(4), td:nth-child(4), th:nth-child(5), td:nth-child(5) { width: var(
 th:nth-child(6), td:nth-child(6) { width: var(--round-trip-width, 104px); }
 th:nth-child(7), td:nth-child(7) { width: var(--difference-width, 100px); }
 th:nth-child(8), td:nth-child(8) { width: var(--elevation-width, 134px); }
-th:nth-child(9), td:nth-child(9) { width: var(--plan-height-width, 112px); }
-th:nth-child(10), td:nth-child(10) { width: var(--plan-difference-width, 112px); }
-th:nth-child(11), td:nth-child(11) { width: var(--note-width, 180px); }
+th:nth-child(9), td:nth-child(9) { width: var(--determined-elevation-width, 124px); }
+th:nth-child(10), td:nth-child(10) { width: var(--plan-height-width, 112px); }
+th:nth-child(11), td:nth-child(11) { width: var(--plan-difference-width, 112px); }
+th:nth-child(12), td:nth-child(12) { width: var(--note-width, 180px); }
 .column-heading-label {
   display: block;
   overflow: hidden;
@@ -695,6 +696,10 @@ td.calc { padding: 4px; background: #eaf6fc !important; font-size: var(--input-f
 tr.incomplete .diff { color: #9b5700; }
 td.round-trip-diff.negative { color: #c52c2c; }
 td.plan-difference.negative { color: #c52c2c; }
+td.determined-elevation {
+  background: #e8f5fc;
+  font-weight: 700;
+}
 td.starting-elevation-cell,
 td.starting-elevation-cell input {
   background-color: #fff4cf !important;

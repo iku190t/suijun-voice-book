@@ -129,7 +129,7 @@ function markIntermediateSightRows(rows) {
 
 function calculateNotebookUpward(sourceRows, toleranceMm, options) {
   const rows = prepareRows(sourceRows);
-  const initialElevation = toNumber(options.initialElevation) ?? 0;
+  const initialElevation = toNumber(options.initialElevation);
   let lastUsedIndex = -1;
 
   sourceRows.forEach((row, index) => {
@@ -140,114 +140,86 @@ function calculateNotebookUpward(sourceRows, toleranceMm, options) {
     row.elevationType === "manual" ? toNumber(row.elevation) : null
   ));
   const resolvedElevations = Array(rows.length).fill(null);
-  const groups = [];
-  let activeGroup = null;
+  let instrumentHeight = null;
+  let routeStartElevation = null;
+  let routeEndElevation = null;
+  let validSightCount = 0;
 
   rows.forEach((row, index) => {
     if (index > lastUsedIndex) return;
     const hasBs = row.bs !== null;
     const hasFs = row.fs !== null;
+    let resolvedElevation = manualElevations[index];
 
-    // 復路は最下段の既知点から上向きに標高を復元する。
-    // FSとBSが同じ行なら前の器械位置を閉じ、その行を次の器械位置にする。
+    // 復路は往路終点を開始標高として、現場で観測した順に上から計算する。
+    // これにより復路の途中でも、完了した測点までの標高を確定できる。
+    if (
+      index === 0 &&
+      resolvedElevation === null &&
+      Number.isFinite(initialElevation)
+    ) {
+      resolvedElevation = initialElevation;
+    }
+
     if (hasFs) {
-      if (activeGroup) {
-        activeGroup.sightIndexes.push(index);
+      if (Number.isFinite(instrumentHeight)) {
+        resolvedElevation ??= instrumentHeight - row.fs;
+        row._complete = Number.isFinite(resolvedElevation);
+        if (row._complete) {
+          validSightCount += 1;
+          routeEndElevation = resolvedElevation;
+        }
       } else {
         row._incomplete = true;
       }
     }
 
+    resolvedElevations[index] = resolvedElevation;
+
+    // FSとBSが同じ行なら、前視を計算した後で次の器械位置へ切り替える。
     if (hasBs) {
-      if (activeGroup) {
-        if (hasFs && activeGroup.sightIndexes.length > 0) {
-          groups.push(activeGroup);
-        } else {
-          rows[activeGroup.baseIndex]._incomplete = true;
-        }
+      if (Number.isFinite(resolvedElevation)) {
+        instrumentHeight = resolvedElevation + row.bs;
+        routeStartElevation ??= resolvedElevation;
+      } else {
+        row._incomplete = true;
       }
-      activeGroup = {
-        baseIndex: index,
-        bs: row.bs,
-        sightIndexes: []
-      };
     }
   });
 
-  if (activeGroup) {
-    if (activeGroup.sightIndexes.length > 0) {
-      groups.push(activeGroup);
-    } else {
-      rows[activeGroup.baseIndex]._incomplete = true;
+  // 高低差の記載位置は従来どおり、復路では器械位置の終点から一段上側。
+  // 途中観測では、その時点の最後の前視を仮の終点として計算可能な範囲を表示する。
+  const groups = [];
+  let activeGroup = null;
+  rows.forEach((row, index) => {
+    if (index > lastUsedIndex) return;
+    const hasBs = row.bs !== null;
+    const hasFs = row.fs !== null;
+    if (hasFs && activeGroup) activeGroup.sightIndexes.push(index);
+    if (hasBs) {
+      if (activeGroup?.sightIndexes.length) groups.push(activeGroup);
+      activeGroup = { baseIndex: index, sightIndexes: [] };
     }
-  }
+  });
+  if (activeGroup?.sightIndexes.length) groups.push(activeGroup);
 
-  const lastGroup = groups.at(-1);
-  const routeEndIndex = lastGroup?.sightIndexes.at(-1) ?? -1;
-  const implicitBaselineIndex = routeEndIndex >= 0 &&
-    manualElevations[routeEndIndex] === null
-    ? routeEndIndex
-    : -1;
-
-  if (routeEndIndex >= 0) {
-    resolvedElevations[routeEndIndex] =
-      manualElevations[routeEndIndex] ?? initialElevation;
-  }
-
-  let validDifferenceCount = 0;
-  for (let groupIndex = groups.length - 1; groupIndex >= 0; groupIndex -= 1) {
-    const group = groups[groupIndex];
+  groups.forEach((group) => {
     const endpointIndex = group.sightIndexes.at(-1);
-    const endpointRow = rows[endpointIndex];
-    let endpointElevation = manualElevations[endpointIndex] ??
-      resolvedElevations[endpointIndex];
-
-    if (!Number.isFinite(endpointElevation)) {
-      rows[group.baseIndex]._incomplete = true;
-      group.sightIndexes.forEach((index) => {
-        rows[index]._incomplete = true;
-      });
-      continue;
-    }
-
-    const baseIndex = group.baseIndex;
-    const computedBaseElevation = endpointElevation - group.bs + endpointRow.fs;
-    const baseElevation = manualElevations[baseIndex] ?? computedBaseElevation;
-    resolvedElevations[baseIndex] = baseElevation;
-
-    group.sightIndexes.forEach((index) => {
-      const sightRow = rows[index];
-      const computedElevation = baseElevation + group.bs - sightRow.fs;
-      resolvedElevations[index] = manualElevations[index] ?? computedElevation;
-    });
-
-    endpointElevation = manualElevations[endpointIndex] ??
-      resolvedElevations[endpointIndex];
-
-    // 復路の高低差は、次の折返し点を基準として一段上側へ記載する。
-    // 基準行自身には前の器械位置の差を書かず、次のグループの差を書く。
-    const displayIndexes = [baseIndex, ...group.sightIndexes.slice(0, -1)];
+    const endpointElevation = resolvedElevations[endpointIndex];
+    const displayIndexes = [group.baseIndex, ...group.sightIndexes.slice(0, -1)];
     displayIndexes.forEach((index) => {
       const elevation = resolvedElevations[index];
-      if (!Number.isFinite(elevation) || !Number.isFinite(endpointElevation)) {
-        rows[index]._incomplete = true;
-        return;
+      if (Number.isFinite(elevation) && Number.isFinite(endpointElevation)) {
+        rows[index]._difference = elevation - endpointElevation;
       }
-      rows[index]._difference = elevation - endpointElevation;
-      rows[index]._complete = true;
-      validDifferenceCount += 1;
     });
-  }
+  });
 
   rows.forEach((row, index) => {
     const manualElevation = manualElevations[index];
     if (manualElevation !== null) {
       row.elevation = manualElevation;
       row.elevationType = "manual";
-    } else if (index === implicitBaselineIndex) {
-      // 空欄の既知標高は内部では initialElevation として使い、表示は空欄を保つ。
-      row.elevation = null;
-      row.elevationType = "calculated";
     } else if (Number.isFinite(resolvedElevations[index])) {
       row.elevation = resolvedElevations[index];
       row.elevationType = "calculated";
@@ -257,14 +229,7 @@ function calculateNotebookUpward(sourceRows, toleranceMm, options) {
     }
   });
 
-  const routeStartIndex = groups[0]?.baseIndex ?? -1;
-  const routeStartElevation = routeStartIndex >= 0
-    ? resolvedElevations[routeStartIndex]
-    : null;
-  const routeEndElevation = routeEndIndex >= 0
-    ? resolvedElevations[routeEndIndex]
-    : null;
-  const backDifference = validDifferenceCount > 0 &&
+  const backDifference = validSightCount > 0 &&
     Number.isFinite(routeEndElevation) &&
     Number.isFinite(routeStartElevation)
     ? routeEndElevation - routeStartElevation
@@ -394,15 +359,15 @@ export function calculateRoundTripDifferenceMm(outElevation, backElevation) {
   return (outward - returnTrip) * 1000;
 }
 
-export function applyRoundTripDifferences(outRows, backRows) {
-  const maximumLength = Math.max(outRows.length, backRows.length);
+export function applyRoundTripDifferences(
+  outRows,
+  backRows,
+  { outStartElevation = null } = {}
+) {
   let lastUsedIndex = -1;
 
-  for (let index = 0; index < maximumLength; index += 1) {
-    if (
-      rowHasRoundTripExtentData(outRows[index] || {}) ||
-      rowHasRoundTripExtentData(backRows[index] || {})
-    ) {
+  for (let index = 0; index < outRows.length; index += 1) {
+    if (rowHasRoundTripExtentData(outRows[index] || {})) {
       lastUsedIndex = index;
     }
   }
@@ -411,27 +376,68 @@ export function applyRoundTripDifferences(outRows, backRows) {
   backRows.forEach((row) => { row._roundTripDifferenceMm = null; });
   outRows.forEach((row) => { row._roundTripDifferenceIntermediate = false; });
   backRows.forEach((row) => { row._roundTripDifferenceIntermediate = false; });
-  if (lastUsedIndex < 0) return;
+  outRows.forEach((row) => { row._determinedElevation = null; });
+  backRows.forEach((row) => { row._determinedElevation = null; });
+  if (lastUsedIndex < 0) {
+    return {
+      closureMm: null,
+      complete: false,
+      matchedCount: 0,
+      usedRowCount: 0
+    };
+  }
 
   const usedRowCount = lastUsedIndex + 1;
   // 往路は上から下、復路は反転した点名順なので、鏡位置の同じ測点を対応させる。
+  let latestClosureMm = null;
+  let latestCompletedBackIndex = -1;
+  let matchedCount = 0;
+
   for (let outIndex = 0; outIndex < usedRowCount; outIndex += 1) {
     const backIndex = usedRowCount - 1 - outIndex;
+    const outwardElevation = Number.isFinite(outRows[outIndex]?.elevation)
+      ? outRows[outIndex].elevation
+      : outIndex === 0
+        ? toNumber(outStartElevation)
+        : null;
     const differenceMm = calculateRoundTripDifferenceMm(
-      outRows[outIndex]?.elevation,
+      outwardElevation,
       backRows[backIndex]?.elevation
     );
     if (differenceMm === null) {
       continue;
     }
 
+    matchedCount += 1;
     const intermediateSight = Boolean(
       outRows[outIndex]?._intermediateSight ||
       backRows[backIndex]?._intermediateSight
     );
     outRows[outIndex]._roundTripDifferenceMm = differenceMm;
     outRows[outIndex]._roundTripDifferenceIntermediate = intermediateSight;
-    backRows[backIndex]._roundTripDifferenceMm = differenceMm;
-    backRows[backIndex]._roundTripDifferenceIntermediate = intermediateSight;
+
+    if (
+      Number.isFinite(outRows[outIndex]?.elevation) &&
+      Number.isFinite(backRows[backIndex]?.elevation)
+    ) {
+      outRows[outIndex]._determinedElevation =
+        (outRows[outIndex].elevation + backRows[backIndex].elevation) / 2;
+    }
+
+    // 復路で前視まで完了した最も先の測点を、上部の途中閉合差に使う。
+    // 未観測セルは0として扱わず、計算可能な対応点だけで更新する。
+    if (backRows[backIndex]?._complete && backIndex > latestCompletedBackIndex) {
+      latestCompletedBackIndex = backIndex;
+      latestClosureMm = differenceMm;
+    }
   }
+
+  return {
+    closureMm: latestClosureMm,
+    complete:
+      usedRowCount > 1 &&
+      latestCompletedBackIndex === usedRowCount - 1,
+    matchedCount,
+    usedRowCount
+  };
 }
