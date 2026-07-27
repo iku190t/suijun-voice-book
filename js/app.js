@@ -7,7 +7,7 @@ import {
   LEVELING_TOLERANCE_PRESETS,
   resolveToleranceDistanceMeters,
   toNumber
-} from "./calculation.js?v=185";
+} from "./calculation.js?v=186";
 import {
   chooseLevelReading,
   createVoiceController,
@@ -15,15 +15,15 @@ import {
   normalizeSpokenNumber,
   prepareSpeechSynthesis,
   speakBack
-} from "./voice.js?v=185";
-import { clearProject, loadProject, saveProject } from "./storage.js?v=185";
-import { exportNotebookCsv } from "./export.js?v=185";
+} from "./voice.js?v=186";
+import { clearProject, loadProject, saveProject } from "./storage.js?v=186";
+import { exportNotebookCsv } from "./export.js?v=186";
 import {
   alignSheetsWithCurrentLabels,
   isValidStaffReading,
   rowHasLevelObservationData,
   reversePointNamesWithinUsedRows
-} from "./rules.js?v=185";
+} from "./rules.js?v=186";
 import {
   choosePointName,
   composePointNameSuggestionCandidates,
@@ -36,8 +36,8 @@ import {
   normalizePointName,
   pointNameToSpeech,
   recordPointNameUsage
-} from "./point-names.js?v=185";
-import { initializeAnalytics, trackEvent } from "./analytics.js?v=185";
+} from "./point-names.js?v=186";
+import { initializeAnalytics, trackEvent } from "./analytics.js?v=186";
 
 initializeAnalytics();
 
@@ -45,7 +45,7 @@ const DEFAULT_ROW_COUNT = 200;
 const APP_SHARE_URL = "https://iku190t.github.io/suijun-voice-book/";
 const APP_SHARE_TITLE = "水準ボイス";
 const APP_SHARE_TEXT = "水準測量の音声入力Web野帳です。";
-const APP_RELEASE_VERSION = new URL(import.meta.url).searchParams.get("v") || "185";
+const APP_RELEASE_VERSION = new URL(import.meta.url).searchParams.get("v") || "186";
 const FEEDBACK_EMAIL = "ez.survey2023@gmail.com";
 const POINT_SUGGESTION_LIMIT = 6;
 const POINT_SUGGESTION_SEEDS = ["NO.0", "TP0", "KBM0", "T-0", "BC.0", "SP.0"];
@@ -1435,6 +1435,8 @@ async function finishPointNameKeyboardInput() {
     hidePointNameKeyboard();
     return;
   }
+  const field = target.dataset.field;
+  const rowIndex = findRowIndex(target);
   if (target.dataset.field === "pointName") {
     const hasIntentionalSpace = /\s/.test(target.value);
     const normalized = hasIntentionalSpace
@@ -1456,9 +1458,25 @@ async function finishPointNameKeyboardInput() {
     }
     formatNumericInput(target);
   }
-  hidePointNameKeyboard();
   endHistoryGroup();
-  selectVoiceTargetWithoutKeyboard(target);
+  if (!field || rowIndex < 0) {
+    openPointNameKeyboard(target);
+    return;
+  }
+  ensureFollowingRow(rowIndex);
+  const nextTarget = tbody.rows[rowIndex + 1]?.querySelector(
+    `[data-field="${field}"]`
+  );
+  if (!isCustomKeyboardInput(nextTarget)) {
+    const currentTarget = tbody.rows[rowIndex]?.querySelector(
+      `[data-field="${field}"]`
+    );
+    if (isCustomKeyboardInput(currentTarget)) openPointNameKeyboard(currentTarget);
+    else hidePointNameKeyboard();
+    return;
+  }
+  nextTarget.scrollIntoView({ block: "nearest", inline: "nearest" });
+  openPointNameKeyboard(nextTarget);
 }
 
 pointNameKeyboard.addEventListener("pointerdown", (event) => {

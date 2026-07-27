@@ -85,17 +85,24 @@ export function speakBack(value, rate = 0.9) {
   synthesis.resume();
 
   return (async () => {
-    for (let attempt = 0; attempt < 2; attempt += 1) {
+    await new Promise((resolve) => setTimeout(resolve, 90));
+    for (let attempt = 0; attempt < 3; attempt += 1) {
       if (requestId !== speechRequestSequence) return;
       if (attempt > 0) {
         speechPrepared = false;
         prepareSpeechSynthesis();
-        await new Promise((resolve) => setTimeout(resolve, 140));
+        synthesis.cancel();
+        synthesis.resume();
+        await new Promise((resolve) => setTimeout(resolve, 160 + (attempt * 80)));
       }
       const result = await new Promise((resolve) => {
         const utterance = new SpeechSynthesisUtterance(spoken);
         utterance.lang = "ja-JP";
         utterance.rate = Math.min(1.5, Math.max(0.5, Number(rate) || 0.9));
+        const japaneseVoice = synthesis.getVoices?.().find((voice) => (
+          /^ja(?:-|_)/i.test(voice.lang || "")
+        ));
+        if (japaneseVoice) utterance.voice = japaneseVoice;
         let completed = false;
         let started = false;
         let quietSamples = 0;
@@ -131,7 +138,7 @@ export function speakBack(value, rate = 0.9) {
             finish("retry");
             synthesis.cancel();
           }
-        }, 1100));
+        }, 1600));
         timers.push(setTimeout(() => {
           if (!completed) {
             finish("retry");
@@ -147,7 +154,7 @@ export function speakBack(value, rate = 0.9) {
           if (!started) return;
           if (!synthesis.speaking && !synthesis.pending) {
             quietSamples += 1;
-            if (quietSamples >= 2) finish("retry");
+            if (quietSamples >= 4) finish("retry");
           } else {
             quietSamples = 0;
           }
@@ -183,6 +190,9 @@ export function createVoiceController({
   let startTimeoutId = null;
   let interimFinalizeTimer = null;
   let interimFinalizeKey = "";
+  let queuedResult = null;
+  let resultDeliveryTimer = null;
+  let recognitionStopFallbackTimer = null;
 
   const clearStartTimeout = () => {
     if (startTimeoutId === null) return;
@@ -194,6 +204,37 @@ export function createVoiceController({
     if (interimFinalizeTimer !== null) clearTimeout(interimFinalizeTimer);
     interimFinalizeTimer = null;
     interimFinalizeKey = "";
+  };
+
+  const clearResultDeliveryTimers = () => {
+    if (resultDeliveryTimer !== null) clearTimeout(resultDeliveryTimer);
+    if (recognitionStopFallbackTimer !== null) {
+      clearTimeout(recognitionStopFallbackTimer);
+    }
+    resultDeliveryTimer = null;
+    recognitionStopFallbackTimer = null;
+  };
+
+  const dispatchQueuedResult = () => {
+    if (!queuedResult || resultDeliveryTimer !== null) return;
+    if (recognitionStopFallbackTimer !== null) {
+      clearTimeout(recognitionStopFallbackTimer);
+      recognitionStopFallbackTimer = null;
+    }
+    const result = queuedResult;
+    queuedResult = null;
+    resultDeliveryTimer = setTimeout(() => {
+      resultDeliveryTimer = null;
+      const delivery = onResult(result.transcript, {
+        alternatives: result.alternatives,
+        isFinal: result.isFinal
+      });
+      Promise.resolve(delivery)
+        .catch(() => {})
+        .finally(() => {
+          resultDelivered = false;
+        });
+    }, 180);
   };
 
   const deliverResult = (transcript, alternatives, isFinal) => {
@@ -208,12 +249,20 @@ export function createVoiceController({
     resultDelivered = true;
     pendingTranscript = "";
     pendingAlternatives = [];
+    queuedResult = { transcript, alternatives, isFinal };
     onStatus("認識結果を復唱します");
-    onResult(transcript, { alternatives, isFinal });
     try {
       recognition?.stop();
+      recognitionStopFallbackTimer = setTimeout(() => {
+        recognitionStopFallbackTimer = null;
+        recognitionState = "idle";
+        onListeningChange(false);
+        dispatchQueuedResult();
+      }, 700);
     } catch {
+      recognitionState = "idle";
       onListeningChange(false);
+      dispatchQueuedResult();
     }
   };
 
@@ -221,6 +270,8 @@ export function createVoiceController({
     if (!recognition) createRecognitionInstance();
     clearStartTimeout();
     clearInterimFinalize();
+    clearResultDeliveryTimers();
+    queuedResult = null;
     cancelRequested = false;
     pendingTranscript = "";
     pendingAlternatives = [];
@@ -280,15 +331,17 @@ export function createVoiceController({
     onListeningChange(false);
     cancelRequested = false;
     if (resultDelivered) {
-      resultDelivered = false;
+      dispatchQueuedResult();
       return;
     }
     if (!wasCancelled && !recognitionFailed && pendingTranscript) {
       const transcript = pendingTranscript;
       const alternatives = pendingAlternatives;
       pendingTranscript = "";
+      queuedResult = { transcript, alternatives, isFinal: true };
+      resultDelivered = true;
       onStatus("認識結果を復唱します");
-      onResult(transcript, { alternatives, isFinal: true });
+      dispatchQueuedResult();
     } else {
       onStatus("");
     }
@@ -296,6 +349,7 @@ export function createVoiceController({
   const handleRecognitionError = (event) => {
     clearStartTimeout();
     clearInterimFinalize();
+    if (resultDelivered) return;
     recognitionFailed = true;
     pendingTranscript = "";
     pendingAlternatives = [];
@@ -376,6 +430,8 @@ export function createVoiceController({
   const resetRecognition = ({ notify = false } = {}) => {
     clearStartTimeout();
     clearInterimFinalize();
+    clearResultDeliveryTimers();
+    queuedResult = null;
     restartQueued = false;
     cancelRequested = true;
     recognitionFailed = true;
