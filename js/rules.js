@@ -1,7 +1,7 @@
 export const MAX_STAFF_READING_METERS = 10;
 
 export function isValidStaffReading(value) {
-  return Number.isFinite(value) && value >= 0 && value < MAX_STAFF_READING_METERS;
+  return Number.isFinite(value) && Math.abs(value) < MAX_STAFF_READING_METERS;
 }
 
 export function normalizeAliasKey(value) {

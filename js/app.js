@@ -7,7 +7,7 @@ import {
   LEVELING_TOLERANCE_PRESETS,
   resolveToleranceDistanceMeters,
   toNumber
-} from "./calculation.js?v=184";
+} from "./calculation.js?v=185";
 import {
   chooseLevelReading,
   createVoiceController,
@@ -15,15 +15,15 @@ import {
   normalizeSpokenNumber,
   prepareSpeechSynthesis,
   speakBack
-} from "./voice.js?v=184";
-import { clearProject, loadProject, saveProject } from "./storage.js?v=184";
-import { exportNotebookCsv } from "./export.js?v=184";
+} from "./voice.js?v=185";
+import { clearProject, loadProject, saveProject } from "./storage.js?v=185";
+import { exportNotebookCsv } from "./export.js?v=185";
 import {
   alignSheetsWithCurrentLabels,
   isValidStaffReading,
   rowHasLevelObservationData,
   reversePointNamesWithinUsedRows
-} from "./rules.js?v=184";
+} from "./rules.js?v=185";
 import {
   choosePointName,
   composePointNameSuggestionCandidates,
@@ -36,8 +36,8 @@ import {
   normalizePointName,
   pointNameToSpeech,
   recordPointNameUsage
-} from "./point-names.js?v=184";
-import { initializeAnalytics, trackEvent } from "./analytics.js?v=184";
+} from "./point-names.js?v=185";
+import { initializeAnalytics, trackEvent } from "./analytics.js?v=185";
 
 initializeAnalytics();
 
@@ -45,13 +45,12 @@ const DEFAULT_ROW_COUNT = 200;
 const APP_SHARE_URL = "https://iku190t.github.io/suijun-voice-book/";
 const APP_SHARE_TITLE = "水準ボイス";
 const APP_SHARE_TEXT = "水準測量の音声入力Web野帳です。";
-const APP_RELEASE_VERSION = new URL(import.meta.url).searchParams.get("v") || "184";
+const APP_RELEASE_VERSION = new URL(import.meta.url).searchParams.get("v") || "185";
 const FEEDBACK_EMAIL = "ez.survey2023@gmail.com";
 const POINT_SUGGESTION_LIMIT = 6;
 const POINT_SUGGESTION_SEEDS = ["NO.0", "TP0", "KBM0", "T-0", "BC.0", "SP.0"];
 const POINT_NAME_FINALIZE_DELAYS = new Set([500, 1000, 1500, 2000]);
 const NUMERIC_FIELDS = new Set(["bs", "fs", "elevation", "planHeight", "distance"]);
-const UNSIGNED_DECIMAL_FIELDS = new Set(["bs", "fs", "distance"]);
 const TEXT_CUSTOM_KEYBOARD_FIELDS = new Set(["pointName", "note"]);
 const CUSTOM_KEYBOARD_FIELDS = new Set([
   ...TEXT_CUSTOM_KEYBOARD_FIELDS,
@@ -194,6 +193,7 @@ let externalUiRecoveryActive = false;
 let externalUiOperationPending = false;
 let externalUiRecoverySamplingStartedAt = 0;
 let externalUiRecoveryStableSamples = 0;
+let externalUiRecoveryStableSince = 0;
 let externalUiRecoveryMetrics = null;
 let externalUiReturnScroll = null;
 let keyboardCellScrollTimer = null;
@@ -606,9 +606,9 @@ function rowTemplate(row, index) {
   tr.innerHTML = `
     <td class="row-number"><button class="row-selector" type="button" aria-label="${index + 1}行目の操作">${index + 1}</button></td>
     <td><input data-field="pointName" inputmode="text" autocomplete="off" aria-label="${index + 1}行目 点名"></td>
-    <td class="distance-column"><input data-field="distance" inputmode="decimal" pattern="[0-9]*[.]?[0-9]*" autocomplete="off" spellcheck="false" aria-label="${index + 1}行目 距離"></td>
-    <td><input data-field="bs" inputmode="decimal" pattern="[0-9]*[.]?[0-9]*" autocomplete="off" spellcheck="false" aria-label="${index + 1}行目 後視 BS"></td>
-    <td><input data-field="fs" inputmode="decimal" pattern="[0-9]*[.]?[0-9]*" autocomplete="off" spellcheck="false" aria-label="${index + 1}行目 前視 FS"></td>
+    <td class="distance-column"><input data-field="distance" inputmode="decimal" pattern="-?[0-9]*[.]?[0-9]*" autocomplete="off" spellcheck="false" aria-label="${index + 1}行目 距離"></td>
+    <td><input data-field="bs" inputmode="decimal" pattern="-?[0-9]*[.]?[0-9]*" autocomplete="off" spellcheck="false" aria-label="${index + 1}行目 後視 BS"></td>
+    <td><input data-field="fs" inputmode="decimal" pattern="-?[0-9]*[.]?[0-9]*" autocomplete="off" spellcheck="false" aria-label="${index + 1}行目 前視 FS"></td>
     <td class="calc round-trip-diff"></td>
     <td class="calc diff"></td>
     <td class="elevation-cell calculated${index === 0 ? " starting-elevation-cell" : " locked-elevation-cell"}"><input data-field="elevation" inputmode="decimal" autocomplete="off" aria-label="${index + 1}行目 既知標高または仮標高"${index > 0 ? ' readonly aria-readonly="true" data-calculated-elevation="" tabindex="-1"' : ""}></td>
@@ -1027,7 +1027,7 @@ function handleFieldChange(
     return false;
   }
   if ((field === "bs" || field === "fs") && parsed !== null && !isValidStaffReading(parsed)) {
-    showNotice("BS・FSは0m以上、10m未満で入力してください。", "error");
+    showNotice("BS・FSは絶対値10m未満で入力してください。", "error");
     const previousValue = project.sheets[activeSheet][index][field];
     input.value = displayValue(previousValue, previousValue !== null ? 3 : null);
     input.setAttribute("aria-invalid", "true");
@@ -1379,7 +1379,7 @@ function openPointNameKeyboard(target) {
     button.textContent = "純正⌨";
     button.setAttribute("aria-label", "端末の標準キーボードを開く");
   });
-  numericKeyboardSign.disabled = UNSIGNED_DECIMAL_FIELDS.has(target.dataset.field);
+  numericKeyboardSign.disabled = false;
   pointNameKeyboard.hidden = false;
   document.body.classList.add("point-keyboard-active");
   voiceTarget = target;
@@ -1414,11 +1414,7 @@ function updatePointNameFromKeyboard(nextValue, nextCaretIndex) {
   const field = target.dataset.field;
   let value = String(nextValue || "");
   if (field === "pointName") value = value.toUpperCase();
-  if (NUMERIC_FIELDS.has(field)) {
-    value = UNSIGNED_DECIMAL_FIELDS.has(field)
-      ? sanitizeUnsignedDecimal(value)
-      : sanitizeSignedDecimal(value);
-  }
+  if (NUMERIC_FIELDS.has(field)) value = sanitizeSignedDecimal(value);
   target.value = value;
   const incompleteNumeric = NUMERIC_FIELDS.has(field) && ["-", ".", "-."].includes(value);
   if (!incompleteNumeric && !handleFieldChange(target, { normalizePointNameValue: false })) return;
@@ -2067,7 +2063,7 @@ function forceVoiceDockToViewportBottom() {
   document.body.classList.remove("software-keyboard-open", "suggestion-keyboard-active");
   document.body.style.removeProperty("--keyboard-row-clearance");
   clearVoiceDockViewportOffset();
-  voiceDock.style.setProperty("transform", "translate3d(0, 0, 0)", "important");
+  voiceDock.style.removeProperty("transform");
 }
 
 function beginExternalUiRecovery({ rememberScroll = true } = {}) {
@@ -2080,10 +2076,14 @@ function beginExternalUiRecovery({ rememberScroll = true } = {}) {
   externalUiRecoveryActive = true;
   externalUiRecoverySamplingStartedAt = 0;
   externalUiRecoveryStableSamples = 0;
+  externalUiRecoveryStableSince = 0;
   externalUiRecoveryMetrics = null;
   clearTimeout(externalUiRecoveryTimer);
   externalUiRecoveryTimer = null;
   document.body.classList.add("external-ui-recovery");
+  stickyTableHeader.hidden = true;
+  sheetHeading.classList.remove("is-stuck");
+  sheetHeading.style.top = "0px";
   forceVoiceDockToViewportBottom();
 }
 
@@ -2091,11 +2091,17 @@ function finishExternalUiRecovery() {
   clearTimeout(externalUiRecoveryTimer);
   externalUiRecoveryTimer = null;
   forceVoiceDockToViewportBottom();
+  stickyTableHeader.hidden = true;
+  sheetHeading.classList.remove("is-stuck");
+  stickyNotebookHeader.style.removeProperty("transform");
+  voiceDock.style.display = "none";
   voiceDock.getBoundingClientRect();
+  voiceDock.style.removeProperty("display");
   voiceDock.style.removeProperty("transform");
   document.body.classList.remove("external-ui-recovery");
   externalUiRecoveryActive = false;
   externalUiRecoverySamplingStartedAt = 0;
+  externalUiRecoveryStableSince = 0;
   keyboardViewportBaseline = Math.max(
     keyboardViewportBaseline,
     window.visualViewport?.height || 0,
@@ -2110,12 +2116,13 @@ function finishExternalUiRecovery() {
       behavior: "auto",
     });
   }
-  requestAnimationFrame(() => {
+  requestAnimationFrame(() => requestAnimationFrame(() => {
     clearVoiceDockViewportOffset();
     updateSuggestionPosition();
     schedulePointClipboardPosition();
     scheduleStickyTableHeader();
-  });
+    setTimeout(scheduleStickyTableHeader, 160);
+  }));
 }
 
 function scheduleExternalUiRecovery() {
@@ -2129,6 +2136,7 @@ function scheduleExternalUiRecovery() {
     forceVoiceDockToViewportBottom();
     if (externalUiOperationPending) {
       externalUiRecoveryStableSamples = 0;
+      externalUiRecoveryStableSince = 0;
       externalUiRecoveryMetrics = null;
       externalUiRecoveryTimer = setTimeout(sampleViewport, 100);
       return;
@@ -2136,12 +2144,18 @@ function scheduleExternalUiRecovery() {
     const metrics = readExternalUiViewportMetrics();
     if (externalUiViewportIsStable(externalUiRecoveryMetrics, metrics)) {
       externalUiRecoveryStableSamples += 1;
+      if (!externalUiRecoveryStableSince) externalUiRecoveryStableSince = Date.now();
     } else {
       externalUiRecoveryStableSamples = 0;
+      externalUiRecoveryStableSince = 0;
     }
     externalUiRecoveryMetrics = metrics;
-    const timedOut = Date.now() - externalUiRecoverySamplingStartedAt >= 5000;
-    if (externalUiRecoveryStableSamples >= 4 || timedOut) {
+    const stableLongEnough =
+      externalUiRecoveryStableSamples >= 6 &&
+      externalUiRecoveryStableSince > 0 &&
+      Date.now() - externalUiRecoveryStableSince >= 850;
+    const timedOut = Date.now() - externalUiRecoverySamplingStartedAt >= 7000;
+    if (stableLongEnough || timedOut) {
       finishExternalUiRecovery();
       return;
     }
@@ -2156,6 +2170,7 @@ document.addEventListener("visibilitychange", () => {
     if (!externalUiRecoveryActive) beginExternalUiRecovery();
     externalUiRecoverySamplingStartedAt = 0;
     externalUiRecoveryStableSamples = 0;
+    externalUiRecoveryStableSince = 0;
     externalUiRecoveryMetrics = null;
     return;
   }
@@ -2493,6 +2508,11 @@ function syncStickyHeaderColumns() {
 }
 
 function updateStickyTableHeader() {
+  if (externalUiRecoveryActive) {
+    stickyTableHeader.hidden = true;
+    sheetHeading.classList.remove("is-stuck");
+    return;
+  }
   const wrapRect = tableWrap.getBoundingClientRect();
   const viewportTop = window.visualViewport?.offsetTop || 0;
   sheetHeading.style.top = `${Math.round(viewportTop)}px`;
@@ -2617,8 +2637,8 @@ tbody.addEventListener("click", (event) => {
 
 tbody.addEventListener("input", (event) => {
   if (!event.target.matches("input")) return;
-  if (UNSIGNED_DECIMAL_FIELDS.has(event.target.dataset.field)) {
-    const sanitized = sanitizeUnsignedDecimal(event.target.value);
+  if (NUMERIC_FIELDS.has(event.target.dataset.field)) {
+    const sanitized = sanitizeSignedDecimal(event.target.value);
     if (event.target.value !== sanitized) event.target.value = sanitized;
   }
   handleFieldChange(event.target);
@@ -3710,7 +3730,7 @@ const voiceController = createVoiceController({
       } else {
         value = transcript.trim();
       }
-      if (UNSIGNED_DECIMAL_FIELDS.has(field)) value = sanitizeUnsignedDecimal(value);
+      if (NUMERIC_FIELDS.has(field)) value = sanitizeSignedDecimal(value);
       target.value = value;
       if (!handleFieldChange(target, { forceHistory: true })) return;
       formatNumericInput(target);
@@ -3764,7 +3784,7 @@ const voiceController = createVoiceController({
       return Boolean(chooseLevelReading(transcript, recognitionDetails.alternatives));
     }
     let value = normalizeSpokenNumber(transcript);
-    if (UNSIGNED_DECIMAL_FIELDS.has(voiceTarget.dataset.field)) value = sanitizeUnsignedDecimal(value);
+    if (NUMERIC_FIELDS.has(voiceTarget.dataset.field)) value = sanitizeSignedDecimal(value);
     return value.replace(/^[-+]/, "").length >= 5;
   }
 });

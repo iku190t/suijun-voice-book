@@ -17,12 +17,14 @@ export function normalizeSpokenNumber(text) {
 
 export function normalizeLevelReading(text) {
   let normalized = normalizeSpokenNumber(text).replace(/^\+/, "");
-  if (/^\d{4}$/.test(normalized)) {
-    normalized = `${normalized[0]}.${normalized.slice(1)}`;
+  if (/^-?\d{4}$/.test(normalized)) {
+    const sign = normalized.startsWith("-") ? "-" : "";
+    const digits = normalized.replace(/^-/, "");
+    normalized = `${sign}${digits[0]}.${digits.slice(1)}`;
   }
-  if (!/^\d\.\d{3}$/.test(normalized)) return "";
+  if (!/^-?\d\.\d{3}$/.test(normalized)) return "";
   const number = Number(normalized);
-  return Number.isFinite(number) && number >= 0 && number < 10 ? normalized : "";
+  return Number.isFinite(number) && Math.abs(number) < 10 ? normalized : "";
 }
 
 export function chooseLevelReading(transcript, alternatives = []) {
@@ -36,13 +38,29 @@ export function chooseLevelReading(transcript, alternatives = []) {
 export function levelReadingToSpeech(value) {
   return String(value ?? "")
     .split("")
-    .map((character) => character === "." ? "点" : character)
+    .map((character) => {
+      if (character === "-") return "マイナス";
+      if (character === ".") return "点";
+      return character;
+    })
     .join("、");
 }
 
 let speechPrepared = false;
+let speechRequestSequence = 0;
+let releaseActiveSpeech = null;
 
-export function prepareSpeechSynthesis() {
+export function resetSpeechSynthesis() {
+  speechPrepared = false;
+  speechRequestSequence += 1;
+  releaseActiveSpeech?.();
+  releaseActiveSpeech = null;
+  window.speechSynthesis?.cancel?.();
+  window.speechSynthesis?.resume?.();
+}
+
+export function prepareSpeechSynthesis({ force = false } = {}) {
+  if (force) resetSpeechSynthesis();
   if (speechPrepared || !("speechSynthesis" in window) || !("SpeechSynthesisUtterance" in window)) return;
   speechPrepared = true;
   window.speechSynthesis.getVoices();
@@ -58,25 +76,88 @@ export function speakBack(value, rate = 0.9) {
   if (!("speechSynthesis" in window) || value === "" || value === null || value === undefined) {
     return Promise.resolve();
   }
+  prepareSpeechSynthesis();
   const spoken = String(value).replace(/^-/, "マイナス").replace(/\./g, "点");
-  window.speechSynthesis.cancel();
-  window.speechSynthesis.resume();
-  const utterance = new SpeechSynthesisUtterance(spoken);
-  utterance.lang = "ja-JP";
-  utterance.rate = Math.min(1.5, Math.max(0.5, Number(rate) || 0.9));
-  return new Promise((resolve) => {
-    let completed = false;
-    const finish = () => {
-      if (completed) return;
-      completed = true;
-      clearTimeout(fallbackTimer);
-      resolve();
-    };
-    const fallbackTimer = setTimeout(finish, 8000);
-    utterance.onend = finish;
-    utterance.onerror = finish;
-    window.speechSynthesis.speak(utterance);
-  });
+  const synthesis = window.speechSynthesis;
+  const requestId = ++speechRequestSequence;
+  releaseActiveSpeech?.();
+  synthesis.cancel();
+  synthesis.resume();
+
+  return (async () => {
+    for (let attempt = 0; attempt < 2; attempt += 1) {
+      if (requestId !== speechRequestSequence) return;
+      if (attempt > 0) {
+        speechPrepared = false;
+        prepareSpeechSynthesis();
+        await new Promise((resolve) => setTimeout(resolve, 140));
+      }
+      const result = await new Promise((resolve) => {
+        const utterance = new SpeechSynthesisUtterance(spoken);
+        utterance.lang = "ja-JP";
+        utterance.rate = Math.min(1.5, Math.max(0.5, Number(rate) || 0.9));
+        let completed = false;
+        let started = false;
+        let quietSamples = 0;
+        const timers = [];
+        let heartbeat = null;
+        const finish = (status) => {
+          if (completed) return;
+          completed = true;
+          timers.forEach(clearTimeout);
+          clearInterval(heartbeat);
+          if (releaseActiveSpeech === release) releaseActiveSpeech = null;
+          resolve(status);
+        };
+        const release = () => finish("cancelled");
+        releaseActiveSpeech = release;
+        utterance.onstart = () => {
+          started = true;
+          quietSamples = 0;
+        };
+        utterance.onend = () => finish("ended");
+        utterance.onerror = () => finish(
+          requestId === speechRequestSequence ? "retry" : "cancelled"
+        );
+        utterance.onpause = () => synthesis.resume();
+        synthesis.speak(utterance);
+        [60, 220, 520].forEach((delay) => {
+          timers.push(setTimeout(() => {
+            if (!completed && requestId === speechRequestSequence) synthesis.resume();
+          }, delay));
+        });
+        timers.push(setTimeout(() => {
+          if (!completed && !started) {
+            finish("retry");
+            synthesis.cancel();
+          }
+        }, 1100));
+        timers.push(setTimeout(() => {
+          if (!completed) {
+            finish("retry");
+            synthesis.cancel();
+          }
+        }, 8000));
+        heartbeat = setInterval(() => {
+          if (completed || requestId !== speechRequestSequence) {
+            finish("cancelled");
+            return;
+          }
+          synthesis.resume();
+          if (!started) return;
+          if (!synthesis.speaking && !synthesis.pending) {
+            quietSamples += 1;
+            if (quietSamples >= 2) finish("retry");
+          } else {
+            quietSamples = 0;
+          }
+        }, 260);
+      });
+      if (result === "ended" || result === "cancelled") return;
+      synthesis.cancel();
+      synthesis.resume();
+    }
+  })();
 }
 
 export function createVoiceController({
@@ -331,11 +412,11 @@ export function createVoiceController({
       beginRecognition();
     },
     cancel() {
-      window.speechSynthesis?.cancel?.();
+      resetSpeechSynthesis();
       resetRecognition({ notify: true });
     },
     reset() {
-      window.speechSynthesis?.cancel?.();
+      resetSpeechSynthesis();
       resetRecognition();
     }
   };

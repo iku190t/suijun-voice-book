@@ -820,7 +820,8 @@ body.suggestion-keyboard-active .voice-dock {
   transform: translateY(calc(var(--suggestion-keyboard-shift, 0px) * -1));
 }
 body.external-ui-recovery .voice-dock {
-  transform: translate3d(0, 0, 0) !important;
+  visibility: hidden;
+  transform: none !important;
   transition: none !important;
 }
 .voice-dock button { width: 100%; min-height: 116px; border: 2px solid #d9f4ff; color: #07334f; background: var(--accent); font-size: 1.12rem; }
@@ -915,12 +916,17 @@ body.external-ui-recovery .voice-dock {
   display: grid;
   grid-template-columns:
     repeat(3, minmax(0, .55fr))
-    minmax(0, 1.05fr)
-    minmax(0, .55fr)
-    minmax(0, .55fr)
-    minmax(0, .9fr)
+    minmax(0, 1.1fr)
+    minmax(0, .65fr)
+    minmax(0, .78fr)
     minmax(0, 1.1fr);
   gap: 2px;
+}
+.point-name-keyboard-actions button {
+  overflow: hidden;
+  writing-mode: horizontal-tb;
+  text-overflow: clip;
+  white-space: nowrap;
 }
 .point-name-keyboard-actions .numeric-keyboard-sign {
   display: none;
@@ -987,8 +993,9 @@ body.external-ui-recovery .voice-dock {
   grid-column: 1;
   grid-row: 2;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  grid-template-rows: repeat(3, 39px);
-  align-content: center;
+  grid-template-rows: repeat(3, minmax(0, 1fr));
+  align-content: stretch;
+  min-height: 0;
 }
 .point-name-keyboard[data-keyboard-layout="numeric"] .point-name-keyboard-actions > [data-point-keyboard-action="backspace"] {
   display: none;
@@ -1002,14 +1009,16 @@ body.external-ui-recovery .voice-dock {
 }
 .point-name-keyboard[data-keyboard-layout="numeric"] .point-name-keyboard-actions .point-name-native-keyboard-numeric {
   display: block;
-  grid-column: span 2;
   font-size: .84rem;
+}
+.point-name-keyboard[data-keyboard-layout="numeric"] .point-name-keyboard-actions .custom-keyboard-voice {
+  grid-column: span 2;
 }
 .point-name-keyboard[data-keyboard-layout="numeric"] .point-name-keyboard-actions .point-name-keyboard-done {
   grid-column: span 2;
 }
 .voice-dock .point-name-keyboard[data-keyboard-layout="numeric"] .point-name-keyboard-actions button {
-  min-height: 39px;
+  min-height: 0;
 }
 .point-name-keyboard[data-keyboard-layout="numeric"] .point-name-keyboard-space {
   display: none;
