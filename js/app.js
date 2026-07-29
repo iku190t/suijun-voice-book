@@ -3084,14 +3084,6 @@ pointClearButton.addEventListener("click", () => {
   } else {
     hidePointSuggestions();
   }
-  showNotice(
-    field === "pointName"
-      ? "点名をクリアしました。"
-      : field === "note"
-        ? "備考をクリアしました。"
-        : "セルをクリアしました。",
-    "success"
-  );
   updatePointClipboardButtons();
 });
 
