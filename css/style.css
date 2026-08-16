@@ -469,9 +469,16 @@ main { max-width: 1540px; margin: 0 auto; padding: 9px 8px 28px; }
   font-size: .9rem;
 }
 body.back-sheet-active .sheet-toggle-button {
-  border-color: #78bd91;
+  border: 0;
   color: #164f2d;
-  background: #ccefd8;
+  background: #c6ebd1;
+  box-shadow: none;
+  outline: none;
+}
+body.back-sheet-active .sheet-toggle-button:focus,
+body.back-sheet-active .sheet-toggle-button:focus-visible {
+  box-shadow: none;
+  outline: none;
 }
 body.back-sheet-active .sheet-heading {
   color: #245b39;
@@ -547,7 +554,7 @@ body.back-sheet-active .sheet-heading.is-stuck {
 }
 body.back-sheet-active .sticky-table-header {
   border-color: #9bcfaf;
-  background: #ccefd8;
+  background: #c6ebd1;
 }
 .sticky-table-header[hidden] { display: none; }
 .sticky-table-viewport {
@@ -567,9 +574,10 @@ th, td { height: var(--row-height, 48px); padding: 0; border-right: 1px solid va
 th { height: var(--row-height, 48px); padding: 5px 2px; color: #fff; background: #2588c5; font-size: var(--header-font-size, 12px); white-space: nowrap; }
 body.back-sheet-active .table-wrap thead th,
 body.back-sheet-active .sticky-table-header thead th {
+  border-bottom-color: transparent;
   color: #164f2d;
-  background: #ccefd8;
-  box-shadow: 0 2px 0 #8fc7a3;
+  background: #c6ebd1;
+  box-shadow: none;
 }
 body.back-sheet-active .table-wrap {
   border-color: #9bcfaf;
@@ -725,20 +733,20 @@ td input.voice-selected { position: relative; z-index: 7; box-shadow: inset 0 0 
 tr:nth-child(even) td { background-color: rgba(46, 145, 203, .035); }
 td.calc { padding: 4px; background: #eaf6fc !important; font-size: var(--input-font-size, 16px); font-weight: var(--weight-strong); font-variant-numeric: tabular-nums; }
 body.back-sheet-active .table-wrap tbody td {
-  background-color: #f8fcf9;
+  background-color: #f1faf4;
 }
 body.back-sheet-active .table-wrap tbody tr:nth-child(even) td {
-  background-color: #f2f9f4;
+  background-color: #e3f4e8;
 }
 body.back-sheet-active .table-wrap td.calc,
 body.back-sheet-active .table-wrap td.determined-elevation,
 body.back-sheet-active .table-wrap td.elevation-cell,
 body.back-sheet-active .table-wrap td.elevation-cell input {
-  background-color: #e8f6ed !important;
+  background-color: #ddf1e3 !important;
 }
 body.back-sheet-active .table-wrap td input:focus,
 body.back-sheet-active .table-wrap td input.voice-selected {
-  background-color: #edf9f1;
+  background-color: #e8f7ed;
 }
 tr.incomplete .diff { color: #9b5700; }
 td.round-trip-diff.negative { color: #c52c2c; }
@@ -753,7 +761,7 @@ td.starting-elevation-cell input {
 }
 body.back-sheet-active td.starting-elevation-cell,
 body.back-sheet-active td.starting-elevation-cell input {
-  background-color: #e8f6ed !important;
+  background-color: #ddf1e3 !important;
 }
 td.elevation-cell.locked-elevation-cell,
 td.elevation-cell.locked-elevation-cell input {
@@ -792,7 +800,19 @@ tr.row-action-selected .row-selector {
 }
 body.back-sheet-active .row-selector {
   color: #245b39;
-  background: #dff3e5;
+  background: #d5eedd;
+}
+body.back-sheet-active #notebook tbody td.calc,
+body.back-sheet-active #notebook tbody td.determined-elevation,
+body.back-sheet-active #notebook tbody td.elevation-cell,
+body.back-sheet-active #notebook tbody td.elevation-cell input {
+  background-color: #ddf1e3 !important;
+}
+body.back-sheet-active #notebook tbody tr:nth-child(even) td:not(.calc):not(.elevation-cell) {
+  background-color: #e3f4e8 !important;
+}
+body.back-sheet-active #notebook tbody .row-selector {
+  background-color: #d5eedd !important;
 }
 .row-selector.is-active {
   font-size: clamp(1.8rem, 6vw, 2.35rem);
