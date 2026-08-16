@@ -566,7 +566,8 @@ body.back-sheet-active .sticky-table-header {
 }
 .sticky-table-header thead th {
   position: static;
-  box-shadow: 0 2px 0 #8fc4e2;
+  border-bottom-color: transparent;
+  box-shadow: none;
 }
 
 table { width: 100%; min-width: var(--table-min-width, 790px); border-collapse: separate; border-spacing: 0; table-layout: fixed; }
@@ -592,7 +593,8 @@ body.back-sheet-active .table-wrap td {
   position: static;
   z-index: 14;
   top: 0;
-  box-shadow: 0 2px 0 #8fc4e2;
+  border-bottom-color: transparent;
+  box-shadow: none;
 }
 th:nth-child(1), td:nth-child(1) { width: var(--number-width, 42px); }
 th:nth-child(2), td:nth-child(2) { width: var(--point-width, 116px); }
