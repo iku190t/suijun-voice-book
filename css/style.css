@@ -597,7 +597,7 @@ body.back-sheet-active .table-wrap td {
   box-shadow: none;
 }
 th:nth-child(1), td:nth-child(1) { width: var(--number-width, 42px); }
-th:nth-child(2), td:nth-child(2) { width: var(--point-width, 116px); }
+th:nth-child(2), td:nth-child(2) { width: var(--point-width, 139.2px); }
 th:nth-child(3), td:nth-child(3) { width: var(--distance-width, 94px); }
 th:nth-child(4), td:nth-child(4), th:nth-child(5), td:nth-child(5) { width: var(--reading-width, 96px); }
 th:nth-child(6), td:nth-child(6) { width: var(--round-trip-width, 104px); }

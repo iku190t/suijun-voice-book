@@ -58,7 +58,7 @@ const CUSTOM_KEYBOARD_FIELDS = new Set([
 ]);
 const COLUMN_DEFINITIONS = [
   { key: "number", label: "No.", baseWidth: 42, toggleable: false },
-  { key: "pointName", label: "点名", baseWidth: 116 },
+  { key: "pointName", label: "点名", baseWidth: 139.2 },
   { key: "distance", label: "距離", baseWidth: 112 },
   { key: "bs", label: "後視", baseWidth: 112 },
   { key: "fs", label: "前視", baseWidth: 112 },
@@ -308,7 +308,7 @@ function createBlankProject() {
       visibleColumns: Object.fromEntries(
         COLUMN_DEFINITIONS.map(({ key }) => [
           key,
-          key !== "distance" && key !== "note"
+          key !== "distance" && key !== "planHeight"
         ])
       ),
       columnVisibilityDefaultsVersion: 4,
@@ -767,7 +767,7 @@ function applyTableScale(value) {
     "--row-height": 48,
     "--input-height": 47,
     "--number-width": 42,
-    "--point-width": 116,
+    "--point-width": 139.2,
     "--distance-width": 112,
     "--reading-width": 112,
     "--difference-width": 112,
