@@ -566,6 +566,12 @@ function displayValue(value, digits = null) {
   return digits === null ? String(value) : Number(value).toFixed(digits);
 }
 
+function formatDeterminedElevation(value) {
+  if (!Number.isFinite(value)) return "";
+  const absolute = Math.round((Math.abs(value) + Number.EPSILON) * 1000) / 1000;
+  return (value < 0 ? -absolute : absolute).toFixed(3);
+}
+
 function fitTextInputToCell(input) {
   if (!input?.matches?.('input[data-field="pointName"], input[data-field="note"]')) return;
   input.style.removeProperty("font-size");
@@ -865,7 +871,7 @@ function recalculateAndRender() {
     const determinedElevationCell = tr.querySelector(".determined-elevation");
     determinedElevationCell.textContent =
       activeSheet === "out" && Number.isFinite(row._determinedElevation)
-        ? row._determinedElevation.toFixed(4)
+        ? formatDeterminedElevation(row._determinedElevation)
         : "";
     const elevationInput = tr.querySelector('[data-field="elevation"]');
     if (document.activeElement !== elevationInput || row.elevationType === "calculated") {

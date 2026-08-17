@@ -57,6 +57,12 @@ function formatSignedMeters(value) {
   return `${value > 0 ? "+" : ""}${value.toFixed(3)}`;
 }
 
+function formatDeterminedElevation(value) {
+  if (!Number.isFinite(value)) return "";
+  const absolute = Math.round((Math.abs(value) + Number.EPSILON) * 1000) / 1000;
+  return (value < 0 ? -absolute : absolute).toFixed(3);
+}
+
 function rowToCsv(row, index, isOutward) {
   const planDifference = Number.isFinite(row?.elevation) && Number.isFinite(row?.planHeight)
     ? row.elevation - row.planHeight
@@ -76,7 +82,7 @@ function rowToCsv(row, index, isOutward) {
     Number.isFinite(row?._difference) ? row._difference.toFixed(3) : "",
     Number.isFinite(row?.elevation) ? row.elevation.toFixed(3) : "",
     isOutward && Number.isFinite(row?._determinedElevation)
-      ? row._determinedElevation.toFixed(4)
+      ? formatDeterminedElevation(row._determinedElevation)
       : "",
     Number.isFinite(row?.planHeight) ? row.planHeight.toFixed(3) : "",
     formatSignedMeters(planDifference),
