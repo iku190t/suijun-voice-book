@@ -779,13 +779,6 @@ tbody td,
 tbody td input,
 tbody .row-selector,
 tbody td.calc { font-size: var(--input-font-size, 16px); }
-tr.row-action-selected td {
-  background-color: #e7f6e8 !important;
-}
-tr.row-action-selected td input,
-tr.row-action-selected .row-selector {
-  background: #e7f6e8 !important;
-}
 .row-selector {
   width: 100%;
   min-width: 0;
@@ -815,6 +808,18 @@ body.back-sheet-active #notebook tbody tr:nth-child(even) td:not(.calc):not(.ele
 }
 body.back-sheet-active #notebook tbody .row-selector {
   background-color: #d5eedd !important;
+}
+/* 行操作中は、No.を含む行全体をシートと反対の色で明示する。
+   復路用のセル背景や計算列の背景より必ず優先させる。 */
+body:not(.back-sheet-active) #notebook tbody tr.row-action-selected > td,
+body:not(.back-sheet-active) #notebook tbody tr.row-action-selected > td > input,
+body:not(.back-sheet-active) #notebook tbody tr.row-action-selected .row-selector {
+  background-color: #e7f6e8 !important;
+}
+body.back-sheet-active #notebook tbody tr.row-action-selected > td,
+body.back-sheet-active #notebook tbody tr.row-action-selected > td > input,
+body.back-sheet-active #notebook tbody tr.row-action-selected .row-selector {
+  background-color: #eaf6fc !important;
 }
 .row-selector.is-active {
   font-size: clamp(1.8rem, 6vw, 2.35rem);
